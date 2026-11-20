@@ -1,0 +1,8 @@
+# DRAFT example in proposed M0 syntax; not yet validated by any tool.
+[project]
+name    = "showcase"
+id      = "dev.era.showcase"
+version = "0.1.0"
+
+[era]
+edition = "2026"

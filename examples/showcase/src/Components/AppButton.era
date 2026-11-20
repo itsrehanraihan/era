@@ -1,0 +1,23 @@
+component AppButton {
+    prop label: text
+    variant size: small | medium | large = medium
+    variant tone: solid | outline | ghost = solid
+
+    button label {
+        background: primary
+        text_color: on_primary
+        radius: pill
+        padding_x: lg
+        padding_y: sm
+
+        when size is small { padding_x: md, padding_y: xs }
+        when size is large { padding_x: xl, padding_y: md }
+        when tone is outline {
+            background: none
+            border_width: thin
+            border_color: primary
+            text_color: primary
+        }
+        when tone is ghost { background: none, text_color: primary }
+    }
+}

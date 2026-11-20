@@ -1,0 +1,43 @@
+screen Home {
+    title: "Home"
+
+    MainLayout {
+        heading: "Design starts here"
+
+        text "A native interface built with ERA" { style: title, color: muted }
+
+        // Typography specimen
+        card {
+            gap: sm
+            text "Display" { style: display }
+            text "Heading" { style: heading }
+            text "Title"   { style: title }
+            text "Body text reads comfortably at 16 sp." { style: body }
+            text "Caption" { style: caption, color: muted }
+        }
+
+        // Skin palette
+        text "Palette" { style: heading }
+        grid {
+            columns: 4
+            gap: md
+            Swatch { name: "primary",   color: primary }
+            Swatch { name: "secondary", color: secondary }
+            Swatch { name: "success",   color: success }
+            Swatch { name: "danger",    color: danger }
+        }
+
+        divider
+
+        // Button variants
+        text "Buttons" { style: heading }
+        row {
+            gap: sm
+            align: center
+            AppButton { label: "Solid" }
+            AppButton { label: "Outline", tone: outline }
+            AppButton { label: "Ghost",   tone: ghost }
+        }
+        AppButton { label: "Get started", size: large }
+    }
+}
