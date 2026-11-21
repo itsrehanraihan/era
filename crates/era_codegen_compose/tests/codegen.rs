@@ -16,6 +16,7 @@ fn build_app(root: &Path) -> App {
         let kind = match f.kind {
             FileKind::Ui => SourceKind::Ui,
             FileKind::Skin => SourceKind::Skin,
+            FileKind::Logic => SourceKind::Logic,
             _ => continue,
         };
         let text = std::fs::read_to_string(&f.abs_path).unwrap();
@@ -74,6 +75,7 @@ fn files_and_package() {
         [
             "dev/era/showcase/ui/EraRuntime.kt",
             "dev/era/showcase/ui/EraScreens.kt",
+            "dev/era/showcase/ui/EraStores.kt",
             "dev/era/showcase/ui/EraTheme.kt",
             "dev/era/showcase/ui/screens/HomeScreen.kt",
         ]
@@ -322,4 +324,119 @@ fn showcase_kotlin_snapshot() {
 #[test]
 fn erenty_kotlin_snapshot() {
     snapshot("erenty");
+}
+
+// ----- M6: interactions ------------------------------------------------------
+
+/// Generated files for an app with a store and two screens; Home's root is `body`.
+fn interactive(body: &str) -> Output {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("era.toml"), MANIFEST).unwrap();
+    std::fs::create_dir_all(dir.path().join("src/Logic")).unwrap();
+    std::fs::write(
+        dir.path().join("src/Logic/s.er"),
+        "store Session {\n state code: text = \"$1\"\n state count: number = 2\n state on: bool\n action bump { add count 1\n toggle on\n set code = \"x\" }\n}",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("src/app.era"),
+        format!("app \"T\" {{ start: Home }}\nscreen Home {{\n{body}\n}}\nscreen Other {{ column {{}} }}"),
+    )
+    .unwrap();
+    generate(&build_app(dir.path()))
+}
+
+fn file<'a>(out: &'a Output, suffix: &str) -> &'a str {
+    &out.files
+        .iter()
+        .find(|(p, _)| p.ends_with(suffix))
+        .unwrap()
+        .1
+}
+
+#[test]
+fn stores_become_state_objects() {
+    let out = interactive("column {}");
+    let st = file(&out, "EraStores.kt");
+    assert!(st.contains("object Session {"), "{st}");
+    assert!(
+        st.contains("    var code: String by mutableStateOf(\"\\$1\")"),
+        "{st}"
+    );
+    assert!(
+        st.contains("    var count: Double by mutableStateOf(2.0)"),
+        "{st}"
+    );
+    assert!(
+        st.contains("    var on: Boolean by mutableStateOf(false)"),
+        "{st}"
+    );
+    assert!(
+        st.contains(
+            "    fun bump() {\n        count += 1.0\n        on = !on\n        code = \"x\"\n    }"
+        ),
+        "{st}"
+    );
+}
+
+#[test]
+fn on_press_becomes_clickable() {
+    let out = interactive("column { on_press: Session.bump then go Other then back\n text \"a\" }");
+    let code = file(&out, "HomeScreen.kt");
+    assert!(
+        code.contains("clickable { Session.bump(); EraNav.go(\"Other\"); EraNav.back() }"),
+        "{code}"
+    );
+}
+
+#[test]
+fn visible_wraps_or_omits() {
+    let out = interactive(
+        "column { text \"shown\" { visible: Session.on }\n text \"gone\" { visible: false } }",
+    );
+    let code = file(&out, "HomeScreen.kt");
+    assert!(code.contains("if (Session.on) {"), "{code}");
+    assert!(code.contains("is hidden (visible: false)"), "{code}");
+    assert!(!code.contains("\"gone\""), "{code}");
+}
+
+#[test]
+fn templates_and_bind() {
+    let out = interactive(
+        "column { text \"Code {Session.code}: {Session.count} ($)\"\n input { bind: Session.code, placeholder: \"n={Session.count}\" } }",
+    );
+    let code = file(&out, "HomeScreen.kt");
+    assert!(
+        code.contains(r#"BasicText("Code ${Session.code}: ${eraText(Session.count)} (\$)""#),
+        "{code}"
+    );
+    assert!(
+        code.contains(r#"EraInput("n=${eraText(Session.count)}""#),
+        "{code}"
+    );
+    assert!(
+        code.contains("value = Session.code, onValueChange = { Session.code = it })"),
+        "{code}"
+    );
+}
+
+#[test]
+fn runtime_has_navigation() {
+    let out = interactive("column {}");
+    let rt = file(&out, "EraRuntime.kt");
+    assert!(rt.contains("object EraNav {"), "{rt}");
+    assert!(rt.contains("fun EraApp() {"), "{rt}");
+    // An app without stores gets no EraStores.kt.
+    let plain = screen_code("column {}");
+    assert!(!plain.contains("Session"));
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("era.toml"), MANIFEST).unwrap();
+    std::fs::create_dir_all(dir.path().join("src")).unwrap();
+    std::fs::write(
+        dir.path().join("src/app.era"),
+        "app \"T\" {}\nscreen Home { column {} }",
+    )
+    .unwrap();
+    let out = generate(&build_app(dir.path()));
+    assert!(out.files.iter().all(|(p, _)| !p.ends_with("EraStores.kt")));
 }

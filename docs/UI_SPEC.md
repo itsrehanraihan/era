@@ -137,6 +137,38 @@ A layout is used with exactly the same syntax as a component. The
 difference is semantic: a layout may only be a screen's root node, and it
 must contain one `slot`.
 
+## 4a. Interactions (M6)
+
+```era
+// src/Logic/session.er
+store Session {
+    state code: text
+    state verified: bool = false
+    action verify { set verified = true }
+}
+
+// src/Screens/Verify.era
+screen Verify {
+    column {
+        input { bind: Session.code, placeholder: "Code" }
+        text "You typed {Session.code}"
+        button "Verify" { on_press: Session.verify then go Home }
+        text "Verified!" { visible: Session.verified }
+        button "Back" { on_press: back }
+    }
+}
+```
+
+| Property | On | Value |
+|---|---|---|
+| `on_press` | every element | `go Screen`, `back`, `Store.action`, an `action` prop, or a chain joined with `then`. `none` does nothing |
+| `visible` | every element | `true`, `false`, bool state (`Session.verified`) or a bool prop. A hidden element takes no space |
+| `bind` | `input` | Text state that the field reads and writes |
+
+Component props may have the type `action`, for example
+`prop tap: action?` with `button label { on_press: tap }`. A text prop
+can receive interpolated text or state (`label: "Hi {Session.name}"`).
+
 ## 4b. Defaults (D-030)
 
 These are applied in the IR when a property is not set. A token name in

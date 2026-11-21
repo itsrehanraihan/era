@@ -28,6 +28,39 @@ pub fn dump(app: &App) -> String {
         );
         element(&mut o, &s.root, 1);
     }
+    if !app.stores.is_empty() {
+        let _ = writeln!(o, "stores");
+    }
+    for st in &app.stores {
+        let _ = writeln!(o, "  store {}", st.name);
+        for f in &st.fields {
+            let _ = writeln!(
+                o,
+                "    state {}: {} = {}",
+                f.name,
+                f.ty.name(),
+                literal(&f.initial)
+            );
+        }
+        for a in &st.actions {
+            let steps: Vec<String> = a
+                .steps
+                .iter()
+                .map(|s| match s {
+                    ActionStep::Set { field, value } => format!(
+                        "set {field} = {}",
+                        match value {
+                            StepValue::Literal(l) => literal(l),
+                            StepValue::Field(f) => f.clone(),
+                        }
+                    ),
+                    ActionStep::Toggle { field } => format!("toggle {field}"),
+                    ActionStep::Add { field, amount } => format!("add {field} {}", num(*amount)),
+                })
+                .collect();
+            let _ = writeln!(o, "    action {} [{}]", a.name, steps.join("; "));
+        }
+    }
     let _ = writeln!(o, "assets");
     for a in &app.assets {
         let _ = writeln!(o, "  {:?} {}", a.kind, a.path);
@@ -74,6 +107,9 @@ fn value(v: &Value) -> String {
         Value::Keyword(k) => (*k).into(),
         Value::Text(t) => format!("{t:?}"),
         Value::TextStyle(s) => s.clone(),
+        Value::Template(parts) => template(parts),
+        Value::Effects(e) => effects(e),
+        Value::State(r) => format!("{}.{}", r.store, r.field),
     }
 }
 
@@ -120,6 +156,7 @@ fn element(o: &mut String, e: &Element, depth: usize) {
     let pad = "  ".repeat(depth);
     let content = match &e.content {
         Some(Content::Text(t)) => format!(" {t:?}"),
+        Some(Content::Template(p)) => format!(" {}", template(p)),
         Some(Content::Asset(a)) => format!(" {:?}", a.path),
         None => String::new(),
     };
@@ -146,5 +183,41 @@ fn element(o: &mut String, e: &Element, depth: usize) {
     );
     for c in &e.children {
         element(o, c, depth + 1);
+    }
+}
+
+fn literal(l: &Literal) -> String {
+    match l {
+        Literal::Text(t) => format!("{t:?}"),
+        Literal::Number(n) => num(*n),
+        Literal::Bool(b) => b.to_string(),
+    }
+}
+
+/// `"Code: {Session.code}"`
+fn template(parts: &[TextPart]) -> String {
+    let mut s = String::new();
+    for p in parts {
+        match p {
+            TextPart::Lit(t) => s.push_str(&t.replace('{', "{{").replace('}', "}}")),
+            TextPart::State(r) => s.push_str(&format!("{{{}.{}}}", r.store, r.field)),
+        }
+    }
+    format!("{s:?}")
+}
+
+fn effects(e: &[Effect]) -> String {
+    let parts: Vec<String> = e
+        .iter()
+        .map(|e| match e {
+            Effect::Call { store, action } => format!("{store}.{action}"),
+            Effect::Go(s) => format!("go {s}"),
+            Effect::Back => "back".into(),
+        })
+        .collect();
+    if parts.is_empty() {
+        "nothing".into()
+    } else {
+        format!("[{}]", parts.join(" then "))
     }
 }

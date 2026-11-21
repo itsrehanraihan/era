@@ -22,6 +22,7 @@ pub struct DeclCounts {
     pub layouts: usize,
     pub components: usize,
     pub skins: usize,
+    pub stores: usize,
 }
 
 impl DeclCounts {
@@ -34,6 +35,9 @@ impl DeclCounts {
             plural(self.components, "component"),
             plural(self.skins, "skin"),
         ]
+        .into_iter()
+        .chain((self.stores > 0).then(|| plural(self.stores, "store")))
+        .collect::<Vec<_>>()
         .join(", ")
     }
 }
@@ -47,6 +51,7 @@ pub fn check_sources(project: &Project) -> SyntaxReport {
         let kind = match f.kind {
             FileKind::Ui => SourceKind::Ui,
             FileKind::Skin => SourceKind::Skin,
+            FileKind::Logic => SourceKind::Logic,
             _ => continue,
         };
         // Unreadable or non-UTF-8 files were already reported (E0207/E0208).
@@ -99,6 +104,7 @@ pub fn check_sources(project: &Project) -> SyntaxReport {
                 DeclKind::Screen => counts.screens += 1,
                 DeclKind::Layout => counts.layouts += 1,
                 DeclKind::Component => counts.components += 1,
+                DeclKind::Store => counts.stores += 1,
                 DeclKind::Skin => {
                     skin_names.insert(d.name.name.clone());
                 }

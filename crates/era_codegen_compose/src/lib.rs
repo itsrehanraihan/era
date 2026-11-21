@@ -10,6 +10,7 @@ pub mod android;
 pub mod kotlin;
 mod runtime;
 mod screens;
+mod stores;
 pub mod svg;
 mod theme;
 
@@ -42,6 +43,9 @@ pub fn generate(app: &App) -> Output {
             screens::registry(app, &package),
         ),
     ];
+    if let Some(stores) = stores::generate(app, &package) {
+        files.push((format!("{dir}/EraStores.kt"), stores));
+    }
     for s in &app.screens {
         files.push((
             format!("{dir}/screens/{}Screen.kt", s.name),

@@ -10,7 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -32,7 +34,52 @@ fun main() {
     File("era-preview.properties").inputStream().use { props.load(it) }
     EraAssetRoot = File(props.getProperty("assets"))
     val png = props.getProperty("png", "")
-    if (png.isNotEmpty()) renderAll(File(png)) else showWindow()
+    val script = props.getProperty("script", "")
+    when {
+        script.isNotEmpty() -> runScript(script, File(png.ifEmpty { "png" }))
+        png.isNotEmpty() -> renderAll(File(png))
+        else -> showWindow()
+    }
+}
+
+/**
+ * Test aid: run the app from its start screen, apply steps separated by `;`
+ * (`tap x,y` in dp, or `back`) and save `step-N.png` after each one.
+ */
+fun runScript(script: String, dir: File) {
+    dir.mkdirs()
+    EraNav.reset(EraStartScreen)
+    val scene = ImageComposeScene(
+        width = (CANVAS_WIDTH * PNG_SCALE).toInt(),
+        height = (CANVAS_HEIGHT * PNG_SCALE).toInt(),
+        density = Density(PNG_SCALE),
+    ) {
+        EraTheme(false) { EraApp() }
+    }
+    var time = 0L
+    fun frame() = scene.render(time).also { time += 16_000_000L }
+    fun save(name: String) {
+        frame()
+        val file = File(dir, "$name.png")
+        file.writeBytes(frame().encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        println("era-preview: $name screen=${EraNav.current}")
+    }
+    save("step-0")
+    script.split(';').map { it.trim() }.filter { it.isNotEmpty() }.forEachIndexed { i, step ->
+        val parts = step.split(' ', limit = 2)
+        when (parts[0]) {
+            "tap" -> {
+                val (x, y) = parts[1].split(',').map { it.trim().toFloat() * PNG_SCALE }
+                frame()
+                scene.sendPointerEvent(PointerEventType.Press, Offset(x, y))
+                scene.sendPointerEvent(PointerEventType.Release, Offset(x, y))
+            }
+            "back" -> EraNav.back()
+            else -> error("unknown script step `$step`")
+        }
+        save("step-${i + 1}")
+    }
+    scene.close()
 }
 
 fun renderAll(dir: File) {
@@ -56,7 +103,7 @@ fun renderAll(dir: File) {
 }
 
 fun showWindow() = application {
-    var current by remember { mutableStateOf(EraScreens.firstOrNull { it.name == EraStartScreen } ?: EraScreens.first()) }
+    if (EraNav.stack.isEmpty()) EraNav.reset(EraStartScreen)
     var dark by remember { mutableStateOf(false) }
     Window(
         onCloseRequest = ::exitApplication,
@@ -68,13 +115,20 @@ fun showWindow() = application {
             Column(Modifier.width(220.dp).fillMaxHeight().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 BasicText(EraAppName, Modifier.padding(bottom = 10.dp), style = label.copy(fontSize = 18.sp))
                 for (s in EraScreens) {
-                    val selected = s == current
+                    val selected = s.name == EraNav.current
                     BasicText(
                         s.title ?: s.name,
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                             .background(if (selected) Color(0xFF3A3A3C) else Color.Transparent)
-                            .clickable { current = s }.padding(10.dp),
+                            .clickable { EraNav.reset(s.name) }.padding(10.dp),
                         style = label,
+                    )
+                }
+                if (EraNav.canGoBack) {
+                    BasicText(
+                        "← Back",
+                        Modifier.clickable { EraNav.back() }.padding(10.dp),
+                        style = label.copy(color = Color(0xFF9E9EA3)),
                     )
                 }
                 if (EraHasDarkMode) {
@@ -86,7 +140,7 @@ fun showWindow() = application {
                 }
             }
             Box(Modifier.padding(16.dp).size(CANVAS_WIDTH.dp, CANVAS_HEIGHT.dp).clip(RoundedCornerShape(28.dp))) {
-                EraTheme(dark) { current.content() }
+                EraTheme(dark) { EraApp() }
             }
         }
     }

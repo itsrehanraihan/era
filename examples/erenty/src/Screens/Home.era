@@ -16,7 +16,7 @@ screen Home {
                 row {
                     width: fill
                     distribute: between
-                    IconTile { glyph: "Icons/grid.svg" }
+                    IconTile { glyph: "Icons/grid.svg", tap: go Menu }
                     IconTile { glyph: "Icons/bell.svg" }
                 }
 
@@ -31,9 +31,14 @@ screen Home {
                     direction: horizontal
                     row {
                         gap: md
-                        HeroCard {
-                            heading: "Identity verification required"
-                            body: "Upload your ID and business documents to unlock rental access."
+                        // Hidden once the user is verified.
+                        column {
+                            visible: Session.needs_verification
+                            HeroCard {
+                                heading: "Identity verification required"
+                                body: "Upload your ID and business documents to unlock rental access."
+                                tap: go VerifyCode
+                            }
                         }
                         HeroCard {
                             tone: grey

@@ -10,7 +10,9 @@
 
 use std::fmt::Write as _;
 
-use era_ir::ir::{App, Content, Element, ElementKind, Screen, Size, Value};
+use era_ir::ir::{
+    App, Content, Effect, Element, ElementKind, Screen, Size, StateRef, StateType, TextPart, Value,
+};
 use era_ir::skin::TokenCategory;
 
 use crate::GENERATED_HEADER;
@@ -19,6 +21,7 @@ use crate::kotlin::{color, dp, ident, num, string};
 const IMPORTS: &str = "import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -292,6 +295,11 @@ impl Emitter {
                 .unwrap_or_else(|| "c.border".into());
             m.push(format!("border({w}, {})", with_shape(col)));
         }
+        if let Some(Value::Effects(effects)) = e.props.get("on_press")
+            && !effects.is_empty()
+        {
+            m.push(format!("clickable {{ {} }}", effects_code(effects)));
+        }
         if ctx.root {
             m.push("safeDrawingPadding()".into());
         }
@@ -384,6 +392,23 @@ impl Emitter {
     }
 
     fn element(&mut self, e: &Element, ctx: Ctx) {
+        match e.props.get("visible") {
+            Some(Value::Bool(false)) => {
+                self.line(&format!(
+                    "// {} @{} is hidden (visible: false)",
+                    e.kind.name(),
+                    e.id
+                ));
+            }
+            Some(Value::State(r)) => {
+                let cond = state_expr(r);
+                self.block(&format!("if ({cond})"), |s| s.element_inner(e, ctx));
+            }
+            _ => self.element_inner(e, ctx),
+        }
+    }
+
+    fn element_inner(&mut self, e: &Element, ctx: Ctx) {
         let origin = if e.origin.is_empty() {
             String::new()
         } else {
@@ -444,12 +469,12 @@ impl Emitter {
             }
             ElementKind::Grid => self.grid(e, ctx),
             ElementKind::Text => {
-                let Some(Content::Text(t)) = &e.content else {
+                let Some(text) = content_text(&e.content) else {
                     return;
                 };
                 let m = Self::modifier(e, ctx, None, None);
                 let mut args = vec![
-                    string(t),
+                    text,
                     format!("modifier = {m}"),
                     format!("style = {}", Self::text_style(e, "color")),
                 ];
@@ -460,34 +485,38 @@ impl Emitter {
                 self.line(&format!("BasicText({})", args.join(", ")));
             }
             ElementKind::Button => {
-                let label = match &e.content {
-                    Some(Content::Text(t)) => t.clone(),
-                    _ => String::new(),
-                };
+                let label = content_text(&e.content).unwrap_or_else(|| string(""));
                 let m = Self::modifier(e, ctx, None, None);
                 let style = Self::text_style(e, "text_color");
                 self.block(
                     &format!("Box({m}, contentAlignment = Alignment.Center)"),
                     |s| {
-                        s.line(&format!("BasicText({}, style = {style})", string(&label)));
+                        s.line(&format!("BasicText({label}, style = {style})"));
                     },
                 );
             }
             ElementKind::Input => {
                 let m = Self::modifier(e, ctx, None, None);
                 let style = Self::text_style(e, "text_color");
-                let placeholder = match e.props.get("placeholder") {
-                    Some(Value::Text(t)) => t.clone(),
+                let placeholder = e
+                    .props
+                    .get("placeholder")
+                    .and_then(value_text)
+                    .unwrap_or_else(|| string(""));
+                let bind = match e.props.get("bind") {
+                    Some(Value::State(r)) => {
+                        let v = state_expr(r);
+                        format!(", value = {v}, onValueChange = {{ {v} = it }}")
+                    }
                     _ => String::new(),
                 };
-                let field = format!("EraInput({}, {style}, c.muted, {m})", string(&placeholder));
-                match e.props.get("label") {
-                    Some(Value::Text(label)) => self.block(
+                let field = format!("EraInput({placeholder}, {style}, c.muted, {m}{bind})");
+                match e.props.get("label").and_then(value_text) {
+                    Some(label) => self.block(
                         "Column(verticalArrangement = Arrangement.spacedBy(4.dp))",
                         |s| {
                             s.line(&format!(
-                                "BasicText({}, style = EraType.body.copy(color = c.muted))",
-                                string(label)
+                                "BasicText({label}, style = EraType.body.copy(color = c.muted))"
                             ));
                             s.line(&field);
                         },
@@ -665,4 +694,57 @@ impl Emitter {
             }
         });
     }
+}
+
+/// Kotlin expression for a piece of state: `Session.code`.
+pub(crate) fn state_expr(r: &StateRef) -> String {
+    format!("{}.{}", r.store, ident(&r.field))
+}
+
+/// A Kotlin string expression; state is interpolated with `${...}`.
+fn template_expr(parts: &[TextPart]) -> String {
+    let mut out = String::from("\"");
+    for p in parts {
+        match p {
+            TextPart::Lit(t) => {
+                let quoted = string(t);
+                out.push_str(&quoted[1..quoted.len() - 1]);
+            }
+            TextPart::State(r) => match r.ty {
+                StateType::Number => out.push_str(&format!("${{eraText({})}}", state_expr(r))),
+                _ => out.push_str(&format!("${{{}}}", state_expr(r))),
+            },
+        }
+    }
+    out.push('"');
+    out
+}
+
+fn content_text(c: &Option<Content>) -> Option<String> {
+    match c {
+        Some(Content::Text(t)) => Some(string(t)),
+        Some(Content::Template(p)) => Some(template_expr(p)),
+        _ => None,
+    }
+}
+
+fn value_text(v: &Value) -> Option<String> {
+    match v {
+        Value::Text(t) => Some(string(t)),
+        Value::Template(p) => Some(template_expr(p)),
+        _ => None,
+    }
+}
+
+/// `Session.verify(); EraNav.go("Home")`
+fn effects_code(effects: &[Effect]) -> String {
+    effects
+        .iter()
+        .map(|e| match e {
+            Effect::Call { store, action } => format!("{store}.{}()", ident(action)),
+            Effect::Go(screen) => format!("EraNav.go({})", string(screen)),
+            Effect::Back => "EraNav.back()".into(),
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }

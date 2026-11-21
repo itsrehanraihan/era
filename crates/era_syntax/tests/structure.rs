@@ -234,3 +234,61 @@ fn skin_rules() {
         ["E1201"]
     );
 }
+
+fn logic(path: &'static str, text: &str) -> Src {
+    Src {
+        path,
+        text: text.into(),
+        kind: SourceKind::Logic,
+    }
+}
+
+#[test]
+fn stores_belong_in_logic_files() {
+    assert_eq!(one("store S { state a: bool }"), ["E1216"]);
+    assert_eq!(
+        codes(&[
+            ui("src/app.era", APP),
+            logic("src/Logic/s.er", "screen Home { column {} }")
+        ]),
+        ["E1216"]
+    );
+    assert_eq!(
+        codes(&[
+            ui("src/app.era", APP),
+            logic(
+                "src/Logic/s.er",
+                "store S { state a: bool\n action go_on { toggle a } }"
+            )
+        ]),
+        Vec::<&str>::new()
+    );
+}
+
+#[test]
+fn store_member_rules() {
+    let c = codes(&[
+        ui("src/app.era", APP),
+        logic(
+            "src/Logic/s.er",
+            "store S { state a: bool\n action a { toggle a }\n state Bad: text }",
+        ),
+    ]);
+    assert_eq!(c, ["E1213", "E1218"]);
+    let c = codes(&[
+        ui("src/app.era", APP),
+        logic("src/Logic/s.er", "store session { state a: bool }"),
+    ]);
+    assert_eq!(c, ["E1217"]);
+}
+
+#[test]
+fn store_names_share_the_project_namespace() {
+    let d = check(&[
+        ui("src/app.era", APP),
+        ui("src/Home.era", "screen Home { column {} }"),
+        logic("src/Logic/home.er", "store Home { state a: bool }"),
+    ]);
+    assert_eq!(d.len(), 1);
+    assert_eq!(d[0].code, "E1215");
+}

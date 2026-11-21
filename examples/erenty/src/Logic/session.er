@@ -1,0 +1,16 @@
+// App state for the E-Renty demo. Logic never refers to screens:
+// navigation (`go`, `back`) stays in the UI files.
+store Session {
+    state verified: bool = false
+    state needs_verification: bool = true
+
+    action verify {
+        set verified = true
+        set needs_verification = false
+    }
+
+    action sign_out {
+        set verified = false
+        set needs_verification = true
+    }
+}

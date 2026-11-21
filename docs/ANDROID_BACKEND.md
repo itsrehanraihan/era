@@ -20,9 +20,10 @@ The package is `<app id>.ui`, for example `dev.era.erenty.ui` (D-045).
 | File | Contents |
 |---|---|
 | `EraTheme.kt` | `EraColors` with light and dark palettes, `EraSpacing`, `EraRadius`, `EraBorder`, `EraElevation` (dp), `EraType` text styles, `EraFont`, `EraTheme(dark) { }` |
-| `EraRuntime.kt` | `EraScreen`, `EraInput` (a text field that keeps its own text until M6) |
+| `EraRuntime.kt` | `EraScreen`, `EraNav` (navigation stack), `EraApp` (shows the top screen), `eraText`, `EraInput` (optionally bound to state) |
 | `EraScreens.kt` | `EraAppName`, `EraStartScreen`, and the `EraScreens` registry |
 | `screens/<Name>Screen.kt` | One `@Composable fun <Name>Screen()` per screen |
+| `EraStores.kt` | One Kotlin `object` per store, with Compose state fields and action functions (M6, only when stores exist) |
 
 Token references stay symbolic: `c.primary`, `EraSpacing.md`,
 `EraType.heading`. Literal values become `Color(0xAARRGGBB)` and `16.dp`.
@@ -56,6 +57,15 @@ Each host implements three functions in the generated package:
 | `divider` | A `Box` with full width, the thickness as height, and the color as background |
 | `spacer` | `Spacer(weight(1f))` in a row or column, or `Spacer(size)` |
 
+Interactions (M6):
+
+| ERA | Compose |
+|---|---|
+| `on_press: S.act then go X then back` | `Modifier.clickable { S.act(); EraNav.go("X"); EraNav.back() }` after the border |
+| `visible: S.flag` | `if (S.flag) { … }`. `visible: false` leaves the element out |
+| `bind: S.text` | `EraInput(…, value = S.text, onValueChange = { S.text = it })` |
+| `"Hi {S.name} #{S.count}"` | `"Hi ${S.name} #${eraText(S.count)}"` |
+
 ## Layout rules
 
 - **`fill` (D-041).** Along a row or column's main axis, `fill` becomes
@@ -87,8 +97,11 @@ with the generated files added. Gradle then runs it.
 - `era preview --png [dir]` renders every screen at 402 × 874 dp, 2×
   (804 × 1748 px), without a display. When the skin has `colors dark`,
   it also renders `<Screen>-dark.png`.
-- `era preview` opens a window with a screen list and a dark-mode
-  toggle. It needs a display.
+- `era preview` opens a window with a screen list (which resets
+  navigation), a Back control and a dark-mode toggle. Taps navigate for
+  real. It needs a display.
+- A `script=` line in `era-preview.properties` taps through the app
+  headlessly and saves `step-N.png` (D-064).
 - Only changed files are rewritten, so Gradle's up-to-date checks work.
   Stale screens are deleted.
 
@@ -112,8 +125,9 @@ runs `assembleDebug`.
   SVG icons go to `res/drawable/era_icon_*.xml` (D-051), and
   `EraIconIds.kt` maps ERA paths to resource ids.
 - **App:** `MainActivity` runs edge to edge and picks light or dark from
-  the system (when the skin has dark colors). It shows `EraStartScreen`,
-  or the screen named by the `era.screen` intent extra (D-054). The app
+  the system (when the skin has dark colors). It runs `EraApp` from
+  `EraStartScreen`, or from the screen named by the `era.screen` intent
+  extra (D-054). The system back gesture pops ERA navigation (D-061). The app
   label comes from `app "..."`. The version code is
   `MAJOR*10000 + MINOR*100 + PATCH`.
 - **Output:** `build/android/build/outputs/apk/debug/era-android-debug.apk`,

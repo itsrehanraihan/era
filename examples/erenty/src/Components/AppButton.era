@@ -1,8 +1,10 @@
 component AppButton {
     prop label: text
+    prop tap: action?
     variant tone: solid | outline | disabled = solid
 
     button label {
+        on_press: tap
         width: fill
         style: button
         radius: md

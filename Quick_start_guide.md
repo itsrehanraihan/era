@@ -13,8 +13,10 @@ ten minutes.
 >
 > - **building an Android APK** with `era build android`
 >
-> **Not yet:** taps, state and navigation (M6). The app opens on its start
-> screen.
+> - **taps, app state and navigation** (stores, `on_press`, `go`/`back`)
+>
+> **Not yet:** the ERA editor app (M7). State is not saved across app
+> restarts.
 
 ---
 
@@ -248,7 +250,60 @@ Put a file at `Assets/Images/hero.png` and use its path relative to
 `era check` confirms the file exists and has a supported type: png, jpg
 or webp for `image`, and svg for `icon`.
 
-## 9. See what ERA understood
+## 9. Make it interactive
+
+Logic lives in its own files, separate from the UI. Create
+`src/Logic/counter.er`:
+
+```era
+store Counter {
+    state count: number = 0
+    state name: text
+
+    action increment {
+        add count 1
+    }
+
+    action reset {
+        set count = 0
+    }
+}
+```
+
+Use it from the screen. Give `AppButton` a `tap` prop first:
+
+```era
+component AppButton {
+    prop label: text
+    prop tap: action?
+    variant tone: solid | outline = solid
+
+    button label {
+        on_press: tap
+        radius: pill
+        // ...
+    }
+}
+```
+
+Then, in the screen:
+
+```era
+        text "Tapped {Counter.count} times"
+        AppButton { label: "+1", tap: Counter.increment }
+        AppButton { label: "Reset", tone: outline, tap: Counter.reset }
+        input { placeholder: "Your name", bind: Counter.name }
+        text "Hello, {Counter.name}"
+```
+
+- `{Store.field}` inside text shows live state. Write `{{` for a literal
+  brace.
+- `on_press` takes `Store.action`, `go Screen`, `back`, or several joined
+  with `then`, for example `Session.verify then go Home`.
+- `visible: Store.flag` shows an element only while a bool state is true.
+- `bind` connects an `input` to text state.
+
+## 10. See what ERA understood
 
 ```bash
 era check --ir
@@ -266,7 +321,7 @@ screen Home title="Home" background=background(#FFFFFF)
 The preview and the Android build (M5) are both generated from this
 same tree.
 
-## 10. Preview your screens
+## 11. Preview your screens
 
 Open a desktop window that shows every screen, with a dark-mode toggle
 when your skin defines `colors dark`:
@@ -297,7 +352,7 @@ Preview images are in …/my_app/build/preview/png
 - Run `era preview` again after every change to see the update. There is
   no hot reload yet.
 
-## 11. Build the Android app
+## 12. Build the Android app
 
 You need the **Android SDK** (platform 35 and build-tools). The easiest
 way to get it is to install Android Studio. Point ERA at the SDK:
@@ -322,8 +377,9 @@ Install it on a phone with USB debugging enabled, or on an emulator:
 adb install -r build/android/build/outputs/apk/debug/era-android-debug.apk
 ```
 
-The app opens on your `start` screen. To check another screen before
-navigation exists, open it by name:
+The app opens on your `start` screen, and taps, `go` and `back` work.
+The phone's back gesture goes back. To jump straight to a screen while
+testing, open it by name:
 
 ```bash
 adb shell am start -n dev.era.my_app/dev.era.my_app.ui.MainActivity --es era.screen Home
@@ -334,7 +390,7 @@ minutes. SVG icons are converted to Android vector drawables. If an icon
 uses something unsupported, such as a transform or a gradient, ERA
 explains what to change.
 
-## 12. Explore the E-Renty demo
+## 13. Explore the E-Renty demo
 
 The repository includes a full four-screen demo built from real
 mockups: Splash, Home, Menu and Verify code.
@@ -351,7 +407,7 @@ era preview ../era/examples/erenty --png
 to see layouts, slots, variants, badges, a bar chart and a bottom
 navigation bar written in ERA.
 
-## 13. When something is wrong
+## 14. When something is wrong
 
 Errors point at the exact spot and usually suggest a fix:
 
@@ -378,7 +434,7 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | `Android SDK not found` | Install the SDK and set `ANDROID_HOME` |
 | `E3001 cannot convert icon` | Simplify the SVG: flatten transforms, outline text, no gradients |
 
-## 14. Syntax cheat sheet
+## 15. Syntax cheat sheet
 
 | Want | Write |
 |---|---|
@@ -395,9 +451,13 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | Spacing | `padding`, `padding_x`, `padding_y`, `padding_top`, `gap` |
 | Alignment | `align: center`, `distribute: between` |
 | No color / no shadow | `background: none`, `elevation: none` |
+| Tap | `on_press: go Home`, `on_press: back`, `on_press: Store.action then go Home` |
+| Show state in text | `text "Count: {Counter.count}"` |
+| Show/hide | `visible: Session.verified` |
+| Text field bound to state | `input { bind: Session.name }` |
 | Comment | `// like this` |
 
-## 15. Learn more
+## 16. Learn more
 
 | Document | What's inside |
 |---|---|

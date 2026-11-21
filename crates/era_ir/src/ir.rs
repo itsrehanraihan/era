@@ -25,6 +25,105 @@ pub struct App {
     pub screens: Vec<Screen>,
     /// Every asset the UI references, by project-relative path (`Assets/...`).
     pub assets: Vec<AssetRef>,
+    /// App state and actions from `.er` logic files (M6), sorted by name.
+    pub stores: Vec<Store>,
+}
+
+/// `store Name { state ... action ... }`
+#[derive(Debug, Clone, PartialEq)]
+pub struct Store {
+    pub name: String,
+    pub fields: Vec<StateField>,
+    pub actions: Vec<StoreAction>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StateField {
+    pub name: String,
+    pub ty: StateType,
+    pub initial: Literal,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateType {
+    Text,
+    Number,
+    Bool,
+}
+
+impl StateType {
+    pub fn name(self) -> &'static str {
+        match self {
+            StateType::Text => "text",
+            StateType::Number => "number",
+            StateType::Bool => "bool",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    Text(String),
+    Number(f64),
+    Bool(bool),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoreAction {
+    pub name: String,
+    pub steps: Vec<ActionStep>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ActionStep {
+    Set { field: String, value: StepValue },
+    Toggle { field: String },
+    Add { field: String, amount: f64 },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StepValue {
+    Literal(Literal),
+    /// Another field of the same store.
+    Field(String),
+}
+
+/// A reference to one piece of state, `Store.field`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StateRef {
+    pub store: String,
+    pub field: String,
+    pub ty: StateType,
+}
+
+impl PartialOrd for StateType {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for StateType {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (*self as u8).cmp(&(*other as u8))
+    }
+}
+
+/// What a tap does, in order (`Session.verify then go Home`).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Effect {
+    /// Run a store action.
+    Call { store: String, action: String },
+    /// Show a screen (pushed on the navigation stack).
+    Go(String),
+    /// Return to the previous screen.
+    Back,
+}
+
+/// Part of a text with `{Store.field}` interpolation.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TextPart {
+    Lit(String),
+    State(StateRef),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -90,6 +189,8 @@ pub struct Element {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Content {
     Text(String),
+    /// Text that shows state, e.g. `"Code: {Session.code}"` (M6).
+    Template(Vec<TextPart>),
     Asset(AssetRef),
 }
 
@@ -122,6 +223,12 @@ pub enum Value {
     Text(String),
     /// A typography style from the skin, by name.
     TextStyle(String),
+    /// Text with state interpolation (M6).
+    Template(Vec<TextPart>),
+    /// `on_press` effects (M6).
+    Effects(Vec<Effect>),
+    /// A bool condition (`visible`) or text binding (`bind`) read from state (M6).
+    State(StateRef),
 }
 
 #[derive(Debug, Clone, PartialEq)]

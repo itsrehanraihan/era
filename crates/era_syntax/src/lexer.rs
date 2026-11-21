@@ -12,6 +12,7 @@ pub enum Keyword {
     Screen,
     Layout,
     Component,
+    Store,
     Prop,
     Variant,
     When,
@@ -29,6 +30,7 @@ impl Keyword {
         ("screen", Keyword::Screen),
         ("layout", Keyword::Layout),
         ("component", Keyword::Component),
+        ("store", Keyword::Store),
         ("prop", Keyword::Prop),
         ("variant", Keyword::Variant),
         ("when", Keyword::When),
@@ -56,6 +58,7 @@ pub enum TokenKind {
     Colon,
     Comma,
     Pipe,
+    Dot,
     Eq,
     Question,
     Newline,
@@ -79,6 +82,7 @@ impl TokenKind {
             TokenKind::Colon => "`:`".into(),
             TokenKind::Comma => "`,`".into(),
             TokenKind::Pipe => "`|`".into(),
+            TokenKind::Dot => "`.`".into(),
             TokenKind::Eq => "`=`".into(),
             TokenKind::Question => "`?`".into(),
             TokenKind::Newline => "end of line".into(),
@@ -206,6 +210,7 @@ impl Lexer<'_> {
                     )
                     .help = Some(help);
                 }
+                '.' => self.single(TokenKind::Dot),
                 other => {
                     self.bump();
                     let span = Span::new(start, self.pos);

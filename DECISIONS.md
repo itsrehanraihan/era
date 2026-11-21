@@ -199,6 +199,48 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **D-055 `era build android` builds a debug APK** signed with the
   standard debug key. Release signing is out of scope for the MVP.
 
+## Accepted in M6 (owner approved "stores + actions" on 2026-11-21)
+
+- **D-056 Stores and actions.** Logic lives in `.er` files under `src/`
+  (conventionally `src/Logic/`), as `store Name { ... }` blocks:
+  - `state name: text|number|bool [= value]` declares a piece of state.
+    Defaults are `""`, `0` and `false`.
+  - `action name { ... }` contains steps: `set x = value`, `set x = other`,
+    `toggle x` (bool) and `add x n` (number).
+  - The UI only refers to stores, never the other way round. Logic
+    cannot navigate (D-063).
+- **D-057 Actions are chained with `then`, not `,`.** The approved preview
+  showed `on_press: Session.verify, go Home`, but `,` already separates
+  items, so that line would parse as two items. It is written
+  `on_press: Session.verify then go Home`.
+- **D-058 Text interpolation:** `"Code: {Session.code}"` shows state in
+  any text (element text, text props, placeholders). Use `{{` and `}}` for
+  literal braces. Numbers show without a trailing `.0`.
+- **D-059 New properties.** `on_press` (tap) and `visible` (a bool literal
+  or bool state) apply to every element. `bind` is for `input` only and
+  takes text state.
+- **D-060 `action` prop type.** `prop tap: action?` lets a component
+  receive taps from outside (`IconTile { tap: back }`). This keeps D-031:
+  outside style properties are still not allowed.
+- **D-061 Navigation is a stack.** `go Screen` pushes a screen and `back`
+  pops one. The app starts at `start`. Android's system back gesture pops
+  the stack, and on the first screen it leaves the app.
+- **D-062 Store state is app-wide and lives as long as the app.** Each
+  store becomes a Kotlin `object` with Compose state, and numbers are
+  `Double`. Persistence (saving across restarts) is not in the MVP.
+- **D-063 Logic never refers to screens.** `go` and `back` are only
+  allowed in the UI, which keeps `.er` files screen-independent (brief
+  §4).
+- **D-064 Desktop preview test hook.** A `script=` line in
+  `era-preview.properties` (`tap x,y; back`) renders `step-N.png` after
+  each step. The smoke tests use it to verify taps and navigation
+  headlessly.
+- **D-065 Scope change: the ERA editor.** The owner asked (2026-11-21)
+  for a GUI editor written in Rust, which the brief had listed as out of
+  scope. The approved first version is a code editor with live preview,
+  built with egui/eframe for macOS (Apple Silicon). It is planned as M7,
+  and owner-assisted testing on the owner's Mac was approved.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
@@ -212,8 +254,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **Q-03 (Resolved in M5, D-051)** **Icon format.** SVG needs conversion to an Android VectorDrawable,
   either with a restricted SVG subset converted in Rust or by bundling an
   icon set. This must be decided before M5.
-- **Q-04 Logic file extension.** The brief uses `.er` for logic files.
-  This will be decided at M6, together with the state/event syntax.
+- **Q-04 (Resolved in M6: `.er`, see D-056)** **Logic file extension.**
 - **Q-05 (Resolved and implemented in M4: Compose Multiplatform Desktop, plus `--png`)** **Preview technology.** The proposal is Compose Multiplatform
   Desktop running the same generated code, with a `--png` headless mode.
   The alternatives are a Rust-native renderer or an HTML mock, but both

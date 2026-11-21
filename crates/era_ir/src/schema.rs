@@ -23,6 +23,12 @@ pub enum ValueType {
     Bool,
     Keyword(&'static [&'static str]),
     Text,
+    /// `on_press`: `go Screen`, `back`, `Store.action`, chained with `then` (M6).
+    Action,
+    /// `visible`: `true`, `false`, bool state or a bool prop (M6).
+    Condition,
+    /// `bind`: text state an input reads and writes (M6).
+    Binding,
 }
 
 impl ValueType {
@@ -45,6 +51,9 @@ impl ValueType {
             ValueType::Bool => "`true` or `false`".into(),
             ValueType::Keyword(opts) => format!("one of: {}", opts.join(", ")),
             ValueType::Text => "text in quotes".into(),
+            ValueType::Action => "an action: `go Screen`, `back` or `Store.action`".into(),
+            ValueType::Condition => "`true`, `false` or bool state like `Session.verified`".into(),
+            ValueType::Binding => "text state like `Session.code`".into(),
         }
     }
 }
@@ -119,6 +128,8 @@ pub const COMMON: &[(&str, ValueType)] = &[
     ("radius", ValueType::Dimension(TokenCategory::Radius)),
     ("elevation", ValueType::Dimension(TokenCategory::Elevation)),
     ("clip", ValueType::Bool),
+    ("on_press", ValueType::Action),
+    ("visible", ValueType::Condition),
 ];
 
 const LINEAR: &[(&str, ValueType)] = &[
@@ -214,6 +225,7 @@ pub const PRIMITIVES: &[Primitive] = &[
         props: &[
             ("placeholder", ValueType::Text),
             ("label", ValueType::Text),
+            ("bind", ValueType::Binding),
             ("style", ValueType::TextStyle),
             ("text_color", ValueType::Color),
         ],

@@ -17,6 +17,7 @@ use era_syntax::{
 };
 
 use crate::ir::*;
+use crate::logic::{self, Stores};
 use crate::schema::{self, ArgType, Children, Primitive, ValueType};
 use crate::skin::{self, Skin, SkinPart, TokenCategory};
 
@@ -43,6 +44,10 @@ enum Bound {
     /// `Value::Color` or `Value::Transparent`.
     Color(Value),
     Asset(AssetRef),
+    /// Text with `{Store.field}` interpolation (M6).
+    Template(Vec<TextPart>),
+    /// What an `action` prop does (M6).
+    Effects(Vec<Effect>),
     /// Optional prop with no value and no default.
     Absent,
     /// Validation mode: a value of the declared type, not known yet.
@@ -81,6 +86,10 @@ struct Resolver<'a> {
     assets: BTreeSet<AssetRef>,
     /// Component expansion stack, for cycle detection.
     stack: Vec<String>,
+    /// App state and actions (M6).
+    stores: Stores,
+    /// Screen names, for `go Screen`.
+    screens: Vec<String>,
 }
 
 /// Build the UI IR. Returns `None` for the app if any error was reported.
@@ -89,6 +98,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
     let mut skins: BTreeMap<&str, Vec<SkinPart>> = BTreeMap::new();
     let mut decls: BTreeMap<&str, DeclRef> = BTreeMap::new();
     let mut screen_order: Vec<&str> = Vec::new();
+    let mut store_decls: Vec<(&str, &era_syntax::Decl)> = Vec::new();
 
     for f in files {
         for decl in &f.file.decls {
@@ -102,6 +112,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
                     source: f.source,
                     decl,
                 }),
+                DeclKind::Store => store_decls.push((f.path, decl)),
                 _ => {
                     if decls.insert(&decl.name.name, r).is_none() && decl.kind == DeclKind::Screen {
                         screen_order.push(&decl.name.name);
@@ -139,7 +150,12 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
         seen: BTreeSet::new(),
         assets: BTreeSet::new(),
         stack: Vec::new(),
+        stores: Stores::default(),
+        screens: screen_order.iter().map(|s| s.to_string()).collect(),
     };
+    let (stores, store_table, store_diags) = logic::build_stores(&store_decls);
+    diags.extend(store_diags);
+    r.stores = store_table;
     for d in diags {
         r.push(d);
     }
@@ -193,6 +209,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
             start,
             screens,
             assets: assets.into_iter().collect(),
+            stores,
         }),
         _ => None,
     };
@@ -622,7 +639,7 @@ impl<'a> Resolver<'a> {
                         }
                     }
                 }
-                Item::Prop(_) | Item::Variant(_) => {} // reported by the structure check
+                Item::Prop(_) | Item::Variant(_) | Item::State(_) | Item::Action(_) => {} // reported by the structure check
             }
         }
 
@@ -722,10 +739,18 @@ impl<'a> Resolver<'a> {
                 Err(())
             }
             (ArgType::Text, Some(a)) => match &a.kind {
-                ValueKind::String(s) => Ok(Some(Content::Text(s.clone()))),
+                ValueKind::String(s) => match self.template_parts(s, a.span, ctx) {
+                    Some(parts) => Ok(Some(text_content(parts))),
+                    None => Err(()),
+                },
+                ValueKind::Path(parts) => match self.state_path(parts, ctx) {
+                    Some(r) => Ok(Some(Content::Template(vec![TextPart::State(r)]))),
+                    None => Err(()),
+                },
                 ValueKind::Ident(n) => {
                     match self.prop_ref(n, &[PropType::Text], a.span, "text", ctx) {
                         Some(Bound::Text(s)) => Ok(Some(Content::Text(s))),
+                        Some(Bound::Template(p)) => Ok(Some(Content::Template(p))),
                         Some(_) => Ok(Some(Content::Text(String::new()))),
                         None => Err(()),
                     }
@@ -823,6 +848,20 @@ impl<'a> Resolver<'a> {
             && let Some(b) = ctx.props.get(n)
         {
             return self.prop_as_value(n, b.ty, &b.value, vt, v.span, prop, ctx);
+        }
+        match (vt, &v.kind) {
+            (ValueType::Action, _) => return self.effects(v, ctx).map(Value::Effects),
+            (ValueType::Condition, _) => return self.condition(v, prop, ctx),
+            (ValueType::Binding, _) => return self.binding(v, prop, ctx),
+            (ValueType::Text, ValueKind::String(s)) => {
+                return self.template_parts(s, v.span, ctx).map(text_value);
+            }
+            (ValueType::Text, ValueKind::Path(parts)) => {
+                return self
+                    .state_path(parts, ctx)
+                    .map(|r| Value::Template(vec![TextPart::State(r)]));
+            }
+            _ => {}
         }
         let type_err = |r: &mut Self| {
             r.err(
@@ -952,8 +991,9 @@ impl<'a> Resolver<'a> {
                     PropType::Number,
                     ValueType::Number { .. } | ValueType::Size | ValueType::Dimension(_)
                 )
-                | (PropType::Bool, ValueType::Bool)
+                | (PropType::Bool, ValueType::Bool | ValueType::Condition)
                 | (PropType::Color, ValueType::Color)
+                | (PropType::Action, ValueType::Action)
         );
         if !compatible {
             self.err(
@@ -975,6 +1015,8 @@ impl<'a> Resolver<'a> {
                 ValueType::Color => Value::Transparent,
                 ValueType::Text => Value::Text(String::new()),
                 ValueType::Bool => Value::Bool(false),
+                ValueType::Condition => Value::Bool(true),
+                ValueType::Action => Value::Effects(Vec::new()),
                 ValueType::Size => Value::Size(Size::Fit),
                 ValueType::Dimension(_) => Value::Dimension(Dimension {
                     token: None,
@@ -983,6 +1025,8 @@ impl<'a> Resolver<'a> {
                 _ => Value::Number(0.0),
             }),
             Bound::Text(s) => Some(Value::Text(s.clone())),
+            Bound::Template(p) => Some(Value::Template(p.clone())),
+            Bound::Effects(e) => Some(Value::Effects(e.clone())),
             Bound::Bool(b) => Some(Value::Bool(*b)),
             Bound::Color(v) => Some(v.clone()),
             Bound::Number(x) => match vt {
@@ -995,6 +1039,168 @@ impl<'a> Resolver<'a> {
             },
             Bound::Asset(_) => None,
         }
+    }
+
+    // ----- M6: state, actions and templates -------------------------------
+
+    fn template_parts(&mut self, text: &str, span: Span, ctx: &Ctx) -> Option<Vec<TextPart>> {
+        match self.stores.template(text, span, ctx.path) {
+            Ok(p) => Some(p),
+            Err(d) => {
+                self.push(d);
+                None
+            }
+        }
+    }
+
+    fn state_path(&mut self, parts: &[era_syntax::Ident], ctx: &Ctx) -> Option<StateRef> {
+        match self.stores.state_ref(parts, ctx.path) {
+            Ok(r) => Some(r),
+            Err(d) => {
+                self.push(d);
+                None
+            }
+        }
+    }
+
+    /// `on_press` values: `go Screen`, `back`, `Store.action`, an `action`
+    /// prop, or several joined with `then`. `none` does nothing.
+    fn effects(&mut self, v: &AstValue, ctx: &Ctx) -> Option<Vec<Effect>> {
+        let items: Vec<&AstValue> = match &v.kind {
+            ValueKind::Seq(vs) => vs.iter().collect(),
+            _ => vec![v],
+        };
+        let mut out = Vec::new();
+        let mut ok = true;
+        for it in items {
+            match &it.kind {
+                ValueKind::Go(target) => {
+                    if self.screens.contains(&target.name) {
+                        out.push(Effect::Go(target.name.clone()));
+                    } else {
+                        let names: Vec<&str> = self.screens.iter().map(String::as_str).collect();
+                        self.err(
+                            ctx.path,
+                            "E2165",
+                            format!("unknown screen `{}`", target.name),
+                            target.span,
+                            Some(hint(&target.name, &names, "screens")),
+                        );
+                        ok = false;
+                    }
+                }
+                ValueKind::Ident(n) if n == "back" => out.push(Effect::Back),
+                ValueKind::Ident(n) if ctx.props.contains_key(n) => {
+                    let b = &ctx.props[n];
+                    match (&b.ty, &b.value) {
+                        (PropType::Action, Bound::Effects(e)) => out.extend(e.iter().cloned()),
+                        (PropType::Action, _) => {}
+                        (ty, _) => {
+                            self.err(
+                                ctx.path,
+                                "E2130",
+                                format!(
+                                    "prop `{n}` is {} but an action is needed here",
+                                    prop_type_name(*ty)
+                                ),
+                                it.span,
+                                Some("declare it as `prop name: action`".into()),
+                            );
+                            ok = false;
+                        }
+                    }
+                }
+                ValueKind::Path(parts) => match self.stores.action(parts, ctx.path) {
+                    Ok(e) => out.push(e),
+                    Err(d) => {
+                        self.push(d);
+                        ok = false;
+                    }
+                },
+                ValueKind::None => {}
+                ValueKind::Seq(_) => unreachable!("sequences are flat"),
+                _ => {
+                    self.err(
+                        ctx.path,
+                        "E2164",
+                        "this is not an action".into(),
+                        it.span,
+                        Some(
+                            "use `go Screen`, `back` or `Store.action`, joined with `then`".into(),
+                        ),
+                    );
+                    ok = false;
+                }
+            }
+        }
+        ok.then_some(out)
+    }
+
+    /// `visible`: a bool literal or bool state.
+    fn condition(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        match &v.kind {
+            ValueKind::Bool(b) => Some(Value::Bool(*b)),
+            ValueKind::Path(parts) => {
+                let r = self.state_path(parts, ctx)?;
+                if r.ty != StateType::Bool {
+                    self.err(
+                        ctx.path,
+                        "E2166",
+                        format!(
+                            "`{prop}` needs bool state, but `{}.{}` is {}",
+                            r.store,
+                            r.field,
+                            r.ty.name()
+                        ),
+                        v.span,
+                        None,
+                    );
+                    return None;
+                }
+                Some(Value::State(r))
+            }
+            _ => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", ValueType::Condition.describe()),
+                    v.span,
+                    None,
+                );
+                None
+            }
+        }
+    }
+
+    /// `bind`: text state.
+    fn binding(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        let ValueKind::Path(parts) = &v.kind else {
+            self.err(
+                ctx.path,
+                "E2133",
+                format!("`{prop}` needs {}", ValueType::Binding.describe()),
+                v.span,
+                None,
+            );
+            return None;
+        };
+        let r = self.state_path(parts, ctx)?;
+        if r.ty != StateType::Text {
+            self.err(
+                ctx.path,
+                "E2166",
+                format!(
+                    "`{prop}` needs text state, but `{}.{}` is {}",
+                    r.store,
+                    r.field,
+                    r.ty.name()
+                ),
+                v.span,
+                None,
+            );
+            return None;
+        }
+        Some(Value::State(r))
     }
 
     fn unknown_token(
@@ -1298,7 +1504,19 @@ impl<'a> Resolver<'a> {
             None
         };
         match (ty, &v.kind) {
-            (PropType::Text, ValueKind::String(s)) => Some(Bound::Text(s.clone())),
+            (PropType::Text, ValueKind::String(s)) => {
+                let parts = self.template_parts(s, v.span, caller)?;
+                Some(match logic::plain(&parts) {
+                    Some(t) => Bound::Text(t),
+                    None => Bound::Template(parts),
+                })
+            }
+            (PropType::Text, ValueKind::Path(parts)) => {
+                let r = self.state_path(parts, caller)?;
+                Some(Bound::Template(vec![TextPart::State(r)]))
+            }
+            (PropType::Action, ValueKind::None) => Some(Bound::Absent),
+            (PropType::Action, _) => self.effects(v, caller).map(Bound::Effects),
             (PropType::Text, _) => want(self, "text in quotes"),
             (PropType::Number, ValueKind::Number(x)) => Some(Bound::Number(*x)),
             (PropType::Number, _) => want(self, "a number"),
@@ -1399,4 +1617,18 @@ fn has_slot(decl: &Decl) -> bool {
         })
     }
     walk(&decl.body.items)
+}
+
+fn text_content(parts: Vec<TextPart>) -> Content {
+    match logic::plain(&parts) {
+        Some(t) => Content::Text(t),
+        None => Content::Template(parts),
+    }
+}
+
+fn text_value(parts: Vec<TextPart>) -> Value {
+    match logic::plain(&parts) {
+        Some(t) => Value::Text(t),
+        None => Value::Template(parts),
+    }
 }

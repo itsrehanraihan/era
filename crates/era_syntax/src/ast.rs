@@ -34,6 +34,8 @@ pub enum DeclKind {
     Screen,
     Layout,
     Component,
+    /// `store Name { state ... action ... }` in a `.er` logic file (M6).
+    Store,
 }
 
 impl DeclKind {
@@ -44,6 +46,7 @@ impl DeclKind {
             DeclKind::Screen => "screen",
             DeclKind::Layout => "layout",
             DeclKind::Component => "component",
+            DeclKind::Store => "store",
         }
     }
 }
@@ -77,6 +80,10 @@ pub enum Item {
     Variant(VariantDecl),
     When(When),
     Slot(Span),
+    /// `state name: type [= value]` (stores only).
+    State(StateDecl),
+    /// `action name { steps }` (stores only).
+    Action(ActionDecl),
 }
 
 impl Item {
@@ -88,6 +95,8 @@ impl Item {
             Item::Variant(v) => v.span,
             Item::When(w) => w.span,
             Item::Slot(s) => *s,
+            Item::State(s) => s.span,
+            Item::Action(a) => a.span,
         }
     }
 
@@ -100,8 +109,44 @@ impl Item {
             Item::Variant(_) => "`variant`".into(),
             Item::When(_) => "`when`".into(),
             Item::Slot(_) => "`slot`".into(),
+            Item::State(_) => "`state`".into(),
+            Item::Action(_) => "`action`".into(),
         }
     }
+}
+
+/// `state name: type [= value]`
+#[derive(Debug, Clone, PartialEq)]
+pub struct StateDecl {
+    pub name: Ident,
+    /// `text`, `number` or `bool` (checked in the IR stage).
+    pub ty: Ident,
+    pub initial: Option<Value>,
+    pub span: Span,
+}
+
+/// `action name { set x = 1 ... }`
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActionDecl {
+    pub name: Ident,
+    pub steps: Vec<Step>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Step {
+    pub kind: StepKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StepKind {
+    /// `set field = value`
+    Set { field: Ident, value: Value },
+    /// `toggle field` (bool)
+    Toggle { field: Ident },
+    /// `add field number` (number; negative subtracts)
+    Add { field: Ident, amount: Value },
 }
 
 /// `name: value`
@@ -129,6 +174,8 @@ pub enum PropType {
     Color,
     Image,
     Icon,
+    /// What happens on tap: `go Home`, `back`, `Store.action` (M6).
+    Action,
 }
 
 impl PropType {
@@ -139,6 +186,7 @@ impl PropType {
         ("color", PropType::Color),
         ("image", PropType::Image),
         ("icon", PropType::Icon),
+        ("action", PropType::Action),
     ];
 
     pub fn from_name(name: &str) -> Option<PropType> {
@@ -189,6 +237,12 @@ pub enum ValueKind {
     Ident(String),
     Bool(bool),
     None,
+    /// `Store.field` or `Store.action` (M6).
+    Path(Vec<Ident>),
+    /// `go Screen` (M6).
+    Go(Ident),
+    /// `a then b then c`: actions run in order (M6).
+    Seq(Vec<Value>),
 }
 
 /// sRGB color with alpha. `#RGB` and `#RRGGBB` get alpha 255.

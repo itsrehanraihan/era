@@ -31,7 +31,7 @@ my_app/
     ├── Screens/      *.era  screen declarations
     ├── Components/   *.era  component declarations
     ├── Layout/       *.era  layout declarations
-    └── Logic/        reserved for M6 (state and events)
+    └── Logic/        *.er   stores: app state and actions (M6)
 ```
 
 ### File extensions
@@ -40,7 +40,7 @@ my_app/
 |---|---|
 | `.era` | UI declarations: app, screen, layout, component |
 | `.ers` | Skin declarations only |
-| logic | **Undecided**; deferred to M6 (see DECISIONS Q-04) |
+| `.er` | Logic: `store` declarations only (D-056). Usually in `src/Logic/` |
 
 ## `era.toml`
 

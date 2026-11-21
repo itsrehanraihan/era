@@ -106,7 +106,10 @@ fn check_showcase_example() {
         "{}",
         stdout(&out)
     );
-    assert!(stdout(&out).contains("Declarations: 1 app, 1 screen, 1 layout, 2 components, 1 skin"));
+    assert!(
+        stdout(&out)
+            .contains("Declarations: 1 app, 1 screen, 1 layout, 2 components, 1 skin, 1 store")
+    );
 }
 
 fn new_project(tmp: &Path, name: &str) -> PathBuf {
@@ -260,7 +263,7 @@ fn check_erenty_demo() {
     assert!(out.status.success(), "{}", stderr(&out));
     assert!(
         stdout(&out).contains(
-            "UI IR: 4 screen(s), 187 element(s), skin `Renty`, 25 asset reference(s), start screen `Splash`"
+            "UI IR: 4 screen(s), 188 element(s), skin `Renty`, 25 asset reference(s), start screen `Splash`"
         ),
         "{}",
         stdout(&out)
@@ -534,4 +537,52 @@ fn build_android_apk_smoke_test() {
     let bytes = std::fs::read(&apk).unwrap();
     assert_eq!(&bytes[..2], b"PK", "an APK is a zip file");
     assert!(stdout(&out).contains("adb install -r"));
+}
+
+/// Taps through the E-Renty demo in the real generated Compose code
+/// (headless): Splash -> Home -> Menu -> Verify code -> Verify (back to Menu).
+/// Needs Gradle: `cargo test -p era_cli -- --ignored`.
+#[test]
+#[ignore]
+fn preview_tap_flow_smoke_test() {
+    let demo = repo_root().join("examples/erenty");
+    let out = era_in(&repo_root(), &["preview", "examples/erenty", "--png"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let preview = demo.join("build/preview");
+    let props = preview.join("era-preview.properties");
+    let original = std::fs::read_to_string(&props).unwrap();
+    std::fs::write(
+        &props,
+        format!("{original}script=tap 201,437; tap 42,42; tap 200,200; tap 200,563\n"),
+    )
+    .unwrap();
+    let gradle = std::env::var("ERA_GRADLE").unwrap_or_else(|_| "gradle".into());
+    let run = Command::new(gradle)
+        .args(["--console=plain", "-q", "--no-watch-fs", "run"])
+        .current_dir(&preview)
+        .output()
+        .unwrap();
+    std::fs::write(&props, original).unwrap();
+    let text = stdout(&run);
+    let screens: Vec<&str> = text
+        .lines()
+        .filter_map(|l| l.strip_prefix("era-preview: step-"))
+        .map(|l| l.split("screen=").nth(1).unwrap_or(""))
+        .collect();
+    assert_eq!(
+        screens,
+        ["Splash", "Home", "Menu", "VerifyCode", "Menu"],
+        "{text}\n{}",
+        stderr(&run)
+    );
+}
+
+/// Builds the full E-Renty APK (stores, navigation, BackHandler).
+/// Needs Gradle and ANDROID_HOME: `cargo test -p era_cli -- --ignored`.
+#[test]
+#[ignore]
+fn build_erenty_apk_smoke_test() {
+    let out = era_in(&repo_root(), &["build", "android", "examples/erenty"]);
+    assert!(out.status.success(), "{}\n{}", stdout(&out), stderr(&out));
+    assert!(stdout(&out).contains("era-android-debug.apk"));
 }

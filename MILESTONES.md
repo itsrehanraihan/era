@@ -12,7 +12,8 @@ all pass.
 | M3 | Skin tokens, semantic checks, UI IR, asset validation | **Done** |
 | M4 | Preview from the UI IR | **Done** |
 | M5 | Kotlin/Compose codegen, Android host project, debug APK | **APK builds; on-device check pending (owner device)** |
-| M6 | Button events, minimal state, navigation | Not started |
+| M6 | Button events, minimal state, navigation | **Done; awaiting review** |
+| M7 | ERA editor (Rust/egui): code editor + live preview, macOS (scope change D-065) | Not started |
 
 ## M0 deliverables
 
@@ -207,10 +208,40 @@ Known limitations:
 - The Android SDK was installed by hand in the dev container
   (`/opt/android-sdk`). A fresh container needs it installed again.
 
+## M6 deliverables
+
+- Language: `store` blocks in `.er` logic files, with typed `state` and
+  `action`s (`set`/`toggle`/`add`). In the UI: `on_press`, `visible` and
+  `bind`; `go Screen`, `back` and `Store.action` chained with `then`;
+  `{Store.field}` text interpolation; and the `action` prop type.
+- Syntax, structure, IR and diagnostics (E1109–E1110, E2160–E2173), all
+  with "did you mean" suggestions.
+- Codegen: `EraStores.kt` (Compose state objects), `EraNav`, `EraApp`,
+  `clickable`, conditional rendering, bound inputs, string templates.
+- Hosts: the desktop window navigates for real. Android uses `EraApp`
+  plus `BackHandler`. There is a desktop scripted-tap test hook (D-064).
+- Demos:
+  - **E-Renty** is a working flow: Splash → Home → Menu → Verify code →
+    Verify, after which the verification prompts disappear, and Sign out
+    resets the session.
+  - **Showcase** gained a counter, a bound name input and a toggle.
+- Tests: parser, structure, IR state/action tests, codegen tests, and 4
+  real-Gradle smoke tests. These include a **headless tap-through of
+  E-Renty in generated Compose code** (Splash → Home → Menu → VerifyCode
+  → Menu) and a full E-Renty APK build.
+
+Known limitations:
+- No expressions in UI files (no `not`, no comparisons). Use a second bool
+  state (E-Renty uses `needs_verification`).
+- Variants cannot follow state yet (for example `tone: disabled` while a
+  code is empty).
+- State is not saved across app restarts (D-062).
+- The on-device check of the APK is still pending (Q-06).
+
 ## Next smallest task
 
-1. Owner: install the E-Renty APK on a device and compare it with the
-   preview. Report any differences.
-2. M6: basic button events, minimal state, and navigation between
-   screens, while keeping logic separate from UI declarations. Start with
-   a design proposal for the syntax (needs owner approval).
+1. Owner: install the updated E-Renty APK on a device and try the flow.
+2. M7: the ERA editor (D-065). Start with a plan for its crate
+   structure, how it reuses `era_*` crates in-process for instant
+   diagnostics, and how preview PNGs refresh on save. Then build it on
+   Linux and test it on the owner's Mac.

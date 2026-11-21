@@ -51,6 +51,22 @@ screen Home title="Home" background=background(#FFFFFF)
         button "Outline" {background=none border_color=primary(#FF6B35) border_width=thin(1) padding_x=lg(24) padding_y=sm(8) radius=pill(999) style=body text_color=primary(#FF6B35)} @Home/slot/8/1:AppButton <AppButton>
         button "Ghost" {background=none padding_x=lg(24) padding_y=sm(8) radius=pill(999) style=body text_color=primary(#FF6B35)} @Home/slot/8/2:AppButton <AppButton>
       button "Get started" {background=primary(#FF6B35) padding_x=xl(32) padding_y=md(16) radius=pill(999) style=body text_color=on_primary(#FFFFFF)} @Home/slot/9:AppButton <AppButton>
+      text "Interactions" {color=text(#171717) style=heading} @Home/slot/10
+      text "Tapped {Counter.count} times" {color=text(#171717) style=title} @Home/slot/11
+      row {gap=sm(8)} @Home/slot/12
+        button "+1" {background=primary(#FF6B35) on_press=[Counter.increment] padding_x=lg(24) padding_y=sm(8) radius=pill(999) style=body text_color=on_primary(#FFFFFF)} @Home/slot/12/0:AppButton <AppButton>
+        button "Reset" {background=none border_color=primary(#FF6B35) border_width=thin(1) on_press=[Counter.reset] padding_x=lg(24) padding_y=sm(8) radius=pill(999) style=body text_color=primary(#FF6B35)} @Home/slot/12/1:AppButton <AppButton>
+        button "Details" {background=none on_press=[Counter.toggle_details] padding_x=lg(24) padding_y=sm(8) radius=pill(999) style=body text_color=primary(#FF6B35)} @Home/slot/12/2:AppButton <AppButton>
+      input {background=surface(#F7F7F7) bind=Counter.name border_color=border(#E8E8E8) border_width=thin(1) padding=sm(8) placeholder="Your name" radius=sm(8) style=body text_color=text(#171717) width=fill} @Home/slot/13
+      text "Hello, {Counter.name}! Braces need doubling: {{like this}}." {color=muted(#737373) style=body visible=Counter.details} @Home/slot/14
+stores
+  store Counter
+    state count: number = 0
+    state name: text = ""
+    state details: bool = true
+    action increment [add count 1]
+    action reset [set count = 0]
+    action toggle_details [toggle details]
 assets
   Icon Icons/star.svg
   Image Images/hero.png

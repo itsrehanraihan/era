@@ -21,7 +21,7 @@ fail. `W` is a warning.
 | W0202 | A `.ers` skin file outside `Skins/` (ignored) |
 | W0203 | A `.era` UI file inside `Skins/` (ignored) |
 | W0204 | An unexpected file in `src/` or `Skins/` (ignored) |
-| W0205 | Files in `src/Logic/` are not processed yet (M6) |
+| W0205 | *(removed in M6: `.er` logic files are now processed)* |
 | W0206 | A folder has the wrong letter case (e.g. `skins` instead of `Skins`) |
 | W0301 | An asset has the wrong file type for its category folder |
 | W0302 | An asset sits directly in `Assets/`, not in a category folder |
@@ -128,3 +128,21 @@ fail. `W` is a warning.
 |---|---|
 | E3001 | An SVG icon uses a feature the VectorDrawable converter doesn't support (transform, gradient, text, mask, unknown color...) |
 | E3002 | The Android project cannot be written to disk |
+
+## Stores and interactions (M6)
+
+| Code | Meaning |
+|---|---|
+| E1109 | Something other than `state`/`action` inside a `store` |
+| E1110 | Unknown action step (use `set`, `toggle`, `add`) |
+| E2160 | Bad `{...}` interpolation in text (unclosed, or not `Store.field`) |
+| E2161 | Unknown store (with a suggestion) |
+| E2162 | Unknown state, or an action used where state is needed |
+| E2163 | Unknown action, or state used where an action is needed |
+| E2164 | A value that is not an action in `on_press` |
+| E2165 | `go` names an unknown screen |
+| E2166 | State of the wrong type (`visible` needs bool, `bind` needs text) |
+| E2170 | Unknown state type (`text`, `number`, `bool`) |
+| E2171 | Initial value doesn't match the state type |
+| E2172 | An action step names unknown state |
+| E2173 | An action step has the wrong type (`toggle` non-bool, `add` non-number, `set` mismatch) |

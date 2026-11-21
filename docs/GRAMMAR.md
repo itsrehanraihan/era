@@ -142,11 +142,42 @@ error[E0201]: unknown property `gapp` on `column`
    |         ^^^^ did you mean `gap`?
 ```
 
-## 7. Explicitly not in the grammar (MVP)
+## 7. Stores, actions and action values (M6)
 
-There are no expressions, operators, string interpolation, loops,
-functions, generics, imports, modules or inheritance. Events and state
-(`on_press`, `state`) are reserved for M6 and will be specified then.
+Logic files (`.er`) contain only `store` declarations:
+
+```ebnf
+store_decl   = "store" PASCAL_IDENT "{" { SEP } { store_item { SEP } } "}" ;
+store_item   = state_decl | action_decl ;
+state_decl   = "state" IDENT ":" IDENT [ "=" value ] ;   (* text | number | bool *)
+action_decl  = "action" IDENT "{" { SEP } { step { SEP } } "}" ;
+step         = "set" IDENT "=" value
+             | "toggle" IDENT
+             | "add" IDENT NUMBER ;
+```
+
+In the UI, a value may also be:
+
+```ebnf
+value        = single { "then" single } ;           (* a chain of actions *)
+single       = "go" PASCAL_IDENT                     (* navigate *)
+             | IDENT { "." IDENT }                   (* `back`, a prop, or `Store.field` / `Store.action` *)
+             | STRING | NUMBER | COLOR | "true" | "false" | "none" ;
+```
+
+- `store` is a keyword. `state`, `action`, `set`, `toggle`, `add`, `go`,
+  `back` and `then` are **contextual words**, so existing names such as
+  `variant state: ...` keep working.
+- The lexer has a `.` token, used only in `Store.name`.
+- Strings may contain `{Store.field}`, which is interpolated (D-058).
+  `{{` and `}}` are literal braces.
+- Node arguments may also be a path: `text Session.code`.
+
+## 7b. Explicitly not in the grammar (MVP)
+
+There are no general expressions or operators (no `count + 1` or `not x`
+in UI files), and no loops, functions, generics, imports, modules or
+inheritance. Logic steps are limited to `set`, `toggle` and `add`.
 
 ## 8. Implementation notes (M2)
 

@@ -4,7 +4,7 @@ skin Renty
   spacing lg=20 md=12 sm=8 xl=32 xs=4
   radius lg=22 md=16 pill=999 sm=10 xl=28
   border thick=2 thin=1
-  elevation md=8 none=0 sm=2
+  elevation md=8 sm=2
   font "Inter" files=[Assets/Fonts/Inter-Bold.ttf, Assets/Fonts/Inter-Medium.ttf, Assets/Fonts/Inter-Regular.ttf, Assets/Fonts/Inter-SemiBold.ttf]
   style badge size=12 weight=600 line_height=14
   style body size=16 weight=400 line_height=22
@@ -24,7 +24,7 @@ screen Home title="Overview" background=background(#F7FAF7)
     scroll {direction=vertical height=fill} @Home/0
       column {gap=lg(20) padding=lg(20) width=fill} @Home/0/0
         row {distribute=between width=fill} @Home/0/0/0
-          stack {align=center background=surface(#FFFFFF) elevation=sm(2) height=44 radius=md(16) width=44} @Home/0/0/0/0:IconTile <IconTile>
+          stack {align=center background=surface(#FFFFFF) elevation=sm(2) height=44 on_press=[go Menu] radius=md(16) width=44} @Home/0/0/0/0:IconTile <IconTile>
             icon "Icons/grid.svg" {color=text(#143132) size=20} @Home/0/0/0/0:IconTile/0 <IconTile>
           stack {align=center background=surface(#FFFFFF) elevation=sm(2) height=44 radius=md(16) width=44} @Home/0/0/0/1:IconTile <IconTile>
             icon "Icons/bell.svg" {color=text(#143132) size=20} @Home/0/0/0/1:IconTile/0 <IconTile>
@@ -34,13 +34,14 @@ screen Home title="Overview" background=background(#F7FAF7)
           text "." {color=text(#143132) style=heading} @Home/0/0/1/2
         scroll {direction=horizontal} @Home/0/0/2
           row {gap=md(12)} @Home/0/0/2/0
-            column {background=hero(#0C473E) distribute=between height=150 padding=md(12) radius=xl(28) width=220} @Home/0/0/2/0/0:HeroCard <HeroCard>
-              column {gap=xs(4)} @Home/0/0/2/0/0:HeroCard/0 <HeroCard>
-                text "Identity verification required" {color=on_dark(#FFFFFF) style=title} @Home/0/0/2/0/0:HeroCard/0/0 <HeroCard>
-                text "Upload your ID and business documents to unlock rental access." {color=on_dark_muted(#D8E6E2) style=caption} @Home/0/0/2/0/0:HeroCard/0/1 <HeroCard>
-              row {distribute=end width=fill} @Home/0/0/2/0/0:HeroCard/1 <HeroCard>
-                stack {align=center background=surface(#FFFFFF) height=34 radius=sm(10) width=34} @Home/0/0/2/0/0:HeroCard/1/0 <HeroCard>
-                  icon "Icons/arrow_right.svg" {color=text(#143132) size=18} @Home/0/0/2/0/0:HeroCard/1/0/0 <HeroCard>
+            column {visible=Session.needs_verification} @Home/0/0/2/0/0
+              column {background=hero(#0C473E) distribute=between height=150 on_press=[go VerifyCode] padding=md(12) radius=xl(28) width=220} @Home/0/0/2/0/0/0:HeroCard <HeroCard>
+                column {gap=xs(4)} @Home/0/0/2/0/0/0:HeroCard/0 <HeroCard>
+                  text "Identity verification required" {color=on_dark(#FFFFFF) style=title} @Home/0/0/2/0/0/0:HeroCard/0/0 <HeroCard>
+                  text "Upload your ID and business documents to unlock rental access." {color=on_dark_muted(#D8E6E2) style=caption} @Home/0/0/2/0/0/0:HeroCard/0/1 <HeroCard>
+                row {distribute=end width=fill} @Home/0/0/2/0/0/0:HeroCard/1 <HeroCard>
+                  stack {align=center background=surface(#FFFFFF) height=34 radius=sm(10) width=34} @Home/0/0/2/0/0/0:HeroCard/1/0 <HeroCard>
+                    icon "Icons/arrow_right.svg" {color=text(#143132) size=18} @Home/0/0/2/0/0/0:HeroCard/1/0/0 <HeroCard>
             column {background=hero_alt(#545454) distribute=between height=150 padding=md(12) radius=xl(28) width=220} @Home/0/0/2/0/1:HeroCard <HeroCard>
               column {gap=xs(4)} @Home/0/0/2/0/1:HeroCard/0 <HeroCard>
                 text "Payments overdue" {color=on_dark(#FFFFFF) style=title} @Home/0/0/2/0/1:HeroCard/0/0 <HeroCard>
@@ -112,17 +113,17 @@ screen Home title="Overview" background=background(#F7FAF7)
 screen Menu title="Menu" background=background(#F7FAF7)
   scroll {background=background(#F7FAF7) direction=vertical height=fill width=fill} @Menu:Page <Page>
     column {gap=lg(20) padding=lg(20) width=fill} @Menu:Page/0 <Page>
-      stack {align=center background=surface(#FFFFFF) elevation=sm(2) height=44 radius=md(16) width=44} @Menu:Page/0/0:IconTile <Page>IconTile>
+      stack {align=center background=surface(#FFFFFF) elevation=sm(2) height=44 on_press=[back] radius=md(16) width=44} @Menu:Page/0/0:IconTile <Page>IconTile>
         icon "Icons/arrow_left.svg" {color=text(#143132) size=20} @Menu:Page/0/0:IconTile/0 <Page>IconTile>
       text "Menu" {color=text(#143132) style=display} @Menu/slot/0
-      card {background=surface(#FFFFFF) elevation=0 padding=lg(20) radius=xl(28)} @Menu/slot/1
+      card {background=surface(#FFFFFF) elevation=0 on_press=[go VerifyCode] padding=lg(20) radius=xl(28)} @Menu/slot/1
         row {align=center gap=md(12) width=fill} @Menu/slot/1/0
           stack {align=center background=mint(#DCFBF1) height=52 radius=pill(999) width=52} @Menu/slot/1/0/0
             text "RR" {color=secondary(#005B45) style=title_lg} @Menu/slot/1/0/0/0
           column {gap=xs(4) width=fill} @Menu/slot/1/0/1
             text "Rehan Raihan" {color=text(#143132) style=title} @Menu/slot/1/0/1/0
             text "rehan@company.com" {color=muted(#667370) style=body} @Menu/slot/1/0/1/1
-            row {align=center gap=sm(8)} @Menu/slot/1/0/1/2
+            row {align=center gap=sm(8) visible=Session.needs_verification} @Menu/slot/1/0/1/2
               stack {background=warning(#F5A623) height=8 radius=pill(999) width=8} @Menu/slot/1/0/1/2/0
               text "Verify your identity to rent" {color=warning_text(#A15C00) style=caption_strong} @Menu/slot/1/0/1/2/1
           icon "Icons/chevron_right.svg" {color=muted(#667370) size=20} @Menu/slot/1/0/2
@@ -182,15 +183,15 @@ screen Menu title="Menu" background=background(#F7FAF7)
             text "Rental terms and how we use your data" {color=muted(#667370) style=caption} @Menu/slot/7/4:SettingsRow/1/1 <SettingsRow>
           icon "Icons/chevron_right.svg" {color=muted(#667370) size=20} @Menu/slot/7/4:SettingsRow/2 <SettingsRow>
       column {align=center gap=md(12) padding_y=lg(20) width=fill} @Menu/slot/8
-        text "Sign out" {color=danger(#D93036) style=title} @Menu/slot/8/0
+        text "Sign out" {color=danger(#D93036) on_press=[Session.sign_out then go Splash] style=title} @Menu/slot/8/0
         text "E-Renty · version 1.0" {color=muted(#667370) style=caption} @Menu/slot/8/1
 screen Splash title="E-Renty" background=background(#F7FAF7)
-  stack {align=center background=brand(#01EDB9) height=fill width=fill} @Splash
+  stack {align=center background=brand(#01EDB9) height=fill on_press=[go Home] width=fill} @Splash
     image "Images/logo.png" {fit=contain height=32 width=212} @Splash/0
 screen VerifyCode title="Verify code" background=background(#F7FAF7)
   scroll {background=surface(#FFFFFF) direction=vertical height=fill width=fill} @VerifyCode:Page <Page>
     column {gap=lg(20) padding=lg(20) width=fill} @VerifyCode:Page/0 <Page>
-      stack {align=center background=surface(#FFFFFF) elevation=sm(2) height=44 radius=md(16) width=44} @VerifyCode:Page/0/0:IconTile <Page>IconTile>
+      stack {align=center background=surface(#FFFFFF) elevation=sm(2) height=44 on_press=[back] radius=md(16) width=44} @VerifyCode:Page/0/0:IconTile <Page>IconTile>
         icon "Icons/arrow_left.svg" {color=text(#143132) size=20} @VerifyCode:Page/0/0:IconTile/0 <Page>IconTile>
       column {align=center gap=md(12) padding_top=xl(32) width=fill} @VerifyCode/slot/0
         image "Images/code.png" {fit=contain height=53 width=75} @VerifyCode/slot/0/0
@@ -208,8 +209,14 @@ screen VerifyCode title="Verify code" background=background(#F7FAF7)
       row {distribute=center gap=xs(4) padding_bottom=lg(20) padding_top=xl(32) width=fill} @VerifyCode/slot/2
         text "Didn’t get a code?" {color=muted(#667370) style=body} @VerifyCode/slot/2/0
         text "Resend in 0:42" {color=secondary(#005B45) style=body_strong} @VerifyCode/slot/2/1
-      button "Verify" {background=disabled(#E3E9E3) padding_x=md(12) padding_y=md(12) radius=md(16) style=button text_color=muted(#667370) width=fill} @VerifyCode/slot/3:AppButton <AppButton>
+      button "Verify" {background=disabled(#E3E9E3) on_press=[Session.verify then back] padding_x=md(12) padding_y=md(12) radius=md(16) style=button text_color=muted(#667370) width=fill} @VerifyCode/slot/3:AppButton <AppButton>
       text "Change email" {align=center color=secondary(#005B45) style=body_strong width=fill} @VerifyCode/slot/4
+stores
+  store Session
+    state verified: bool = false
+    state needs_verification: bool = true
+    action verify [set verified = true; set needs_verification = false]
+    action sign_out [set verified = false; set needs_verification = true]
 assets
   Font Fonts/Inter-Bold.ttf
   Font Fonts/Inter-Medium.ttf

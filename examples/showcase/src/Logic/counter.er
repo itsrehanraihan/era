@@ -1,0 +1,18 @@
+// Showcase state: a counter, a name typed into an input, and a toggle.
+store Counter {
+    state count: number = 0
+    state name: text = ""
+    state details: bool = true
+
+    action increment {
+        add count 1
+    }
+
+    action reset {
+        set count = 0
+    }
+
+    action toggle_details {
+        toggle details
+    }
+}

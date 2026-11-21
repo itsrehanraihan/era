@@ -6,6 +6,7 @@
 //! here; backends consume [`ir::App`].
 
 pub mod ir;
+pub mod logic;
 
 pub mod skin;
 

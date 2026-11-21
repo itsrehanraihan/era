@@ -16,6 +16,8 @@ pub enum SourceKind {
     Ui,
     /// `.ers` file under `Skins/`.
     Skin,
+    /// `.er` logic file under `src/` (usually `src/Logic/`), M6.
+    Logic,
 }
 
 pub struct SourceUnit<'a> {
@@ -134,6 +136,26 @@ impl Checker {
                 );
                 return;
             }
+            (SourceKind::Logic, k) if k != DeclKind::Store => {
+                self.err(
+                    unit,
+                    "E1216",
+                    format!("`{kw}` declarations belong in `src/*.era` files"),
+                    decl.name.span,
+                    Some("`.er` logic files may only contain `store` declarations".into()),
+                );
+                return;
+            }
+            (SourceKind::Ui, DeclKind::Store) => {
+                self.err(
+                    unit,
+                    "E1216",
+                    "`store` declarations belong in `.er` logic files".into(),
+                    decl.name.span,
+                    Some("move this store into a file like `src/Logic/session.er`".into()),
+                );
+                return;
+            }
             (SourceKind::Skin, k) if k != DeclKind::Skin => {
                 self.err(
                     unit,
@@ -164,6 +186,19 @@ impl Checker {
             DeclKind::Skin => self.skin(unit, decl),
             DeclKind::Screen => self.screen(unit, decl),
             DeclKind::Layout | DeclKind::Component => self.reusable(unit, decl),
+            DeclKind::Store => self.store(unit, decl),
+        }
+    }
+
+    /// State and action names are snake_case and unique within the store.
+    fn store(&mut self, unit: &SourceUnit, decl: &Decl) {
+        let mut names: BTreeMap<&str, Span> = BTreeMap::new();
+        for item in &decl.body.items {
+            match item {
+                Item::State(s) => self.member_name(unit, &s.name, &mut names),
+                Item::Action(a) => self.member_name(unit, &a.name, &mut names),
+                _ => self.not_allowed(unit, item, "in `store`", None),
+            }
         }
     }
 
@@ -279,6 +314,12 @@ impl Checker {
                     item,
                     place,
                     Some("variants are only available in components".into()),
+                ),
+                Item::State(_) | Item::Action(_) => self.not_allowed(
+                    unit,
+                    item,
+                    place,
+                    Some("state and actions belong in a `store` in a `.er` file".into()),
                 ),
             }
         }
@@ -470,6 +511,12 @@ impl Checker {
                     "inside an element",
                     Some("declare props and variants at the top of the component".into()),
                 ),
+                Item::State(_) | Item::Action(_) => self.not_allowed(
+                    unit,
+                    item,
+                    "inside an element",
+                    Some("state and actions belong in a `store` in a `.er` file".into()),
+                ),
             }
         }
     }
@@ -506,7 +553,7 @@ impl Checker {
                         }
                     }
                     DeclKind::Skin => {} // skins with the same name merge (checked in M3)
-                    DeclKind::Screen | DeclKind::Layout | DeclKind::Component => {
+                    DeclKind::Screen | DeclKind::Layout | DeclKind::Component | DeclKind::Store => {
                         if let Some((first_unit, first)) = names.get(decl.name.name.as_str()) {
                             self.err(
                                 unit,

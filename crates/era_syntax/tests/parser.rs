@@ -289,3 +289,100 @@ fn use_skin_inside_app_gets_dedicated_error() {
     assert_eq!(e[0].code, "E1108");
     assert!(e[0].help.as_ref().unwrap().contains("skin: Studio"));
 }
+
+// ----- M6: stores and action values ----------------------------------------
+
+#[test]
+fn parses_store_with_state_and_actions() {
+    let f = ok(r#"
+store Session {
+    state code: text = ""
+    state count: number
+    state ok: bool = false
+
+    action verify {
+        set ok = true
+        toggle ok
+        add count -1
+        set code = other
+    }
+}"#);
+    let d = &f.decls[0];
+    assert_eq!(d.kind, DeclKind::Store);
+    let Item::State(code) = &d.body.items[0] else {
+        panic!()
+    };
+    assert_eq!(
+        (code.name.name.as_str(), code.ty.name.as_str()),
+        ("code", "text")
+    );
+    let Item::State(count) = &d.body.items[1] else {
+        panic!()
+    };
+    assert!(count.initial.is_none());
+    let Item::Action(a) = &d.body.items[3] else {
+        panic!()
+    };
+    assert_eq!(a.steps.len(), 4);
+    assert!(matches!(&a.steps[0].kind, StepKind::Set { field, .. } if field.name == "ok"));
+    assert!(matches!(&a.steps[1].kind, StepKind::Toggle { field } if field.name == "ok"));
+    assert!(
+        matches!(&a.steps[2].kind, StepKind::Add { amount, .. } if amount.kind == ValueKind::Number(-1.0))
+    );
+    assert!(
+        matches!(&a.steps[3].kind, StepKind::Set { value, .. } if value.kind == ValueKind::Ident("other".into()))
+    );
+}
+
+#[test]
+fn parses_paths_go_back_and_then_chains() {
+    let f = ok(
+        "screen A { column {\n button \"x\" { on_press: Session.verify then go Home then back }\n text Session.code\n input { bind: Session.code }\n } }",
+    );
+    let col = root(&f);
+    let items = &col.block.as_ref().unwrap().items;
+    let Item::Node(button) = &items[0] else {
+        panic!()
+    };
+    let Item::Property(p) = &button.block.as_ref().unwrap().items[0] else {
+        panic!()
+    };
+    let ValueKind::Seq(parts) = &p.value.kind else {
+        panic!("{:?}", p.value.kind)
+    };
+    assert_eq!(parts.len(), 3);
+    assert!(matches!(&parts[0].kind, ValueKind::Path(v) if v.len() == 2 && v[1].name == "verify"));
+    assert!(matches!(&parts[1].kind, ValueKind::Go(t) if t.name == "Home"));
+    assert_eq!(parts[2].kind, ValueKind::Ident("back".into()));
+    let Item::Node(text) = &items[1] else {
+        panic!()
+    };
+    assert!(
+        matches!(&text.arg.as_ref().unwrap().kind, ValueKind::Path(v) if v[0].name == "Session")
+    );
+}
+
+#[test]
+fn single_go_and_plain_idents_still_parse() {
+    let f = ok("screen A { column { on_press: go Home, gap: md } }");
+    let Item::Property(p) = &root(&f).block.as_ref().unwrap().items[0] else {
+        panic!()
+    };
+    assert!(matches!(&p.value.kind, ValueKind::Go(t) if t.name == "Home"));
+    let Item::Property(gap) = &root(&f).block.as_ref().unwrap().items[1] else {
+        panic!()
+    };
+    assert_eq!(gap.value.kind, ValueKind::Ident("md".into()));
+}
+
+#[test]
+fn store_syntax_errors() {
+    assert_eq!(codes("store S { text \"x\" }"), ["E1109"]);
+    assert_eq!(codes("store S { action a { jump x } }"), ["E1110"]);
+    assert_eq!(codes("store S { state x text }"), ["E1101"]);
+    assert_eq!(codes("store S { action a { set x 1 } }"), ["E1101"]);
+    assert_eq!(
+        codes("screen A { column { on_press: Session. } }"),
+        ["E1101"]
+    );
+}
