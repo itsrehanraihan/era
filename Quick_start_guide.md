@@ -15,8 +15,9 @@ ten minutes.
 >
 > - **taps, app state and navigation** (stores, `on_press`, `go`/`back`)
 >
-> **Not yet:** the ERA editor app (M7). State is not saved across app
-> restarts.
+> - **ERA Studio**, the desktop editor (`era-studio`, see step 2b)
+>
+> **Not yet:** saving state across app restarts.
 
 ---
 
@@ -76,6 +77,21 @@ You should see `era 0.0.1`.
 
 > To use ERA without installing it, run `cargo build --release` and call
 > `./target/release/era` instead of `era`.
+
+### 2b. (Optional) Install ERA Studio, the desktop editor
+
+```bash
+cargo install --path crates/era_studio
+```
+
+```bash
+era-studio
+```
+
+Studio has a project tree, an ERA editor with colouring, problems shown
+as you type (click one to jump to it), a live preview, and Render /
+Build APK buttons. Everything in this guide works the same in Studio.
+See `docs/STUDIO.md`.
 
 ## 3. Create your first project
 

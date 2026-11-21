@@ -7,6 +7,7 @@
 
 pub mod ir;
 pub mod logic;
+pub mod pipeline;
 
 pub mod skin;
 

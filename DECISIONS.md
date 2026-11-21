@@ -241,6 +241,27 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   built with egui/eframe for macOS (Apple Silicon). It is planned as M7,
   and owner-assisted testing on the owner's Mac was approved.
 
+## Accepted in M7 (ERA Studio)
+
+- **D-066 Studio stack.** Studio uses eframe/egui 0.37 (native windows,
+  Metal on macOS via wgpu), `rfd` for the native folder picker and
+  `image` (PNG only) for preview textures. `egui_kittest` is used for
+  headless UI tests and screenshots, as a dev-dependency only.
+- **D-067 One shared check pipeline.** `era_ir::pipeline::check_sources_with`
+  is used by both `era check` and Studio. Studio passes unsaved editor
+  text through it, so problems update as you type, in-process, with no
+  subprocess.
+- **D-068 Studio runs the `era` CLI for Render and Build APK**, in a
+  background thread, with output streamed to the Output tab. The binary
+  is found through `ERA_BIN`, then an `era` next to `era-studio`, then
+  `PATH`.
+- **D-069 Studio's interface text uses only characters the bundled egui
+  fonts contain** (no ▶ ✖ ⚠ ⌘). The UI tests run with egui's
+  missing-glyph check set to panic, which caught this. User text never
+  panics; it falls back to a box.
+- **D-070 Every Studio widget has an accessible name** (for VoiceOver on
+  macOS). The UI tests enforce this.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
@@ -277,7 +298,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **Q-12 App launcher icon.** The APK uses the system default icon. An
   `app` property such as `icon: "Images/app_icon.png"` could generate
   adaptive icons.
-- **Q-06 (Blocked in this environment) Emulator testing.** The dev
+- **Q-06 (Resolved 2026-11-21: the owner installed the E-Renty APK on an Android phone, and it works, including the M6 flow)** **Emulator testing.** The dev
   container has no KVM, so no emulator. A JVM screenshot tool was tried
   (Paparazzi): 1.3.5's layout engine is too old for Android 15 APIs, and
   2.0-alpha needs a newer AGP than D-052. On-device install and launch

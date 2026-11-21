@@ -7,16 +7,17 @@ ERA is a design-first language and toolchain for native apps. The
 compiler is written in Rust and generates native Android UI (Kotlin and
 Jetpack Compose), with no WebView.
 
-> **Status: M6 complete.** `era new`, `era check`, `era preview` and
-> `era build android` work. ERA validates the whole design project,
-> builds a platform-independent UI IR, and generates native Jetpack
-> Compose code, now with **taps, app state and navigation**. That code
-> runs in a desktop preview and is packaged as an Android debug APK
-> (on-device check pending). Next: the ERA editor (M7).
+> **Status: M7.** `era new`, `era check`, `era preview` and
+> `era build android` work, and **ERA Studio** (`era-studio`) is the
+> desktop editor, with live problems as you type, a real Compose preview
+> and one-click APK builds. Apps support taps, state and navigation, and
+> the APK has been verified on an Android phone.
+
+![ERA Studio](docs/images/era-studio.png)
 
 ![E-Renty demo rendered by `era preview --png`](docs/images/erenty-preview.png)
 
-**New here? Start with [Quick_start_guide.md](Quick_start_guide.md).**
+**New here? Start with [Quick_start_guide.md](Quick_start_guide.md).** Prefer an editor? See [docs/STUDIO.md](docs/STUDIO.md).
 
 Examples:
 - `examples/erenty/`: the first demo, a four-screen rental app (Splash,

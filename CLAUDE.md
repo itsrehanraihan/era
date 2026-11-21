@@ -49,6 +49,12 @@ and `ANDROID_HOME` for the APK test:
 cargo test -p era_cli -- --ignored
 ```
 
+ERA Studio (`crates/era_studio`) has headless UI tests in the normal
+run. To refresh its screenshot (needs a GPU, or lavapipe on Linux):
+```bash
+VK_ICD_FILENAMES=/opt/lavapipe/lvp_icd.json cargo test -p era_studio -- --ignored
+```
+
 ## Layout
 - `crates/`: Rust workspace crates (see MILESTONES.md for the planned
   split)

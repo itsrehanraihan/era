@@ -11,9 +11,9 @@ all pass.
 | M2 | Lexer, parser and AST with spans; parser tests | **Done** |
 | M3 | Skin tokens, semantic checks, UI IR, asset validation | **Done** |
 | M4 | Preview from the UI IR | **Done** |
-| M5 | Kotlin/Compose codegen, Android host project, debug APK | **APK builds; on-device check pending (owner device)** |
-| M6 | Button events, minimal state, navigation | **Done; awaiting review** |
-| M7 | ERA editor (Rust/egui): code editor + live preview, macOS (scope change D-065) | Not started |
+| M5 | Kotlin/Compose codegen, Android host project, debug APK | **Done** (owner verified on a phone, 2026-11-21) |
+| M6 | Button events, minimal state, navigation | **Done** (owner verified on a phone, 2026-11-21) |
+| M7 | ERA Studio editor (Rust/egui): code editor + live preview, macOS (scope change D-065) | **Built and tested on Linux; Mac test pending** |
 
 ## M0 deliverables
 
@@ -238,10 +238,34 @@ Known limitations:
 - State is not saved across app restarts (D-062).
 - The on-device check of the APK is still pending (Q-06).
 
+## M7 deliverables (ERA Studio, see docs/STUDIO.md)
+
+- The `era_studio` crate and the `era-studio` binary (egui 0.37):
+  - project tree
+  - tabbed editor with ERA syntax colouring (colour swatches, error
+    underline) and line numbers, with no wrapping
+  - live Problems as you type, with click-to-jump
+  - Output log
+  - preview pane (real Compose renders, follows the edited screen,
+    dark toggle) and Skin panel
+  - Save (Cmd+S), Render (Cmd+R), Build APK, render on save
+  - welcome screen with a native folder picker and New project
+- `era_ir::pipeline` is now shared by the CLI and Studio (D-067).
+- Tests:
+  - workspace tests (live analysis of unsaved text, char-accurate jump
+    targets, save, tree)
+  - syntax colouring tests
+  - 4 headless UI tests driving the real window, which enforce
+    accessibility names and catch missing glyphs
+  - a wgpu screenshot test (`docs/images/era-studio.png`)
+
+Known limitations: no find/replace, autocomplete or undo history beyond
+the editor's own, no hot reload, and no `.app` bundle yet. **Not yet run
+on the owner's Mac.**
+
 ## Next smallest task
 
-1. Owner: install the updated E-Renty APK on a device and try the flow.
-2. M7: the ERA editor (D-065). Start with a plan for its crate
-   structure, how it reuses `era_*` crates in-process for instant
-   diagnostics, and how preview PNGs refresh on save. Then build it on
-   Linux and test it on the owner's Mac.
+1. Build and run ERA Studio on the owner's Mac M4 (owner-approved access)
+   and fix anything macOS-specific.
+2. Then, by owner priority: a `.app` bundle with an icon, find/replace,
+   and autocomplete for properties and tokens (the IR already knows them).
