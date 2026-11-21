@@ -6,8 +6,8 @@ all pass.
 
 | # | Milestone | Status |
 |---|---|---|
-| M0 | Inspect, decide, document | **Done; awaiting owner approval of syntax (DECISIONS D-007…D-019, Q-01…Q-06)** |
-| M1 | `era new`, `era.toml`, project discovery, `era check` (structure) | Not started |
+| M0 | Inspect, decide, document | **Done** (syntax approved 2026-11-21) |
+| M1 | `era new`, `era.toml`, project discovery, `era check` (structure) | **Done; awaiting review** |
 | M2 | Lexer, parser and AST with spans; parser tests | Not started |
 | M3 | Skin tokens, semantic checks, UI IR, asset validation | Not started |
 | M4 | Preview from the UI IR | Not started |
@@ -37,10 +37,31 @@ The brief's separate `era_lexer`, `era_parser`, `era_ast`, `era_ui` and
 `era_skins` crates are merged into `era_syntax` and `era_ir` until a real
 boundary appears.
 
-## Next smallest task (M1, after approval)
+## M1 deliverables
 
-1. Implement `era new <name>` to write `era.toml` and `src/app.era`.
-2. Add the `era.toml` schema and validation, with errors for missing or
-   invalid keys.
-3. Implement `era check` to find the project root, require `src/app.era`
-   and list the source files.
+- `era new <name>` writes `era.toml`, `src/app.era` and `.gitignore`. It
+  validates the name and refuses to overwrite a folder that is not empty.
+- `era.toml` is validated (name, id, version, edition, `android.min_sdk`),
+  and every error is reported with its line and column.
+- `era check [path]` finds the project root by walking up from the given
+  folder. It requires `src/app.era`, sorts files into UI, skin, logic and
+  asset files, and warns about misplaced files, unknown extensions and
+  mis-cased folders.
+- Asset path resolution (`era_project::assets::resolve_asset`) is ready for
+  M3. It rejects absolute paths and `..`.
+- Diagnostic codes are listed in `docs/DIAGNOSTICS.md`.
+
+Known limitations:
+- `era check` does not read `.era` or `.ers` contents beyond checking that
+  they are valid UTF-8. Syntax checks arrive in M2.
+- Output has no colour.
+- `era new` takes a folder name; the `id` defaults to `dev.era.<name>`.
+
+## Next smallest task (M2)
+
+1. Create the `era_syntax` crate with a lexer (tokens, spans, newline
+   handling) and lexer tests.
+2. Add the parser for the uniform node grammar, with success and failure
+   tests.
+3. Make `era check` parse every `.era` and `.ers` file and report syntax
+   errors with snippets.

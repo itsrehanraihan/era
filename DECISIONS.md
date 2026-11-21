@@ -18,7 +18,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **D-006** Start with a small crate workspace. Split crates only when
   there is a real boundary.
 
-## Proposed (changes or refinements to the brief's example syntax, need approval)
+## Accepted syntax refinements (approved by the owner on 2026-11-21)
 
 - **D-007 One uniform node grammar.** Everything is `name [arg] { property: value, child }`,
   and meaning is checked semantically. *Why:* a tiny parser, good error
@@ -58,14 +58,34 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **D-019 Separators are newlines or commas**, so `{ gap: md, padding: lg }`
   works on one line. There are no semicolons.
 
+## Accepted in M1
+
+- **D-020 (Proposed) Skin is optional.** If `app` has no `skin:`, a built-in
+  neutral default skin applies. *Why:* the brief says a project may contain
+  only `era.toml` and `src/app.era`. Until M3 defines the default skin, the
+  `era new` template avoids tokens and uses plain numbers. **Needs owner
+  approval before M3.**
+- **D-021 Dependencies.** `toml` and `serde` parse `era.toml` with byte
+  spans, so errors show line and column. `tempfile` is a test-only
+  dependency. Diagnostics rendering is written by hand, with no extra
+  crate.
+- **D-022 Crates for M1.** The crates are `era_diagnostics`, `era_project`
+  and `era_cli`.
+- **D-023 Exit codes.** `0` means success (warnings allowed). `1` means the
+  project has errors. `2` means a usage or environment error, such as no
+  project found or a bad `era new` name.
+- **D-024 Folder conventions produce warnings, not errors.** A misplaced or
+  mis-cased folder or file is a warning. A missing `src/app.era`, an
+  invalid `era.toml` or a non-UTF-8 source file is an error.
+
 ## Open questions
 
-- **Q-01 Closed source vs. a public repo.** `itsrehanraihan/era` is
+- **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
   currently **public** on GitHub. The owner wants ERA to be closed source.
   Should the repo be made private before anything else is pushed? Which
   license or notice should be used (a proprietary "All rights reserved"
   notice is assumed for now)?
-- **Q-02 Positional props for components.** Should `AppButton "Go"` be
+- **Q-02 (Resolved: named props only for the MVP)** **Positional props for components.** Should `AppButton "Go"` be
   allowed, in addition to `AppButton { label: "Go" }`? The MVP proposal
   supports named props only.
 - **Q-03 Icon format.** SVG needs conversion to an Android VectorDrawable,
@@ -73,7 +93,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   icon set. This must be decided before M5.
 - **Q-04 Logic file extension.** The brief uses `.er` for logic files.
   This will be decided at M6, together with the state/event syntax.
-- **Q-05 Preview technology.** The proposal is Compose Multiplatform
+- **Q-05 (Resolved: Compose Multiplatform Desktop, plus `--png`)** **Preview technology.** The proposal is Compose Multiplatform
   Desktop running the same generated code, with a `--png` headless mode.
   The alternatives are a Rust-native renderer or an HTML mock, but both
   would drift from Android. Compose Multiplatform could also be an iOS

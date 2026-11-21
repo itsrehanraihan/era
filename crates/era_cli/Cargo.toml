@@ -8,3 +8,11 @@ publish.workspace = true
 [[bin]]
 name = "era"
 path = "src/main.rs"
+
+[dependencies]
+era_diagnostics = { path = "../era_diagnostics" }
+era_project = { path = "../era_project" }
+
+[dev-dependencies]
+# Temporary folders for CLI integration tests.
+tempfile = "3.27"

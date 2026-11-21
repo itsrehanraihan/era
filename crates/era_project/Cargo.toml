@@ -1,0 +1,17 @@
+[package]
+name = "era_project"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+era_diagnostics = { path = "../era_diagnostics" }
+# TOML parsing with byte spans, so era.toml errors point at line:column.
+toml = "1.2"
+# Derive-based deserialization of the era.toml schema (used by `toml`).
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+# Isolated temporary project folders for discovery/scaffold tests.
+tempfile = "3.27"
