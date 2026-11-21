@@ -14,6 +14,7 @@ all pass.
 | M5 | Kotlin/Compose codegen, Android host project, debug APK | **Done** (owner verified on a phone, 2026-11-21) |
 | M6 | Button events, minimal state, navigation | **Done** (owner verified on a phone, 2026-11-21) |
 | M7 | ERA Studio editor (Rust/egui): code editor + live preview, macOS (scope change D-065) | **Built and tested on Linux; Mac test pending** |
+| M8 | CSS-familiar styling (D-071, `docs/CSS_SPEC.md`), phases P1–P8 | **Spec written; awaiting owner approval of D-072/D-074/D-075/D-076** |
 
 ## M0 deliverables
 
@@ -262,6 +263,15 @@ Known limitations:
 Known limitations: no find/replace, autocomplete or undo history beyond
 the editor's own, no hot reload, and no `.app` bundle yet. **Not yet run
 on the owner's Mac.**
+
+## M8 plan (CSS-familiar styling)
+
+The spec is in `docs/CSS_SPEC.md`. Implementation starts with **P1
+Syntax** once the owner approves:
+- D-074: `;` as the one-line separator
+- D-072: the kebab-case paste and snake_case migration details
+- D-075: states, media rules and classes
+- D-076: HTML element aliases
 
 ## Next smallest task
 

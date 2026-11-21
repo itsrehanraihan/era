@@ -262,6 +262,40 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **D-070 Every Studio widget has an accessible name** (for VoiceOver on
   macOS). The UI tests enforce this.
 
+## M8: CSS-familiar styling (see docs/CSS_SPEC.md)
+
+- **D-071 (Accepted, owner 2026-11-21) Scope change: ERA adopts
+  HTML5/CSS3 familiarity.** Every CSS property and value that has a native
+  equivalent is supported, with CSS names and values. Web-only parts get
+  ERA equivalents and clear errors. This replaces the brief's "avoid
+  copying the CSS specification". The output stays native (no WebView).
+- **D-072 (Accepted: camelCase) Property names.** Canonical names are
+  camelCase (`fontSize`). **Proposed:** pasted kebab-case
+  (`font-size`) is also read, and current snake_case names are
+  deprecated with an `era fmt --fix` migration (CSS_SPEC §12).
+- **D-073 (Accepted: full CSS values) Values.** Units, functions and
+  shorthands, with `px` = dp (CSS_SPEC §3). Every sizing mode is required
+  by the owner: fixed, %, fill, fit/auto, fr, min/max-content, vw/vh,
+  aspect-ratio (§4).
+- **D-074 (Proposed, breaking) `;` separates items on one line**, as in
+  CSS, so `,` can appear inside values (`rgba(0, 0, 0, .1)`, several
+  shadows). Newlines still separate items. `era fmt --fix` migrates.
+- **D-075 (Proposed, owner hasn't decided) Interaction states and
+  responsiveness:** `hover`/`active`/`focus`/`disabled` blocks, `media
+  (minWidth: …)` rules, and optional style classes in skins. No CSS
+  selectors or cascade.
+- **D-076 (Proposed) HTML element names as aliases** (`div`, `p`, `h1`,
+  `img`, `a`, …) plus new form controls (checkbox, radio, switch, slider,
+  select, textarea, date/time) and `list` (§11).
+- **D-077 (Proposed) Inheritance:** only `color` and font properties
+  inherit from parent elements, as in CSS. Nothing else does.
+- **D-078 (Proposed) Native limits:** real box shadows need Compose 1.9
+  (a toolchain bump at phase P4). `blur` needs Android 12+ and is skipped
+  below that with a warning. `position: sticky`, `skew`, `backdropFilter`
+  and `calc()` with mixed units come later.
+- **D-079 (Accepted, owner 2026-11-21) Rollout:** spec first
+  (`docs/CSS_SPEC.md`), then phases P1–P8, each tested and shipped.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is

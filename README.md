@@ -25,6 +25,8 @@ Examples:
 - `examples/showcase/`: a compact tour of the design system, also used
   as a test fixture.
 
+Coming next: CSS-familiar styling, with `fontSize: 18px` and `boxShadow: 0 4px 12px rgba(0,0,0,.1)` written as on the web (`docs/CSS_SPEC.md`, under review).
+
 See `MILESTONES.md`, `DECISIONS.md` and `docs/`.
 
 Copyright © 2026 the ERA authors. All rights reserved. Proprietary and
