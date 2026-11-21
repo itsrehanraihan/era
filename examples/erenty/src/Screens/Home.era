@@ -21,9 +21,9 @@ screen Home {
                 }
 
                 row {
-                    text "Good morning, " { style: display }
-                    text "Rehan" { style: display, color: accent }
-                    text "." { style: display }
+                    text "Good morning, " { style: heading }
+                    text "Rehan" { style: heading, color: accent }
+                    text "." { style: heading }
                 }
 
                 // Alerts carousel

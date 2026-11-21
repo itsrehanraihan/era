@@ -44,7 +44,7 @@ Common properties for every node (as applicable):
 
 | Property | Values |
 |---|---|
-| `width`, `height` | `fill`, `fit`, or a number |
+| `width`, `height` | `fill`, `fit`, or a number. In a row or column, `fill` along the main axis shares the free space with other `fill` siblings (D-041) |
 | `min_width max_width min_height max_height` | number |
 | `padding padding_x padding_y padding_top padding_bottom padding_start padding_end` | spacing token, number, or `none` (0, D-039) |
 | `background` | color token, color literal, or `none` |
@@ -154,7 +154,7 @@ token.
 | `image` | `fit: cover` |
 | `scroll` | `direction: vertical` |
 | `grid` | `columns: 2` |
-| screen | background is the skin's `background` color |
+| screen | background is the skin's `background` color; the root element fills the screen unless sized (D-043) |
 
 ## 5. UI IR (M3, platform-independent)
 

@@ -366,7 +366,12 @@ impl<'a> Resolver<'a> {
             origin: Vec::new(),
             validate_only: false,
         };
-        let root = self.element(root?, &mut ctx, d.decl.name.name.clone(), true)?;
+        let mut root = self.element(root?, &mut ctx, d.decl.name.name.clone(), true)?;
+        // A screen's root element fills the screen unless sized (D-043).
+        root.props.entry("width").or_insert(Value::Size(Size::Fill));
+        root.props
+            .entry("height")
+            .or_insert(Value::Size(Size::Fill));
         let background = self.color_token("background");
         Some(Screen {
             name: d.decl.name.name.clone(),

@@ -9,8 +9,8 @@ all pass.
 | M0 | Inspect, decide, document | **Done** (syntax approved 2026-11-21) |
 | M1 | `era new`, `era.toml`, project discovery, `era check` (structure) | **Done** |
 | M2 | Lexer, parser and AST with spans; parser tests | **Done** |
-| M3 | Skin tokens, semantic checks, UI IR, asset validation | **Done; awaiting review** |
-| M4 | Preview from the UI IR | Not started |
+| M3 | Skin tokens, semantic checks, UI IR, asset validation | **Done** |
+| M4 | Preview from the UI IR | **Done; awaiting review** |
 | M5 | Kotlin/Compose codegen, Android host project, debug APK | Not started |
 | M6 | Button events, minimal state, navigation | Not started |
 
@@ -126,13 +126,49 @@ text, overlap, dashed lines/italics, safe areas) and the proposal D-041
 `Quick_start_guide.md` walks a new user from install to a checked
 project. Every step was run on a fresh install.
 
-## Next smallest task (M4)
+## M4 deliverables
 
-1. Settle D-041 (`fill` along the main axis) with the owner. Decide the
-   generated Kotlin package layout and pin the Compose/Kotlin versions
-   (record them in DECISIONS).
-2. Create the `era_codegen_compose` crate: UI IR → Kotlin/Compose
-   source, with deterministic output and snapshot tests.
-3. Add a Compose Desktop preview host (Gradle) and `era preview`, with a
-   `--png` headless mode that renders each screen to an image. The
-   E-Renty demo is the visual acceptance test.
+- The `era_codegen_compose` crate turns the UI IR into Kotlin + Compose
+  (foundation only). It generates the theme (light and dark palettes,
+  dimension tokens, text styles, fonts), a runtime, a screen registry, and
+  one composable per screen. Output is deterministic and
+  snapshot-tested.
+- `platforms/desktop-preview/`: the Compose Multiplatform Desktop host,
+  with the asset host API (D-044), a PNG renderer and a preview window.
+- `era preview [path]` opens a window. `era preview [path] --png [dir]`
+  renders every screen (and dark variants) to 804 × 1748 PNGs without a
+  display.
+- The **E-Renty demo renders**: `docs/images/erenty-preview.png`. It was
+  compared side by side with the mockups. Fixes found while doing this
+  are D-043 (the root fills the screen) and the demo tuning, and the
+  Inter font is now bundled (D-049).
+- Tests: codegen unit tests, Kotlin snapshots for both examples, and CLI
+  tests (argument errors, refusing invalid projects, the display check,
+  a missing Gradle, stale-file removal). There is also a real Gradle smoke
+  test, `cargo test -p era_cli -- --ignored`, which passed in the dev
+  container.
+
+Known limitations:
+- The preview **window** could not be tested here, because the container
+  has no display. Only the `--png` path was run.
+- Buttons have no click handling, and nothing navigates (M6).
+- `divider` is horizontal only. `gap` is ignored with
+  `distribute: between/around/evenly`.
+- Font weights are guessed from file names (`Inter-SemiBold.ttf` → 600).
+- The first `era preview` downloads Kotlin and Compose (about a minute
+  in the dev container). No Gradle wrapper is shipped, so Gradle 8.x must
+  be installed.
+- Remaining visual gaps against the mockups are the open questions
+  Q-07 to Q-11 (gradients, rich text, overlap, dashed lines, safe areas).
+
+## Next smallest task (M5)
+
+1. Install the Android SDK (command-line tools, platform 35, build-tools)
+   in the dev environment. Decide the AGP version and the min/target SDK.
+2. Add the `platforms/android/` host: `MainActivity` showing
+   `EraStartScreen`, plus `eraImage`/`eraIcon`/`eraFontFamily` for
+   Android resources.
+3. Copy assets into `res/` with sanitized names. Decide Q-03 (SVG to
+   VectorDrawable).
+4. Add `era build android`, which builds a debug APK, with a smoke test.
+   Install and launch on an emulator or device (Q-06).

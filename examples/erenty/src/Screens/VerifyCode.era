@@ -22,7 +22,7 @@ screen VerifyCode {
             width: fill
             distribute: center
             gap: md
-            padding_y: lg
+            padding_y: xl
 
             OtpGroup {
                 state: focused
@@ -41,6 +41,8 @@ screen VerifyCode {
             width: fill
             distribute: center
             gap: xs
+            padding_top: xl
+            padding_bottom: lg
             text "Didn’t get a code?" { color: muted }
             text "Resend in 0:42" { style: body_strong, color: secondary }
         }

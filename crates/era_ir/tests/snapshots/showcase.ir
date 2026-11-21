@@ -12,7 +12,7 @@ skin Studio
   style heading size=28 weight=700 line_height=34
   style title size=20 weight=600 line_height=26
 screen Home title="Home" background=background(#FFFFFF)
-  scroll {direction=vertical} @Home:MainLayout <MainLayout>
+  scroll {direction=vertical height=fill width=fill} @Home:MainLayout <MainLayout>
     column {background=background(#FFFFFF) gap=lg(24) padding=lg(24)} @Home:MainLayout/0 <MainLayout>
       text "Design starts here" {color=text(#171717) style=display} @Home:MainLayout/0/0 <MainLayout>
       text "A native interface built with ERA" {color=muted(#737373) style=title} @Home/slot/0

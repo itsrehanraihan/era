@@ -1,6 +1,6 @@
 skin Renty {
     typography {
-        font: "system"
+        font: "Inter"
         display     { size: 32, weight: medium,   line_height: 38, tracking: -0.6 }
         heading     { size: 28, weight: medium,   line_height: 34, tracking: -0.4 }
         title_lg    { size: 20, weight: medium,   line_height: 26 }

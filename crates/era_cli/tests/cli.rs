@@ -260,7 +260,7 @@ fn check_erenty_demo() {
     assert!(out.status.success(), "{}", stderr(&out));
     assert!(
         stdout(&out).contains(
-            "UI IR: 4 screen(s), 187 element(s), skin `Renty`, 21 asset reference(s), start screen `Splash`"
+            "UI IR: 4 screen(s), 187 element(s), skin `Renty`, 25 asset reference(s), start screen `Splash`"
         ),
         "{}",
         stdout(&out)
@@ -270,9 +270,134 @@ fn check_erenty_demo() {
 #[test]
 fn unimplemented_command_fails_honestly() {
     let tmp = tempfile::tempdir().unwrap();
-    let out = era_in(tmp.path(), &["preview"]);
+    let out = era_in(tmp.path(), &["build", "android"]);
     assert_eq!(out.status.code(), Some(2));
     assert!(stderr(&out).contains("not implemented yet"));
+}
+
+fn era_env(dir: &Path, args: &[&str], set: &[(&str, &str)], remove: &[&str]) -> Output {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_era"));
+    cmd.args(args).current_dir(dir);
+    for (k, v) in set {
+        cmd.env(k, v);
+    }
+    for k in remove {
+        cmd.env_remove(k);
+    }
+    cmd.output().expect("failed to run era binary")
+}
+
+#[test]
+fn preview_rejects_bad_arguments() {
+    let tmp = tempfile::tempdir().unwrap();
+    for args in [&["preview", "--bogus"][..], &["preview", "a", "b"]] {
+        let out = era_in(tmp.path(), args);
+        assert_eq!(out.status.code(), Some(2), "{args:?}");
+        assert!(stderr(&out).contains("usage: era preview [path] [--png [dir]]"));
+    }
+}
+
+#[test]
+fn preview_refuses_project_with_errors() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let app = project.join("src/app.era");
+    let src = std::fs::read_to_string(&app).unwrap();
+    std::fs::write(&app, src.replace("gap: 8", "gapp: 8")).unwrap();
+    let out = era_in(&project, &["preview", "--png"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr(&out).contains("error[E2120]"));
+    assert!(!project.join("build/preview").exists());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn preview_window_needs_a_display() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let out = era_env(&project, &["preview"], &[], &["DISPLAY", "WAYLAND_DISPLAY"]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        stderr(&out).contains("run `era preview --png`"),
+        "{}",
+        stderr(&out)
+    );
+}
+
+#[test]
+fn preview_writes_project_and_reports_missing_gradle() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let out = era_env(
+        &project,
+        &["preview", "--png", "shots"],
+        &[("ERA_GRADLE", "/nonexistent/gradle")],
+        &[],
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        stderr(&out).contains("`/nonexistent/gradle` was not found"),
+        "{}",
+        stderr(&out)
+    );
+
+    let preview = project.join("build/preview");
+    let build = std::fs::read_to_string(preview.join("build.gradle.kts")).unwrap();
+    assert!(
+        build.contains("mainClass = \"dev.era.demo.ui.PreviewMainKt\""),
+        "{build}"
+    );
+    let kt = preview.join("src/main/kotlin/dev/era/demo/ui");
+    for f in [
+        "EraTheme.kt",
+        "EraRuntime.kt",
+        "EraScreens.kt",
+        "EraAssets.kt",
+        "PreviewMain.kt",
+        "screens/HomeScreen.kt",
+    ] {
+        assert!(kt.join(f).is_file(), "{f}");
+    }
+    let props = std::fs::read_to_string(preview.join("era-preview.properties")).unwrap();
+    assert!(props.contains("png=") && props.contains("shots"), "{props}");
+    assert!(
+        !std::fs::read_to_string(kt.join("EraAssets.kt"))
+            .unwrap()
+            .contains("{{PACKAGE}}")
+    );
+}
+
+#[test]
+fn preview_removes_stale_generated_screens() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let gradle = [("ERA_GRADLE", "/nonexistent/gradle")];
+    std::fs::write(project.join("src/About.era"), "screen About { column {} }").unwrap();
+    era_env(&project, &["preview", "--png"], &gradle, &[]);
+    let screens = project.join("build/preview/src/main/kotlin/dev/era/demo/ui/screens");
+    assert!(screens.join("AboutScreen.kt").is_file());
+    std::fs::remove_file(project.join("src/About.era")).unwrap();
+    era_env(&project, &["preview", "--png"], &gradle, &[]);
+    assert!(!screens.join("AboutScreen.kt").exists());
+    assert!(screens.join("HomeScreen.kt").is_file());
+}
+
+/// Real end-to-end render with Gradle. Needs Gradle 8.x and network access
+/// (or a warm Gradle cache): `cargo test -p era_cli -- --ignored`.
+#[test]
+#[ignore]
+fn preview_png_smoke_test() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "smoke");
+    let out = era_in(&project, &["preview", "--png"]);
+    assert!(out.status.success(), "{}\n{}", stdout(&out), stderr(&out));
+    let png = std::fs::read(project.join("build/preview/png/Home.png")).unwrap();
+    assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+    let w = u32::from_be_bytes(png[16..20].try_into().unwrap());
+    let h = u32::from_be_bytes(png[20..24].try_into().unwrap());
+    assert_eq!((w, h), (804, 1748));
+    // The default skin has dark mode, so a dark render is produced too.
+    assert!(project.join("build/preview/png/Home-dark.png").is_file());
 }
 
 #[test]

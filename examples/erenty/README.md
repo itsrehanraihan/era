@@ -10,16 +10,23 @@ owner's mockups.
 | Menu | `src/Screens/Menu.era` | Profile card, illustrated shortcut grid with a badge, settings list with dividers, sign out |
 | Verify code | `src/Screens/VerifyCode.era` | Illustration, code boxes (focused and idle variants), resend line, disabled button |
 
-Check it from the repository root:
+Check it, or render it, from the repository root:
 
 ```bash
 era check examples/erenty --ir
 ```
 
+```bash
+era preview examples/erenty --png
+```
+
+The renders are written to `examples/erenty/build/preview/png/`. See
+`docs/images/erenty-preview.png` for the current result.
+
 ## Structure
 
-- `Skins/`: the `Renty` skin. Colors were sampled from the mockups, and
-  there are 13 text styles.
+- `Skins/`: the `Renty` skin. Colors were sampled from the mockups. It
+  has 13 text styles in the Inter font.
 - `src/Layout/Page.era`: a scrolling page with a back button and an
   optional background `tint`.
 - `src/Components/`:
@@ -37,6 +44,9 @@ era check examples/erenty --ir
   resolution. Replace them with the original exports, keeping the same
   file names.
 - `Assets/Icons/*.svg`: simple line icons drawn for this demo.
+- `Assets/Fonts/Inter-*.ttf`: Inter 4.1 by The Inter Project Authors,
+  under the SIL Open Font License 1.1
+  (`Assets/Files/Inter-OFL-LICENSE.txt`).
 
 ## Known differences from the mockups
 
@@ -50,4 +60,5 @@ These come from features ERA doesn't have yet (see `DECISIONS.md`):
 - The dashed chart grid lines are omitted (Q-10).
 - The status bar and home indicator belong to the OS (Q-11).
 - Screens don't navigate yet. Navigation and button actions arrive in M6.
-- Nothing can be rendered yet. Preview arrives in M4 and Android in M5.
+- Android builds arrive in M5. Today the demo renders in the desktop
+  preview.

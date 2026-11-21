@@ -42,6 +42,11 @@ cargo fmt --all -- --check
 cargo check --workspace
 cargo test --workspace
 ```
+When code generation or the preview host changes, also run the real
+Gradle smoke test (it needs Gradle and network access):
+```bash
+cargo test -p era_cli -- --ignored
+```
 
 ## Layout
 - `crates/`: Rust workspace crates (see MILESTONES.md for the planned

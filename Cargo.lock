@@ -24,7 +24,18 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 name = "era_cli"
 version = "0.0.1"
 dependencies = [
+ "era_codegen_compose",
  "era_diagnostics",
+ "era_ir",
+ "era_project",
+ "era_syntax",
+ "tempfile",
+]
+
+[[package]]
+name = "era_codegen_compose"
+version = "0.0.1"
+dependencies = [
  "era_ir",
  "era_project",
  "era_syntax",

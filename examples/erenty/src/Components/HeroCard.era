@@ -5,9 +5,9 @@ component HeroCard {
     variant tone: green | grey = green
 
     column {
-        width: 300
-        height: 220
-        padding: lg
+        width: 220
+        height: 150
+        padding: md
         radius: xl
         background: hero
         distribute: between
@@ -15,17 +15,17 @@ component HeroCard {
         when tone is grey { background: hero_alt }
 
         column {
-            gap: sm
-            text heading { style: title_lg, color: on_dark }
+            gap: xs
+            text heading { style: title, color: on_dark }
             text body { style: caption, color: on_dark_muted }
         }
         row {
             width: fill
             distribute: end
             stack {
-                width: 44
-                height: 44
-                radius: md
+                width: 34
+                height: 34
+                radius: sm
                 background: surface
                 align: center
                 icon "Icons/arrow_right.svg" { size: 18, color: text }

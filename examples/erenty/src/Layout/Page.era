@@ -3,9 +3,10 @@ layout Page {
     prop tint: color = background
 
     scroll {
+        background: tint
+
         column {
             width: fill
-            background: tint
             padding: lg
             gap: lg
 

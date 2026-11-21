@@ -3,19 +3,24 @@
 This guide takes you from nothing to a checked ERA design project in about
 ten minutes.
 
-> **What works today (M3):** creating projects, writing skins, components,
-> layouts and screens, and validating everything with `era check`. That
-> includes helpful errors, "did you mean" suggestions, and a printout of
-> the resolved UI (`--ir`).
+> **What works today (M4):**
+> - creating projects
+> - writing skins, components, layouts and screens
+> - validating everything with `era check` (helpful errors, "did you
+>   mean" suggestions)
+> - **previewing** the real native UI with `era preview`, as a window or
+>   PNG screenshots
 >
-> **Not yet:** live preview (M4), Android APK builds (M5), and taps,
-> state and navigation (M6). Those commands print "not implemented yet".
+> **Not yet:** Android APK builds (M5), and taps, state and navigation
+> (M6). `era build` prints "not implemented yet".
 
 ---
 
 ## 1. Install the prerequisites
 
-You need **Rust 1.88 or newer** and **Git**.
+You need **Rust 1.88 or newer** and **Git**. For `era preview` (step 10)
+you also need **JDK 17+** and **Gradle 8.x**. They are not needed for
+`era check`.
 
 ```bash
 rustc --version
@@ -26,6 +31,20 @@ If Rust is missing, install it from <https://rustup.rs>, then run:
 ```bash
 rustup update
 ```
+
+For previews, check Java and Gradle:
+
+```bash
+java -version
+```
+
+```bash
+gradle --version
+```
+
+Install them from <https://adoptium.net> and
+<https://gradle.org/install/> if they're missing. If Gradle isn't on your
+`PATH`, point ERA at it with `ERA_GRADLE=/path/to/gradle`.
 
 ## 2. Get ERA and build the `era` command
 
@@ -241,10 +260,41 @@ screen Home title="Home" background=background(#FFFFFF)
     text "Hello from ERA" {color=text(#171717) style=heading} @Home/0
 ```
 
-The preview (M4) and the Android build (M5) will both be generated from
-this same tree.
+The preview and the Android build (M5) are both generated from this
+same tree.
 
-## 10. Explore the E-Renty demo
+## 10. Preview your screens
+
+Open a desktop window that shows every screen, with a dark-mode toggle
+when your skin defines `colors dark`:
+
+```bash
+era preview
+```
+
+On a machine without a screen (a server or CI), render PNG screenshots
+instead:
+
+```bash
+era preview --png
+```
+
+```text
+era-preview: wrote …/my_app/build/preview/png/Home.png
+Preview images are in …/my_app/build/preview/png
+```
+
+- The first run downloads Kotlin and Compose through Gradle, which takes
+  a minute or two. Later runs take a few seconds.
+- Each screen is rendered on a 402 × 874 phone canvas at 2×
+  (804 × 1748 px).
+- The preview runs **real native Compose code** generated from your ERA
+  files, the same code the Android app will use. Look in
+  `build/preview/src/` if you're curious.
+- Run `era preview` again after every change to see the update. There is
+  no hot reload yet.
+
+## 11. Explore the E-Renty demo
 
 The repository includes a full four-screen demo built from real
 mockups: Splash, Home, Menu and Verify code.
@@ -253,11 +303,15 @@ mockups: Splash, Home, Menu and Verify code.
 era check ../era/examples/erenty --ir
 ```
 
+```bash
+era preview ../era/examples/erenty --png
+```
+
 (Adjust the path to wherever you cloned `era`.) The demo is a good place
 to see layouts, slots, variants, badges, a bar chart and a bottom
 navigation bar written in ERA.
 
-## 11. When something is wrong
+## 12. When something is wrong
 
 Errors point at the exact spot and usually suggest a fix:
 
@@ -279,8 +333,10 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | `E1207 exactly one root element` | Wrap the screen's elements in a `column` |
 | `E2132 unknown … token` | The skin doesn't define that token; check the suggestion |
 | `E2145 missing required prop` | Pass the prop: `AppButton { label: "..." }` |
+| `gradle was not found` (preview) | Install Gradle 8.x or set `ERA_GRADLE` |
+| `no display found` (preview) | Use `era preview --png` |
 
-## 12. Syntax cheat sheet
+## 13. Syntax cheat sheet
 
 | Want | Write |
 |---|---|
@@ -299,7 +355,7 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | No color / no shadow | `background: none`, `elevation: none` |
 | Comment | `// like this` |
 
-## 13. Learn more
+## 14. Learn more
 
 | Document | What's inside |
 |---|---|
@@ -307,5 +363,6 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | `docs/UI_SPEC.md` | Every element, property and default |
 | `docs/SKIN_SPEC.md` | Skins, tokens, fonts and the default skin |
 | `docs/DIAGNOSTICS.md` | Every error code |
+| `docs/ANDROID_BACKEND.md` | How ERA turns your design into native Compose code |
 | `MILESTONES.md` | What's done and what's next |
 | `DECISIONS.md` | Why ERA works the way it does |

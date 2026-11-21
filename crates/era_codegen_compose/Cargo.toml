@@ -1,0 +1,14 @@
+[package]
+name = "era_codegen_compose"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+era_ir = { path = "../era_ir" }
+
+[dev-dependencies]
+era_project = { path = "../era_project" }
+era_syntax = { path = "../era_syntax" }
+tempfile = "3.27"

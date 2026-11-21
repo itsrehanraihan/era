@@ -14,6 +14,7 @@ era_diagnostics = { path = "../era_diagnostics" }
 era_project = { path = "../era_project" }
 era_syntax = { path = "../era_syntax" }
 era_ir = { path = "../era_ir" }
+era_codegen_compose = { path = "../era_codegen_compose" }
 
 [dev-dependencies]
 # Temporary folders for CLI integration tests.

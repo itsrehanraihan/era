@@ -26,10 +26,10 @@ component Tooltip {
     prop label: text
 
     row {
-        padding_x: sm
+        padding_x: xs
         padding_y: xs
         radius: pill
         background: ink
-        text label { style: caption_strong, color: on_dark }
+        text label { style: caption_strong, color: on_dark, max_lines: 1 }
     }
 }
