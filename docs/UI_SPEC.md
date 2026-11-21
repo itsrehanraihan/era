@@ -46,12 +46,12 @@ Common properties for every node (as applicable):
 |---|---|
 | `width`, `height` | `fill`, `fit`, or a number |
 | `min_width max_width min_height max_height` | number |
-| `padding padding_x padding_y padding_top padding_bottom padding_start padding_end` | spacing token or number |
+| `padding padding_x padding_y padding_top padding_bottom padding_start padding_end` | spacing token, number, or `none` (0, D-039) |
 | `background` | color token, color literal, or `none` |
-| `border_width` | border token or number |
+| `border_width` | border token, number, or `none` |
 | `border_color` | color token or literal |
-| `radius` | radius token or number |
-| `elevation` | elevation token or number |
+| `radius` | radius token, number, or `none` |
+| `elevation` | elevation token, number, or `none` (flat) |
 | `clip` | `true` / `false` |
 | `align` (containers) | `start center end stretch` (cross axis) |
 | `distribute` (row/column) | `start center end between around evenly` (main axis) |

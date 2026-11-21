@@ -193,7 +193,7 @@ pub fn default_skin() -> Skin {
         ]),
         radius: map(&[("sm", 6.0), ("md", 12.0), ("lg", 20.0), ("pill", 999.0)]),
         border: map(&[("thin", 1.0), ("thick", 2.0)]),
-        elevation: map(&[("none", 0.0), ("sm", 1.0), ("md", 4.0), ("lg", 12.0)]),
+        elevation: map(&[("sm", 1.0), ("md", 4.0), ("lg", 12.0)]),
         typography: Typography {
             font: SYSTEM_FONT.into(),
             font_files: Vec::new(),

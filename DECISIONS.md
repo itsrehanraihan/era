@@ -127,6 +127,25 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **D-038 A `scroll` whose single `slot` is filled with several elements**
   wraps them in a `column` automatically.
 
+## Accepted during the E-Renty demo (after M3)
+
+- **D-039 `none` on a spacing, radius, border or elevation property means
+  0.** Examples: `elevation: none`, `gap: none`. *Why:* `none` is a
+  keyword, so the M0 example's `elevation { none: 0 }` token could never
+  be referenced. That token has been removed from the default skin and
+  the examples.
+- **D-040 The first demo is E-Renty** (`examples/erenty/`), built from
+  the owner's mockups. The showcase stays as a compact test fixture.
+  Brand illustrations in the demo were cropped from the mockups and
+  should be replaced with original exports.
+
+## Proposed (needed for M4 codegen, awaiting owner approval)
+
+- **D-041 `fill` along a row or column's main axis shares the remaining
+  space.** For example, three `MenuTile`s with `width: fill` in a `row`
+  get equal widths (Compose `weight(1f)`). Across the cross axis, `fill`
+  takes the full size. The E-Renty demo relies on this.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
@@ -147,6 +166,20 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   The alternatives are a Rust-native renderer or an HTML mock, but both
   would drift from Android. Compose Multiplatform could also be an iOS
   path later; a SwiftUI backend would be the more "native" iOS option.
+- **Q-07 Gradients.** The E-Renty hero cards and buttons use gradients.
+  The demo uses solid colors for now. A future skin token type could be
+  `gradient`.
+- **Q-08 Mixed styles within one sentence.** "Good morning, **Rehan**."
+  and "Didn't get a code? **Resend**" are written as a `row` of `text`
+  elements, which does not wrap like a sentence. Rich text spans would
+  fix this.
+- **Q-09 Overlap and offset positioning.** The raised "+" button in the
+  bottom bar and the chart tooltip's pointer need offsets. The demo
+  approximates both.
+- **Q-10 Dashed lines and italic text.** The chart grid lines are
+  dashed, and the wordmark is italic. The demo uses the logo as an image.
+- **Q-11 System bars and safe areas.** The status bar and home indicator
+  in the mockups are drawn by the OS. Backends must add safe-area insets.
 - **Q-06 Emulator testing.** This cloud container probably lacks KVM. The
   "install and launch" step of M5 may need the owner's machine or a
   physical device.

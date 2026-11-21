@@ -1,0 +1,35 @@
+// Colors sampled from the E-Renty mockups.
+skin Renty {
+    colors {
+        // required tokens
+        background: #F7FAF7
+        surface:    #FFFFFF
+        text:       #143132
+        muted:      #667370
+        border:     #EEF2EE
+        primary:    #00E6B5
+        on_primary: #143132
+        secondary:  #005B45
+        success:    #2E9E5B
+        warning:    #F5A623
+        danger:     #D93036
+
+        // brand extras
+        brand:         #01EDB9
+        accent:        #00D9A4
+        mint:          #DCFBF1
+        mint_soft:     #EBFEFA
+        hero:          #0C473E
+        hero_alt:      #545454
+        on_dark:       #FFFFFF
+        on_dark_muted: #D8E6E2
+        warning_text:  #A15C00
+        info:          #0B71D7
+        info_soft:     #E6EEF4
+        disabled:      #E3E9E3
+        bar:           #E3E9E3
+        focus:         #5BE39C
+        placeholder:   #C1CAC8
+        ink:           #000000
+    }
+}

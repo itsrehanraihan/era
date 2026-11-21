@@ -2,5 +2,5 @@ skin Studio {
     spacing   { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }
     radius    { sm: 8, md: 14, lg: 22, pill: 999 }
     border    { thin: 1, thick: 2 }
-    elevation { none: 0, sm: 1, md: 4, lg: 12 }
+    elevation { sm: 1, md: 4, lg: 12 }
 }

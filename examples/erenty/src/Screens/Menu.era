@@ -1,0 +1,100 @@
+screen Menu {
+    title: "Menu"
+
+    Page {
+        text "Menu" { style: display }
+
+        // Profile
+        card {
+            elevation: none
+            radius: xl
+            padding: lg
+
+            row {
+                width: fill
+                align: center
+                gap: md
+
+                stack {
+                    width: 52
+                    height: 52
+                    radius: pill
+                    background: mint
+                    align: center
+                    text "RR" { style: title_lg, color: secondary }
+                }
+                column {
+                    width: fill
+                    gap: xs
+                    text "Rehan Raihan" { style: title }
+                    text "rehan@company.com" { color: muted }
+                    row {
+                        align: center
+                        gap: sm
+                        stack { width: 8, height: 8, radius: pill, background: warning }
+                        text "Verify your identity to rent" { style: caption_strong, color: warning_text }
+                    }
+                }
+                icon "Icons/chevron_right.svg" { size: 20, color: muted }
+            }
+        }
+
+        text "Rent & ride" { style: subhead, color: muted }
+        row {
+            width: fill
+            gap: sm
+            MenuTile { art: "Images/rentals.png", name: "My rentals" }
+            MenuTile { art: "Images/service.png", name: "Service & repair" }
+            MenuTile { art: "Images/courier.png", name: "Courier+" }
+        }
+
+        text "Money & documents" { style: subhead, color: muted }
+        row {
+            width: fill
+            gap: sm
+            MenuTile { art: "Images/payments.png", name: "Payments" }
+            MenuTile { art: "Images/invoices.png", name: "Invoices" }
+            MenuTile {
+                art: "Images/documents.png"
+                name: "Documents"
+                Badge { count: "1" }
+            }
+        }
+
+        text "Account" { style: subhead, color: muted }
+        card {
+            elevation: none
+            radius: xl
+            padding_x: lg
+            padding_y: xs
+            gap: none
+
+            SettingsRow {
+                glyph: "Icons/user.svg"
+                heading: "Profile & settings"
+                detail: "Personal details, password, Face ID"
+            }
+            divider
+            SettingsRow {
+                glyph: "Icons/info.svg"
+                heading: "Help & support"
+                detail: "Chat with us or report a problem"
+            }
+            divider
+            SettingsRow {
+                glyph: "Icons/document.svg"
+                heading: "Terms & privacy"
+                detail: "Rental terms and how we use your data"
+            }
+        }
+
+        column {
+            width: fill
+            align: center
+            gap: md
+            padding_y: lg
+            text "Sign out" { style: title, color: danger }
+            text "E-Renty · version 1.0" { style: caption, color: muted }
+        }
+    }
+}

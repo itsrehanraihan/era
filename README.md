@@ -13,6 +13,14 @@ Jetpack Compose), with no WebView.
 > UI IR (`era check --ir` prints it). Preview (M4) and Android builds (M5)
 > are not implemented yet.
 
+**New here? Start with [Quick_start_guide.md](Quick_start_guide.md).**
+
+Examples:
+- `examples/erenty/`: the first demo, a four-screen rental app (Splash,
+  Home, Menu, Verify code) built from real mockups.
+- `examples/showcase/`: a compact tour of the design system, also used
+  as a test fixture.
+
 See `MILESTONES.md`, `DECISIONS.md` and `docs/`.
 
 Copyright © 2026 the ERA authors. All rights reserved. Proprietary and

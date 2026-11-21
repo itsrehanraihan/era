@@ -4,7 +4,7 @@ skin Studio
   spacing lg=24 md=16 sm=8 xl=32 xs=4
   radius lg=22 md=14 pill=999 sm=8
   border thick=2 thin=1
-  elevation lg=12 md=4 none=0 sm=1
+  elevation lg=12 md=4 sm=1
   font "system" files=[]
   style body size=16 weight=400 line_height=24
   style caption size=13 weight=500 line_height=18

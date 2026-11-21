@@ -842,6 +842,11 @@ impl<'a> Resolver<'a> {
                 })),
                 None => self.unknown_token(TokenCategory::Color, n, v.span, ctx),
             },
+            // `none` on a spacing/radius/border/elevation property means 0 (D-039).
+            (ValueType::Dimension(_), ValueKind::None) => Some(Value::Dimension(Dimension {
+                token: None,
+                dp: 0.0,
+            })),
             (ValueType::Dimension(_), ValueKind::Number(x)) if *x >= 0.0 => {
                 Some(Value::Dimension(Dimension {
                     token: None,

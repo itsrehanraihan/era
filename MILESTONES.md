@@ -111,11 +111,28 @@ Known limitations:
 - Navigation, events and state are not part of the IR yet (M6).
 - Text styles are not checked against the fonts' actual weights.
 
+## First demo: E-Renty (after M3)
+
+`examples/erenty/` contains four screens built from the owner's mockups:
+Splash, Home, Menu and Verify code. It has 4 screens, 11 components,
+1 layout, 21 assets and 187 UI elements, and `era check` passes with no
+errors. Its IR is snapshot-tested (`crates/era_ir/tests/snapshots/erenty.ir`).
+
+Building it found and fixed two problems (D-039 and an error-message
+article). It also raised open questions Q-07 to Q-11 (gradients, rich
+text, overlap, dashed lines/italics, safe areas) and the proposal D-041
+(`fill` along the main axis), which M4 needs.
+
+`Quick_start_guide.md` walks a new user from install to a checked
+project. Every step was run on a fresh install.
+
 ## Next smallest task (M4)
 
-1. Decide the generated Kotlin package layout and pin the
-   Compose/Kotlin versions (record them in DECISIONS).
+1. Settle D-041 (`fill` along the main axis) with the owner. Decide the
+   generated Kotlin package layout and pin the Compose/Kotlin versions
+   (record them in DECISIONS).
 2. Create the `era_codegen_compose` crate: UI IR → Kotlin/Compose
    source, with deterministic output and snapshot tests.
 3. Add a Compose Desktop preview host (Gradle) and `era preview`, with a
-   `--png` headless mode that renders each screen to an image.
+   `--png` headless mode that renders each screen to an image. The
+   E-Renty demo is the visual acceptance test.

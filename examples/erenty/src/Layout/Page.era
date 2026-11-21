@@ -1,0 +1,16 @@
+// Scrolling page with the back button used by Menu and Verify code.
+layout Page {
+    prop tint: color = background
+
+    scroll {
+        column {
+            width: fill
+            background: tint
+            padding: lg
+            gap: lg
+
+            IconTile { glyph: "Icons/arrow_left.svg" }
+            slot
+        }
+    }
+}

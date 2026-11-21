@@ -98,7 +98,7 @@ fn value_type_errors() {
     assert_eq!(
         msgs,
         [
-            ("E2133", "`gap` needs a spacing token or a number"),
+            ("E2133", "`gap` needs a spacing token, a number or `none`"),
             ("E2133", "`clip` needs `true` or `false`"),
             ("E2133", "`width` needs `fill`, `fit` or a number"),
             ("E2133", "`align` cannot be `middle`"),
@@ -225,4 +225,28 @@ fn ids_are_stable_paths() {
     assert_eq!(root.children[0].children[0].id, "Home/0/0");
     assert_eq!(root.children[1].id, "Home/1");
     assert_eq!(root.children[1].kind, ElementKind::Text);
+}
+
+#[test]
+fn none_on_a_dimension_means_zero() {
+    let b = screen("card { elevation: none, gap: none, padding: none }");
+    let root = &b.app().screens[0].root;
+    for k in ["elevation", "gap", "padding"] {
+        let Value::Dimension(d) = &root.props[k] else {
+            panic!("{k}")
+        };
+        assert_eq!((d.token.clone(), d.dp), (None, 0.0), "{k}");
+    }
+}
+
+#[test]
+fn article_in_type_errors() {
+    let d = screen("card { elevation: \"high\" }")
+        .only("E2133")
+        .message
+        .clone();
+    assert_eq!(
+        d,
+        "`elevation` needs an elevation token, a number or `none`"
+    );
 }

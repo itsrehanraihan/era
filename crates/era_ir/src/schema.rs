@@ -29,7 +29,15 @@ impl ValueType {
     pub fn describe(self) -> String {
         match self {
             ValueType::Color => "a color (token, #RRGGBB or `none`)".into(),
-            ValueType::Dimension(c) => format!("a {} token or a number", c.section()),
+            ValueType::Dimension(c) => {
+                let s = c.section();
+                let article = if s.starts_with(['a', 'e', 'i', 'o', 'u']) {
+                    "an"
+                } else {
+                    "a"
+                };
+                format!("{article} {s} token, a number or `none`")
+            }
             ValueType::TextStyle => "a text style token".into(),
             ValueType::Size => "`fill`, `fit` or a number".into(),
             ValueType::Number { integer: true, min } => format!("a whole number of at least {min}"),

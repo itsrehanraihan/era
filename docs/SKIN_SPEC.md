@@ -33,7 +33,7 @@ skin Studio {
     spacing   { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }
     radius    { sm: 8, md: 14, lg: 22, pill: 999 }
     border    { thin: 1, thick: 2 }
-    elevation { none: 0, sm: 1, md: 4, lg: 12 }
+    elevation { sm: 1, md: 4, lg: 12 }
 
     typography {
         font: "Inter"      // resolved from Assets/Fonts/, or "system"
@@ -86,7 +86,7 @@ The default skin is used when `app` has no `skin:`. It defines:
 | spacing | xs 4, sm 8, md 16, lg 24, xl 32 |
 | radius | sm 6, md 12, lg 20, pill 999 |
 | border | thin 1, thick 2 |
-| elevation | none 0, sm 1, md 4, lg 12 |
+| elevation | sm 1, md 4, lg 12 |
 | typography | font `system`; display 36/700, heading 26/700, title 20/600, body 16/400, caption 13/500 |
 
 ## Validation performed by `era check` (M3)

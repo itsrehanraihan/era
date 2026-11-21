@@ -255,6 +255,19 @@ fn check_ir_flag_prints_the_tree() {
 }
 
 #[test]
+fn check_erenty_demo() {
+    let out = era_in(&repo_root(), &["check", "examples/erenty"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert!(
+        stdout(&out).contains(
+            "UI IR: 4 screen(s), 187 element(s), skin `Renty`, 21 asset reference(s), start screen `Splash`"
+        ),
+        "{}",
+        stdout(&out)
+    );
+}
+
+#[test]
 fn unimplemented_command_fails_honestly() {
     let tmp = tempfile::tempdir().unwrap();
     let out = era_in(tmp.path(), &["preview"]);

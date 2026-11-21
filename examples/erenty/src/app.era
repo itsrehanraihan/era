@@ -1,0 +1,4 @@
+app "E-Renty" {
+    skin: Renty
+    start: Splash
+}

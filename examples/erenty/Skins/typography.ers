@@ -1,0 +1,18 @@
+skin Renty {
+    typography {
+        font: "system"
+        display     { size: 32, weight: medium,   line_height: 38, tracking: -0.6 }
+        heading     { size: 28, weight: medium,   line_height: 34, tracking: -0.4 }
+        title_lg    { size: 20, weight: medium,   line_height: 26 }
+        title       { size: 17, weight: medium,   line_height: 22 }
+        body        { size: 16, weight: regular,  line_height: 22 }
+        body_strong { size: 16, weight: medium,   line_height: 22 }
+        label       { size: 15, weight: medium,   line_height: 20 }
+        subhead     { size: 15, weight: regular,  line_height: 20 }
+        caption     { size: 13, weight: regular,  line_height: 18 }
+        caption_strong { size: 13, weight: medium, line_height: 18 }
+        button      { size: 16, weight: medium,   line_height: 20 }
+        code        { size: 36, weight: medium,   line_height: 40 }
+        badge       { size: 12, weight: semibold, line_height: 14 }
+    }
+}

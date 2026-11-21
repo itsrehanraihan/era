@@ -1,0 +1,153 @@
+screen Home {
+    title: "Overview"
+
+    column {
+        width: fill
+        height: fill
+
+        scroll {
+            height: fill
+
+            column {
+                width: fill
+                padding: lg
+                gap: lg
+
+                row {
+                    width: fill
+                    distribute: between
+                    IconTile { glyph: "Icons/grid.svg" }
+                    IconTile { glyph: "Icons/bell.svg" }
+                }
+
+                row {
+                    text "Good morning, " { style: display }
+                    text "Rehan" { style: display, color: accent }
+                    text "." { style: display }
+                }
+
+                // Alerts carousel
+                scroll {
+                    direction: horizontal
+                    row {
+                        gap: md
+                        HeroCard {
+                            heading: "Identity verification required"
+                            body: "Upload your ID and business documents to unlock rental access."
+                        }
+                        HeroCard {
+                            tone: grey
+                            heading: "Payments overdue"
+                            body: "40 000 Ft for your Duotts C29 Max was due on 12 Nov. Pay now to keep riding."
+                        }
+                    }
+                }
+
+                // Current rental
+                card {
+                    elevation: none
+                    radius: xl
+                    padding: lg
+                    gap: lg
+
+                    row {
+                        width: fill
+                        align: center
+                        column {
+                            width: fill
+                            gap: sm
+                            StatusPill { label: "Waiting pickup" }
+                            text "Duotts" { color: accent }
+                            text "C29 Max" { style: heading, color: hero }
+                        }
+                        image "Images/bike.png" { width: 139, height: 90, fit: contain }
+                    }
+                    column {
+                        width: fill
+                        padding: md
+                        radius: md
+                        background: background
+                        text "Pickup appointment: Sat 14 Nov, 11:30 confirmed."
+                    }
+                    row {
+                        width: fill
+                        gap: sm
+                        AppButton { label: "Show pickup QR" }
+                        AppButton { label: "Directions", tone: outline }
+                    }
+                }
+
+                // Distance chart
+                card {
+                    elevation: none
+                    radius: xl
+                    padding: lg
+                    gap: lg
+
+                    row {
+                        width: fill
+                        column {
+                            width: fill
+                            gap: xs
+                            text "Distance ridden" { style: title_lg }
+                            text "Last 6 months, from your bike’s GPS" { style: caption, color: muted }
+                        }
+                        stack {
+                            width: 36
+                            height: 36
+                            radius: md
+                            background: mint_soft
+                            align: center
+                            icon "Icons/arrow_right.svg" { size: 18, color: secondary }
+                        }
+                    }
+                    row {
+                        align: center
+                        gap: md
+                        text "1 284 km" { style: heading }
+                        text "6-month total" { style: caption, color: accent }
+                    }
+                    row {
+                        width: fill
+                        height: 150
+                        gap: sm
+                        align: end
+                        Bar { month: "Jun", level: 78 }
+                        Bar { month: "Jul", level: 45 }
+                        Bar {
+                            month: "Aug"
+                            level: 96
+                            state: active
+                            Tooltip { label: "312 km" }
+                        }
+                        Bar { month: "Sep", level: 75 }
+                        Bar { month: "Oct", level: 48 }
+                    }
+                }
+            }
+        }
+
+        // Bottom navigation
+        row {
+            width: fill
+            align: center
+            padding_x: sm
+            padding_y: sm
+            background: surface
+
+            NavItem { glyph: "Icons/home.svg", label: "Overview", state: active }
+            NavItem { glyph: "Icons/bike.svg", label: "My Rentals" }
+            stack {
+                width: 60
+                height: 60
+                radius: pill
+                background: primary
+                elevation: md
+                align: center
+                icon "Icons/plus.svg" { size: 26, color: text }
+            }
+            NavItem { glyph: "Icons/box.svg", label: "Courier+" }
+            NavItem { glyph: "Icons/user.svg", label: "Profile" }
+        }
+    }
+}

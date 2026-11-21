@@ -1,0 +1,8 @@
+# E-Renty: first ERA demo, built from the owner's mockups.
+[project]
+name    = "erenty"
+id      = "dev.era.erenty"
+version = "0.1.0"
+
+[era]
+edition = "2026"

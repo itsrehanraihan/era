@@ -80,7 +80,13 @@ fn image_props_take_asset_paths() {
 }
 
 fn showcase_dump() -> String {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/showcase");
+    example_dump("showcase")
+}
+
+fn example_dump(name: &str) -> String {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples")
+        .join(name);
     let (project, d) = era_project::load_project(&root);
     assert!(d.is_empty(), "{d:#?}");
     let (app, d) = build_project(&project.unwrap());
@@ -88,11 +94,21 @@ fn showcase_dump() -> String {
     era_ir::dump::dump(&app.unwrap())
 }
 
-/// Snapshot of the showcase IR. Regenerate with `UPDATE_SNAPSHOTS=1 cargo test`.
+/// Snapshots of the example IRs. Regenerate with `UPDATE_SNAPSHOTS=1 cargo test`.
 #[test]
 fn showcase_ir_snapshot() {
-    let dump = showcase_dump();
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/snapshots/showcase.ir");
+    snapshot("showcase");
+}
+
+#[test]
+fn erenty_ir_snapshot() {
+    snapshot("erenty");
+}
+
+fn snapshot(name: &str) {
+    let dump = example_dump(name);
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/snapshots/{name}.ir"));
     if std::env::var_os("UPDATE_SNAPSHOTS").is_some() {
         std::fs::write(&path, &dump).unwrap();
     }
