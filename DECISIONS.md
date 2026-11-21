@@ -60,11 +60,11 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 
 ## Accepted in M1
 
-- **D-020 (Proposed) Skin is optional.** If `app` has no `skin:`, a built-in
+- **D-020 (Accepted 2026-11-21) Skin is optional.** If `app` has no `skin:`, a built-in
   neutral default skin applies. *Why:* the brief says a project may contain
   only `era.toml` and `src/app.era`. Until M3 defines the default skin, the
-  `era new` template avoids tokens and uses plain numbers. **Needs owner
-  approval before M3.**
+  `era new` template avoids tokens and uses plain numbers. The default
+  skin's values are listed in `docs/SKIN_SPEC.md`.
 - **D-021 Dependencies.** `toml` and `serde` parse `era.toml` with byte
   spans, so errors show line and column. `tempfile` is a test-only
   dependency. Diagnostics rendering is written by hand, with no extra
@@ -92,6 +92,40 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   M3 checks token lookup, property names and types, and asset existence.
 - **D-028 One `era_syntax` crate** holds the lexer, parser, AST and
   structural checks. It has no new external dependencies.
+
+## Accepted in M3
+
+- **D-029 Components and layouts are expanded inline in the UI IR.** Each
+  expanded element records its `origin` chain, such as
+  `<Palette>Swatch>`. *Why:* this gives one simple tree for every backend,
+  and resolved values never depend on call sites. Revisit if generated
+  code grows too large.
+- **D-030 Defaults are resolved in the IR, not in backends.** Examples are
+  `text` style `body`, color `text`, and the `card` surface. Preview and
+  Android therefore cannot disagree. See the table in `docs/UI_SPEC.md`.
+- **D-031 Components are configured only through their props and
+  variants.** Style properties cannot be set on a component from outside
+  (E2143). *Why:* variants are the controlled way to change a component's
+  look, as the brief asks.
+- **D-032 Font resolution.** `font: "Inter"` needs at least one file in
+  `Assets/Fonts/` named `Inter.ttf` or `Inter-*.ttf` (or `.otf`).
+  `"system"` uses the platform font.
+- **D-033 Asset types come from the element.** `image` takes
+  png/jpg/jpeg/webp and `icon` takes svg, whatever folder the file is in.
+  The icon conversion question (Q-03) is still open for M5.
+- **D-034 `start` is optional when there is exactly one screen.**
+- **D-035 Every component and layout is checked on its own as well**
+  (validation mode, with placeholder props and every `when` block
+  checked). Unused components are therefore still checked, and an error is
+  reported once, not once per use.
+- **D-036 Semantic analysis runs only when syntax and structure are
+  error-free**, so a broken file does not cause a flood of follow-on
+  errors.
+- **D-037 An optional prop with no value is "absent".** A property set
+  from it is left unset. An `image` or `icon` showing it is left out. A
+  `text` showing it is empty.
+- **D-038 A `scroll` whose single `slot` is filled with several elements**
+  wraps them in a `column` automatically.
 
 ## Open questions
 

@@ -9,6 +9,8 @@ use era_syntax::{DeclKind, File, SourceKind, SourceUnit, check_structure, parse}
 
 pub struct SyntaxReport {
     pub diagnostics: Vec<Diagnostic>,
+    /// The UI IR, when syntax, structure and semantics are all error-free.
+    pub app: Option<era_ir::ir::App>,
     /// Number of declarations per kind, plus distinct skin names.
     pub counts: DeclCounts,
 }
@@ -70,6 +72,24 @@ pub fn check_sources(project: &Project) -> SyntaxReport {
         .collect();
     diagnostics.extend(check_structure(&units, ENTRY_FILE));
 
+    // Semantic analysis only runs on a structurally valid program, so
+    // broken syntax does not produce follow-on noise.
+    let mut app = None;
+    if !diagnostics.iter().any(Diagnostic::is_error) {
+        let files: Vec<era_ir::ParsedFile> = parsed
+            .iter()
+            .map(|(path, source, kind, file)| era_ir::ParsedFile {
+                path,
+                source,
+                kind: *kind,
+                file,
+            })
+            .collect();
+        let (built, diags) = era_ir::build_app(project, &files);
+        diagnostics.extend(diags);
+        app = built;
+    }
+
     let mut counts = DeclCounts::default();
     let mut skin_names = BTreeSet::new();
     for (_, _, _, file) in &parsed {
@@ -89,6 +109,15 @@ pub fn check_sources(project: &Project) -> SyntaxReport {
 
     SyntaxReport {
         diagnostics,
+        app,
         counts,
     }
+}
+
+/// Count IR elements, for the summary line.
+pub fn element_count(app: &era_ir::ir::App) -> usize {
+    fn walk(e: &era_ir::ir::Element) -> usize {
+        1 + e.children.iter().map(walk).sum::<usize>()
+    }
+    app.screens.iter().map(|s| walk(&s.root)).sum()
 }

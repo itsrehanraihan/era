@@ -8,8 +8,8 @@ all pass.
 |---|---|---|
 | M0 | Inspect, decide, document | **Done** (syntax approved 2026-11-21) |
 | M1 | `era new`, `era.toml`, project discovery, `era check` (structure) | **Done** |
-| M2 | Lexer, parser and AST with spans; parser tests | **Done; awaiting review** |
-| M3 | Skin tokens, semantic checks, UI IR, asset validation | Not started |
+| M2 | Lexer, parser and AST with spans; parser tests | **Done** |
+| M3 | Skin tokens, semantic checks, UI IR, asset validation | **Done; awaiting review** |
 | M4 | Preview from the UI IR | Not started |
 | M5 | Kotlin/Compose codegen, Android host project, debug APK | Not started |
 | M6 | Button events, minimal state, navigation | Not started |
@@ -81,13 +81,41 @@ Known limitations:
 - If `era.toml` is invalid, source files are not parsed in that run. Fix
   the manifest first.
 
-## Next smallest task (M3)
+## M3 deliverables
 
-1. Settle D-020 (optional skin with a built-in default) with the owner.
-2. Create the `era_ir` crate: typed skin tokens, merged across files, with
-   validation of required colors, ranges and light/dark key parity.
-3. Add a property table for each primitive, with value types and token
-   lookup by property type, and "did you mean" suggestions.
-4. Resolve component, layout and screen references, `start`, props and
-   variants, and asset paths.
-5. Build a deterministic UI IR with snapshot tests.
+- The `era_ir` crate:
+  - typed skins merged across files, with validation of sections, value
+    types, required colors, the `body` style, light/dark parity, weights
+    and font files
+  - the built-in default skin (D-020)
+  - a property table for every primitive (`schema.rs`)
+  - token lookup by property type, with "did you mean" suggestions
+  - component and layout expansion with props, variants (`when`) and
+    slots
+  - asset existence and type checks
+  - the platform-independent UI IR (`ir.rs`), in which every element has
+    stable ids and an origin chain, and default values are resolved
+- `era check` builds the IR and prints a summary. `era check --ir` prints
+  the full resolved tree.
+- The showcase gains image and icon examples (`Assets/Images/hero.png`,
+  `Assets/Icons/star.svg`).
+- A snapshot test of the showcase IR, regenerated with
+  `UPDATE_SNAPSHOTS=1 cargo test`, plus a determinism test.
+- Diagnostic codes E2001–E2152 are documented.
+
+Known limitations:
+- Dark mode is parsed and validated, but which mode applies, and when,
+  is for the backends (P1).
+- SVG icons are only checked to exist and to have the right extension.
+  Converting them to native vectors is Q-03, due in M5.
+- Navigation, events and state are not part of the IR yet (M6).
+- Text styles are not checked against the fonts' actual weights.
+
+## Next smallest task (M4)
+
+1. Decide the generated Kotlin package layout and pin the
+   Compose/Kotlin versions (record them in DECISIONS).
+2. Create the `era_codegen_compose` crate: UI IR → Kotlin/Compose
+   source, with deterministic output and snapshot tests.
+3. Add a Compose Desktop preview host (Gradle) and `era preview`, with a
+   `--png` headless mode that renders each screen to an image.

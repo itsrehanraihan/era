@@ -153,9 +153,47 @@ pub fn line_col(src: &str, offset: usize) -> (usize, usize) {
     (line, col)
 }
 
+/// Edit distance between two short ASCII-ish strings.
+fn levenshtein(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut cur = vec![i + 1; b.len() + 1];
+        for (j, cb) in b.iter().enumerate() {
+            let cost = usize::from(ca != *cb);
+            cur[j + 1] = (prev[j] + cost).min(prev[j + 1] + 1).min(cur[j] + 1);
+        }
+        prev = cur;
+    }
+    prev[b.len()]
+}
+
+/// The closest candidate to `name`, if it is plausibly a typo
+/// (distance at most 1 for short names, 2 otherwise). Ties keep the first.
+pub fn suggest<'a>(name: &str, candidates: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
+    let limit = if name.chars().count() <= 3 { 1 } else { 2 };
+    candidates
+        .into_iter()
+        .map(|c| (levenshtein(name, c), c))
+        .filter(|(d, _)| *d > 0 && *d <= limit)
+        .min_by_key(|(d, _)| *d)
+        .map(|(_, c)| c)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn suggestions() {
+        let c = ["gap", "padding", "background", "md", "lg"];
+        assert_eq!(suggest("gapp", c), Some("gap"));
+        assert_eq!(suggest("backgrond", c), Some("background"));
+        assert_eq!(suggest("mdd", c), Some("md"));
+        assert_eq!(suggest("xl", c), None); // 2 edits away from a 2-letter name
+        assert_eq!(suggest("gap", c), None); // exact match is not a suggestion
+        assert_eq!(suggest("zzzzzz", c), None);
+    }
 
     #[test]
     fn line_col_counts_from_one() {

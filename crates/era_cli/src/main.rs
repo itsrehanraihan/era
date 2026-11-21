@@ -17,6 +17,7 @@ USAGE:
 COMMANDS:
     new <name>       Create a project in a new folder <name>
     check [path]     Validate the project containing [path] (default: current folder)
+          --ir       Also print the resolved UI IR
     preview          Preview screens             (planned: M4)
     build android    Build an Android debug APK  (planned: M5)
     --version        Print version
@@ -40,8 +41,15 @@ fn main() -> ExitCode {
         }
         ["new", name] => cmd_new(Path::new(name)),
         ["new"] => usage_error("`era new` needs a project name, e.g. `era new my_app`"),
-        ["check"] => cmd_check(None),
-        ["check", path] => cmd_check(Some(Path::new(path))),
+        ["check", rest @ ..] if rest.len() <= 2 => {
+            let ir = rest.contains(&"--ir");
+            let paths: Vec<&&str> = rest.iter().filter(|a| **a != "--ir").collect();
+            match paths.as_slice() {
+                [] => cmd_check(None, ir),
+                [p] if !p.starts_with('-') => cmd_check(Some(Path::new(p)), ir),
+                _ => usage_error("usage: era check [path] [--ir]"),
+            }
+        }
         [cmd @ ("preview" | "build"), ..] => {
             eprintln!("error: `era {cmd}` is not implemented yet (see MILESTONES.md)");
             ExitCode::from(EXIT_USAGE)
@@ -79,7 +87,7 @@ fn cmd_new(dir: &Path) -> ExitCode {
     }
 }
 
-fn cmd_check(path: Option<&Path>) -> ExitCode {
+fn cmd_check(path: Option<&Path>, print_ir: bool) -> ExitCode {
     let start: PathBuf = match path {
         Some(p) => p.to_path_buf(),
         None => match std::env::current_dir() {
@@ -133,12 +141,27 @@ fn cmd_check(path: Option<&Path>) -> ExitCode {
         project.count(|k| matches!(k, FileKind::Asset { .. })),
         warnings,
     );
-    if let Some(report) = &syntax {
-        println!("Declarations: {}", report.counts.summary());
+    let Some(report) = &syntax else {
+        return ExitCode::SUCCESS;
+    };
+    println!("Declarations: {}", report.counts.summary());
+    if let Some(app) = &report.app {
+        let skin = if app.skin.builtin {
+            "built-in default skin".to_string()
+        } else {
+            format!("skin `{}`", app.skin.name)
+        };
+        println!(
+            "UI IR: {} screen(s), {} element(s), {skin}, {} asset reference(s), start screen `{}`",
+            app.screens.len(),
+            check::element_count(app),
+            app.assets.len(),
+            app.start
+        );
+        if print_ir {
+            print!("\n{}", era_ir::dump::dump(app));
+        }
     }
-    println!(
-        "note: structure and syntax are checked; skin tokens, properties and assets are checked from M3"
-    );
     ExitCode::SUCCESS
 }
 

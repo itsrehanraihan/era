@@ -101,7 +101,7 @@ fn check_showcase_example() {
     assert!(out.status.success(), "{}", stderr(&out));
     assert!(
         stdout(&out).starts_with(
-            "Checked `showcase` (dev.era.showcase): 5 UI file(s), 3 skin file(s), 0 asset(s), 0 warning(s)"
+            "Checked `showcase` (dev.era.showcase): 5 UI file(s), 3 skin file(s), 2 asset(s), 0 warning(s)"
         ),
         "{}",
         stdout(&out)
@@ -184,6 +184,73 @@ fn check_reports_structure_errors_across_files() {
     assert!(
         err.contains("check failed: 3 error(s), 0 warning(s)"),
         "{err}"
+    );
+}
+
+#[test]
+fn new_project_uses_default_skin() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let out = era_in(&project, &["check"]);
+    assert!(
+        stdout(&out).contains("UI IR: 1 screen(s), 3 element(s), built-in default skin"),
+        "{}",
+        stdout(&out)
+    );
+}
+
+#[test]
+fn check_reports_semantic_errors_with_suggestions() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let app = project.join("src/app.era");
+    let src = std::fs::read_to_string(&app).unwrap();
+    std::fs::write(
+        &app,
+        src.replace("gap: 8", "gapp: md")
+            .replace("padding: 24", "padding: hueg"),
+    )
+    .unwrap();
+
+    let out = era_in(&project, &["check"]);
+    assert_eq!(out.status.code(), Some(1));
+    let err = stderr(&out);
+    assert!(
+        err.contains("error[E2120]: `column` has no property `gapp`"),
+        "{err}"
+    );
+    assert!(err.contains("= help: did you mean `gap`?"), "{err}");
+    assert!(
+        err.contains("error[E2132]: unknown spacing token `hueg`"),
+        "{err}"
+    );
+    assert!(
+        err.contains("the default skin defines: lg, md, sm, xl, xs"),
+        "{err}"
+    );
+}
+
+#[test]
+fn check_ir_flag_prints_the_tree() {
+    let out = era_in(&repo_root(), &["check", "examples/showcase", "--ir"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let text = stdout(&out);
+    assert!(
+        text.contains("screen Home title=\"Home\" background=background(#FFFFFF)"),
+        "{text}"
+    );
+    assert!(
+        text.contains("icon \"Icons/star.svg\" {color=primary(#FF6B35) size=20}"),
+        "{text}"
+    );
+    assert!(
+        era_in(&repo_root(), &["check", "--ir", "examples/showcase"])
+            .status
+            .success()
+    );
+    assert_eq!(
+        era_in(&repo_root(), &["check", "--bogus"]).status.code(),
+        Some(2)
     );
 }
 

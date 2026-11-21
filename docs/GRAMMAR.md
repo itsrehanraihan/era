@@ -2,8 +2,8 @@
 
 Status: **approved 2026-11-21. Implemented in M2** (`crates/era_syntax`).
 `era check` parses every `.era` and `.ers` file with this grammar and runs
-the structural rules in §4. The token and property meaning of values
-(§5) is checked from M3.
+the structural rules in §4. Name resolution (§5) is implemented in M3
+(`crates/era_ir`).
 
 ## 1. Design idea: one node shape, many meanings
 

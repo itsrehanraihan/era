@@ -71,3 +71,53 @@ fail. `W` is a warning.
 | E1216 | Wrong file kind (`skin` in `.era`, or UI in `.ers`) |
 | E1217 | A declaration name is not PascalCase |
 | E1218 | A prop, variant or option name is not snake_case |
+
+## Skins (M3)
+
+| Code | Meaning |
+|---|---|
+| E2001 | Unknown skin section (with a suggestion) |
+| E2002 | Unexpected value after a section name (only `colors dark` is allowed) |
+| E2003 | A token is defined twice, possibly across files (cites the first) |
+| E2004 | A token value has the wrong type or is out of range |
+| E2005 | Unexpected item or key in a section or text style |
+| E2006 | A token name is not snake_case |
+| E2007 | A text style has no `size` |
+| E2008 | A required color or the `body` text style is missing |
+| E2009 | `colors dark` keys don't match `colors` |
+| E2010 | No font files for the font family |
+
+## Meaning (M3)
+
+| Code | Meaning |
+|---|---|
+| E2101 | Unknown skin in `app` |
+| E2102 | Unknown `app` property |
+| E2103 | `skin`/`start` value is not a name |
+| E2104 | The project has no screens |
+| E2105 | Several screens and no `start` |
+| E2106 | `start` names an unknown screen |
+| E2110 | A layout used somewhere other than a screen's root |
+| E2111 | A screen used as an element |
+| E2112 | Unknown element (suggests primitives, or components and layouts) |
+| E2113 | A value given to an element that takes none |
+| E2114 | Unknown prop used by name (or unquoted text) |
+| E2115 | An element's value has the wrong kind |
+| E2116 | An element that needs a value has none |
+| E2120 | Unknown property (with a suggestion) |
+| E2121 | A property or prop is set twice |
+| E2122 | Children inside an element that cannot have any |
+| E2123 | `scroll` does not have exactly one child |
+| E2130 | A prop's type doesn't fit where it is used |
+| E2131 | A prop has the same name as a token it would hide |
+| E2132 | Unknown skin token (suggests one, or lists them all) |
+| E2133 | A value has the wrong type for a property or prop |
+| E2140 | A component uses itself (directly or indirectly) |
+| E2141 | A component given a value instead of named props |
+| E2142 | Unknown variant option |
+| E2143 | A component has no such prop or variant |
+| E2144 | Children given to a component without a `slot` |
+| E2145 | A required prop is missing |
+| E2150 | An asset file does not exist |
+| E2151 | An invalid asset path (absolute, `..`, backslashes) |
+| E2152 | The wrong file type for `image` or `icon` |

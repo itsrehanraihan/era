@@ -25,6 +25,7 @@ name = "era_cli"
 version = "0.0.1"
 dependencies = [
  "era_diagnostics",
+ "era_ir",
  "era_project",
  "era_syntax",
  "tempfile",
@@ -33,6 +34,16 @@ dependencies = [
 [[package]]
 name = "era_diagnostics"
 version = "0.0.1"
+
+[[package]]
+name = "era_ir"
+version = "0.0.1"
+dependencies = [
+ "era_diagnostics",
+ "era_project",
+ "era_syntax",
+ "tempfile",
+]
 
 [[package]]
 name = "era_project"
