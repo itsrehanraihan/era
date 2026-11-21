@@ -7,8 +7,8 @@ all pass.
 | # | Milestone | Status |
 |---|---|---|
 | M0 | Inspect, decide, document | **Done** (syntax approved 2026-11-21) |
-| M1 | `era new`, `era.toml`, project discovery, `era check` (structure) | **Done; awaiting review** |
-| M2 | Lexer, parser and AST with spans; parser tests | Not started |
+| M1 | `era new`, `era.toml`, project discovery, `era check` (structure) | **Done** |
+| M2 | Lexer, parser and AST with spans; parser tests | **Done; awaiting review** |
 | M3 | Skin tokens, semantic checks, UI IR, asset validation | Not started |
 | M4 | Preview from the UI IR | Not started |
 | M5 | Kotlin/Compose codegen, Android host project, debug APK | Not started |
@@ -57,11 +57,37 @@ Known limitations:
 - Output has no colour.
 - `era new` takes a folder name; the `id` defaults to `dev.era.<name>`.
 
-## Next smallest task (M2)
+## M2 deliverables
 
-1. Create the `era_syntax` crate with a lexer (tokens, spans, newline
-   handling) and lexer tests.
-2. Add the parser for the uniform node grammar, with success and failure
-   tests.
-3. Make `era check` parse every `.era` and `.ers` file and report syntax
-   errors with snippets.
+- The `era_syntax` crate:
+  - a lexer producing typed tokens (strings with escapes, `#RRGGBB(AA)`
+    colors, signed numbers) with byte spans
+  - a recovering recursive-descent parser for the uniform node grammar
+  - an AST in which every node keeps its source span
+  - structural checks (D-027)
+- An asset reference collector (`image`/`icon` literal paths), ready for
+  M3 validation.
+- `era check` now parses every `.era` and `.ers` file, runs the
+  structural checks, and prints a declaration summary.
+- Friendly errors for the brief's original draft syntax (`use skin`, a
+  screen nested in `app`).
+- Diagnostic codes E1001–E1218 are documented in `docs/DIAGNOSTICS.md`.
+
+Known limitations:
+- Property names, token names and value types are not validated yet. For
+  example, `gapp: md` passes M2 and is caught in M3.
+- `start: Home` is not yet checked against the declared screens (M3).
+- Asset files referenced in source are not yet checked to exist (M3).
+- If `era.toml` is invalid, source files are not parsed in that run. Fix
+  the manifest first.
+
+## Next smallest task (M3)
+
+1. Settle D-020 (optional skin with a built-in default) with the owner.
+2. Create the `era_ir` crate: typed skin tokens, merged across files, with
+   validation of required colors, ranges and light/dark key parity.
+3. Add a property table for each primitive, with value types and token
+   lookup by property type, and "did you mean" suggestions.
+4. Resolve component, layout and screen references, `start`, props and
+   variants, and asset paths.
+5. Build a deterministic UI IR with snapshot tests.

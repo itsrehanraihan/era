@@ -7,8 +7,10 @@ ERA is a design-first language and toolchain for native apps. The
 compiler is written in Rust and generates native Android UI (Kotlin and
 Jetpack Compose), with no WebView.
 
-> **Status: M0, design phase.** The syntax is a draft under review. The
-> `era` CLI is a stub, and no compiler features work yet.
+> **Status: M2 complete.** `era new` and `era check` work. `era check`
+> validates `era.toml`, project layout, syntax and structural rules.
+> Design-token and property validation (M3), preview (M4) and Android
+> builds (M5) are not implemented yet.
 
 See `MILESTONES.md`, `DECISIONS.md` and `docs/`.
 

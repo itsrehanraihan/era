@@ -78,6 +78,21 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   mis-cased folder or file is a warning. A missing `src/app.era`, an
   invalid `era.toml` or a non-UTF-8 source file is an error.
 
+## Accepted in M2
+
+- **D-025 Negative numbers.** `-0.5` is a number literal, needed for
+  `tracking`. This fixes an inconsistency in the M0 draft, which said
+  "no sign" while its own skin example used `-0.5`.
+- **D-026 Keywords as property names.** A keyword followed by `:` is a
+  property or token name (`skin: Studio`, `none: 0`). This is required by
+  the approved syntax itself.
+- **D-027 Structure is checked in M2; meaning is checked in M3.** M2 checks
+  where forms may appear, root and slot counts, variant and `when`
+  consistency, naming conventions, the single `app` and duplicate names.
+  M3 checks token lookup, property names and types, and asset existence.
+- **D-028 One `era_syntax` crate** holds the lexer, parser, AST and
+  structural checks. It has no new external dependencies.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is

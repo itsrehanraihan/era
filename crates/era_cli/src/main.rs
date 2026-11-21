@@ -1,5 +1,7 @@
 //! `era` command-line entry point.
 
+mod check;
+
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -103,7 +105,11 @@ fn cmd_check(path: Option<&Path>) -> ExitCode {
         return ExitCode::from(EXIT_USAGE);
     };
 
-    let (project, diags) = load_project(&root);
+    let (project, mut diags) = load_project(&root);
+    let syntax = project.as_ref().map(check::check_sources);
+    if let Some(report) = &syntax {
+        diags.extend(report.diagnostics.iter().cloned());
+    }
     for d in &diags {
         eprint!("{}", render_with_source(d, &root));
         eprintln!();
@@ -127,7 +133,12 @@ fn cmd_check(path: Option<&Path>) -> ExitCode {
         project.count(|k| matches!(k, FileKind::Asset { .. })),
         warnings,
     );
-    println!("note: only project structure is checked; syntax and design checks arrive in M2-M3");
+    if let Some(report) = &syntax {
+        println!("Declarations: {}", report.counts.summary());
+    }
+    println!(
+        "note: structure and syntax are checked; skin tokens, properties and assets are checked from M3"
+    );
     ExitCode::SUCCESS
 }
 

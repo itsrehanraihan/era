@@ -106,6 +106,85 @@ fn check_showcase_example() {
         "{}",
         stdout(&out)
     );
+    assert!(stdout(&out).contains("Declarations: 1 app, 1 screen, 1 layout, 2 components, 1 skin"));
+}
+
+fn new_project(tmp: &Path, name: &str) -> PathBuf {
+    assert!(era_in(tmp, &["new", name]).status.success());
+    tmp.join(name)
+}
+
+#[test]
+fn new_project_declarations_are_reported() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let out = era_in(&project, &["check"]);
+    assert!(
+        stdout(&out).contains("Declarations: 1 app, 1 screen, 0 layouts, 0 components, 0 skins"),
+        "{}",
+        stdout(&out)
+    );
+}
+
+#[test]
+fn check_reports_syntax_error_in_era_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    std::fs::create_dir_all(project.join("src/Screens")).unwrap();
+    std::fs::write(
+        project.join("src/Screens/About.era"),
+        "screen About {\n    column {\n        gap: 16px\n        text \"About\"\n    }\n}\n",
+    )
+    .unwrap();
+
+    let out = era_in(&project, &["check"]);
+    assert_eq!(out.status.code(), Some(1));
+    let err = stderr(&out);
+    assert!(
+        err.contains("error[E1006]: unexpected `px` after number"),
+        "{err}"
+    );
+    assert!(err.contains("--> src/Screens/About.era:3:14"), "{err}");
+    assert!(err.contains("3 |         gap: 16px"), "{err}");
+    assert!(err.contains("ERA numbers have no units"), "{err}");
+}
+
+#[test]
+fn check_reports_structure_errors_across_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    std::fs::write(
+        project.join("src/More.era"),
+        "screen Home { column {} }\nlayout Frame { column {} }\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(project.join("Skins")).unwrap();
+    std::fs::write(
+        project.join("Skins/theme.ers"),
+        "skin Studio { primary: #FF6B35 }\n",
+    )
+    .unwrap();
+
+    let out = era_in(&project, &["check"]);
+    assert_eq!(out.status.code(), Some(1));
+    let err = stderr(&out);
+    assert!(
+        err.contains("error[E1201]: property `primary` is not allowed directly in `skin`"),
+        "{err}"
+    );
+    assert!(
+        err.contains("error[E1209]: layout `Frame` has no `slot`"),
+        "{err}"
+    );
+    assert!(
+        err.contains("error[E1215]: `Home` is already declared as a screen"),
+        "{err}"
+    );
+    assert!(err.contains("first declared at src/app.era:5:8"), "{err}");
+    assert!(
+        err.contains("check failed: 3 error(s), 0 warning(s)"),
+        "{err}"
+    );
 }
 
 #[test]

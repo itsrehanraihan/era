@@ -24,6 +24,18 @@ generated Kotlin and Jetpack Compose.
 - Do not start out-of-scope work: iOS, generics, macros, plugins,
   animations, networking, or an IDE.
 
+## Keep docs in sync (owner rule)
+Every change updates the docs it affects, in the same commit:
+- Syntax or grammar changes go in `docs/GRAMMAR.md`, plus a `DECISIONS.md`
+  entry.
+- New or changed diagnostics go in `docs/DIAGNOSTICS.md`.
+- CLI behaviour or project layout goes in `docs/ERA_SPEC.md` and
+  `README.md`.
+- Skins and tokens go in `docs/SKIN_SPEC.md`. UI primitives go in
+  `docs/UI_SPEC.md`.
+- Milestone progress, deliverables and known limitations go in
+  `MILESTONES.md`.
+
 ## Checks before every commit
 ```bash
 cargo fmt --all -- --check

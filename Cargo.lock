@@ -26,6 +26,7 @@ version = "0.0.1"
 dependencies = [
  "era_diagnostics",
  "era_project",
+ "era_syntax",
  "tempfile",
 ]
 
@@ -41,6 +42,13 @@ dependencies = [
  "serde",
  "tempfile",
  "toml",
+]
+
+[[package]]
+name = "era_syntax"
+version = "0.0.1"
+dependencies = [
+ "era_diagnostics",
 ]
 
 [[package]]
