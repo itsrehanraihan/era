@@ -27,6 +27,23 @@ screen Home {
             Swatch { name: "danger",    color: danger }
         }
 
+        // Images and icons
+        text "Media" { style: heading }
+        row {
+            gap: md
+            align: center
+            image "Images/hero.png" { width: 96, height: 96, radius: lg, clip: true }
+            column {
+                gap: xs
+                row {
+                    gap: xs
+                    icon "Icons/star.svg" { size: 20, color: primary }
+                    text "Featured" { style: title }
+                }
+                text "Images and icons come from Assets/" { style: caption, color: muted }
+            }
+        }
+
         divider
 
         // Button variants

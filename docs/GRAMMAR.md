@@ -1,7 +1,9 @@
-# ERA Grammar — Visual MVP (DRAFT, awaiting approval)
+# ERA Grammar — Visual MVP
 
-Status: **proposal**. Nothing here is implemented yet. Changes from the
-starter brief are listed in `DECISIONS.md` (D-007 onward) and need approval.
+Status: **approved 2026-11-21. Implemented in M2** (`crates/era_syntax`).
+`era check` parses every `.era` and `.ers` file with this grammar and runs
+the structural rules in §4. Name resolution (§5) is implemented in M3
+(`crates/era_ir`).
 
 ## 1. Design idea: one node shape, many meanings
 
@@ -31,12 +33,16 @@ Only a handful of forms are special: top-level declarations, `prop`,
 | Comment | `//` to end of line | `// hero section` |
 | Identifier | `[A-Za-z_][A-Za-z0-9_]*` | `column`, `primary`, `AppButton` |
 | String | `"..."`, escapes `\" \\ \n \t \u{1F600}` | `"Hello"` |
-| Number | `123`, `1.5` (no sign in MVP; no units) | `16`, `1.25` |
+| Number | `123`, `1.5`, `-0.5`. No units: `16px` is error E1006 | `16`, `-0.5` |
 | Color | `#RGB`, `#RRGGBB`, `#RRGGBBAA` | `#FF6B35` |
 | Punctuation | `{ } : , \| = ?` | |
 | Newline | significant as a separator (see below) | |
 
 **Keywords:** `app skin screen layout component prop variant when is slot true false none`
+
+A keyword directly followed by `:` is read as a property or token name,
+so `skin: Studio` and `elevation { none: 0 }` work (D-026). A keyword
+cannot be used as a declaration, prop or variant name.
 
 **Naming convention (enforced by `era check`):**
 - `PascalCase`: user declarations (screens, components, layouts, skins).
@@ -73,7 +79,7 @@ item          = property
               | "slot"
               | node ;
 
-property      = IDENT ":" value ;                   (* IDENT followed by ':' *)
+property      = WORD ":" value ;                    (* WORD = IDENT or keyword, followed by ':' *)
 node          = IDENT [ argument ] [ block ] ;      (* IDENT NOT followed by ':' *)
 argument      = STRING | NUMBER | COLOR | IDENT ;    (* same line as the node name *)
 
@@ -141,3 +147,20 @@ error[E0201]: unknown property `gapp` on `column`
 There are no expressions, operators, string interpolation, loops,
 functions, generics, imports, modules or inheritance. Events and state
 (`on_press`, `state`) are reserved for M6 and will be specified then.
+
+## 8. Implementation notes (M2)
+
+- **Error recovery.** A broken item is skipped up to the next newline,
+  `,` or `}`. A broken declaration is skipped up to the next top-level
+  keyword. One run therefore reports every independent mistake.
+- **No error cascades.** Invalid input such as `16px` or `#12` is
+  reported once by the lexer. The parser then accepts it silently.
+- **Hints for draft syntax.** `use skin "..."` gives E1108, which explains
+  `skin: Name`. A `screen` nested inside `app` gives E1104.
+- **Ordering.** Diagnostics within a file are sorted by position. Project
+  files are checked with `src/app.era` first, so "first declared at"
+  points at the entry file.
+- **Asset references.** `era_syntax::asset_references` collects literal
+  paths from `image` and `icon` arguments. Checking that those files exist
+  is done in M3.
+- All codes are listed in `docs/DIAGNOSTICS.md`.

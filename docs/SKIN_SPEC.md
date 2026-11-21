@@ -1,4 +1,6 @@
-# ERA Skins — Design Tokens (DRAFT, awaiting approval)
+# ERA Skins — Design Tokens
+
+Status: approved. Implemented in M3 (`crates/era_ir/src/skin.rs`).
 
 A **Skin** is a named set of typed design tokens. Skins live in
 `Skins/*.ers`, and the app selects one with `skin: Name`.
@@ -31,7 +33,7 @@ skin Studio {
     spacing   { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }
     radius    { sm: 8, md: 14, lg: 22, pill: 999 }
     border    { thin: 1, thick: 2 }
-    elevation { none: 0, sm: 1, md: 4, lg: 12 }
+    elevation { sm: 1, md: 4, lg: 12 }
 
     typography {
         font: "Inter"      // resolved from Assets/Fonts/, or "system"
@@ -66,6 +68,27 @@ are merged, which allows `colors.ers` and `typography.ers` to live
 separately. Defining the same token twice is an error that cites both
 locations.
 
+## Fonts (D-032)
+
+`font: "Inter"` needs at least one file named `Inter.ttf` or
+`Inter-*.ttf` (or `.otf`) in `Assets/Fonts/`. For example,
+`Inter-Regular.ttf` and `Inter-Bold.ttf` both count. `font: "system"`,
+or no `font` at all, uses the platform font.
+
+## Built-in default skin (D-020)
+
+The default skin is used when `app` has no `skin:`. It defines:
+
+| Category | Tokens |
+|---|---|
+| colors (light) | background #FFFFFF, surface #F5F5F5, text #1A1A1A, muted #6B6B6B, border #E0E0E0, primary #3D5AFE, on_primary #FFFFFF, secondary #37474F, success #2E7D32, warning #ED6C02, danger #D32F2F |
+| colors dark | background #121212, surface #1E1E1E, text #F2F2F2, muted #A0A0A0, border #333333, primary #8C9EFF, on_primary #000000, secondary #B0BEC5, success #81C784, warning #FFB74D, danger #E57373 |
+| spacing | xs 4, sm 8, md 16, lg 24, xl 32 |
+| radius | sm 6, md 12, lg 20, pill 999 |
+| border | thin 1, thick 2 |
+| elevation | sm 1, md 4, lg 12 |
+| typography | font `system`; display 36/700, heading 26/700, title 20/600, body 16/400, caption 13/500 |
+
 ## Validation performed by `era check` (M3)
 
 - Color literal format is valid.
@@ -75,3 +98,9 @@ locations.
 - Font files exist.
 - Every token referenced from UI code exists in the right category, with a
   "did you mean" suggestion when it does not.
+- Token names are snake_case.
+- Skins that the app does not use are validated too.
+- A token written with an invalid value is reported once. It is not
+  reported again as "missing".
+
+Error codes E2001–E2010 are listed in `docs/DIAGNOSTICS.md`.

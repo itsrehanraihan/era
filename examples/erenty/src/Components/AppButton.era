@@ -1,0 +1,21 @@
+component AppButton {
+    prop label: text
+    variant tone: solid | outline | disabled = solid
+
+    button label {
+        width: fill
+        style: button
+        radius: md
+        padding_y: md
+        background: primary
+        text_color: on_primary
+
+        when tone is outline {
+            background: surface
+            border_width: thin
+            border_color: border
+            text_color: text
+        }
+        when tone is disabled { background: disabled, text_color: muted }
+    }
+}

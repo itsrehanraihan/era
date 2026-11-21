@@ -1,4 +1,7 @@
-# ERA UI Model (DRAFT, awaiting approval)
+# ERA UI Model
+
+Status: approved. The property tables, defaults and component rules are
+implemented in M3 (`crates/era_ir/src/schema.rs` and `resolve.rs`).
 
 ## 1. Declarations
 
@@ -41,14 +44,14 @@ Common properties for every node (as applicable):
 
 | Property | Values |
 |---|---|
-| `width`, `height` | `fill`, `fit`, or a number |
+| `width`, `height` | `fill`, `fit`, or a number. In a row or column, `fill` along the main axis shares the free space with other `fill` siblings (D-041) |
 | `min_width max_width min_height max_height` | number |
-| `padding padding_x padding_y padding_top padding_bottom padding_start padding_end` | spacing token or number |
+| `padding padding_x padding_y padding_top padding_bottom padding_start padding_end` | spacing token, number, or `none` (0, D-039) |
 | `background` | color token, color literal, or `none` |
-| `border_width` | border token or number |
+| `border_width` | border token, number, or `none` |
 | `border_color` | color token or literal |
-| `radius` | radius token or number |
-| `elevation` | elevation token or number |
+| `radius` | radius token, number, or `none` |
+| `elevation` | elevation token, number, or `none` (flat) |
 | `clip` | `true` / `false` |
 | `align` (containers) | `start center end stretch` (cross axis) |
 | `distribute` (row/column) | `start center end between around evenly` (main axis) |
@@ -97,6 +100,15 @@ Rules:
   the brief asks.
 - If a component declares `slot`, nodes in the usage block fill it.
 - There is no inheritance and no component-in-component variants.
+- A component is configured only through its props and variants. Style
+  properties such as `padding` cannot be set on `AppButton { }` from
+  outside (D-031).
+- Props are named only. `AppButton "Go"` is an error (Q-02).
+- An optional prop (`prop badge: icon?`) with no value leaves the
+  property unset and leaves out any `image` or `icon` that shows it
+  (D-037).
+- A component may not use itself, directly or through other components.
+- Every component is checked even if no screen uses it.
 
 ## 4. Layouts and screens
 
@@ -125,6 +137,25 @@ A layout is used with exactly the same syntax as a component. The
 difference is semantic: a layout may only be a screen's root node, and it
 must contain one `slot`.
 
+## 4b. Defaults (D-030)
+
+These are applied in the IR when a property is not set. A token name in
+parentheses falls back to the number shown if the skin has no such
+token.
+
+| Element | Defaults |
+|---|---|
+| `text` | `style: body`, `color: text` |
+| `button` | `style: body`, `background: primary`, `text_color: on_primary`, `radius: md (12)`, `padding_x: md (16)`, `padding_y: sm (8)` |
+| `card` | `background: surface`, `radius: md (12)`, `padding: md (16)`, `elevation: sm (1)` |
+| `input` | `style: body`, `text_color: text`, `background: surface`, `border_width: thin (1)`, `border_color: border`, `radius: sm (6)`, `padding: sm (8)` |
+| `divider` | `color: border`, `thickness: 1` |
+| `icon` | `size: 24`, `color: text` |
+| `image` | `fit: cover` |
+| `scroll` | `direction: vertical` |
+| `grid` | `columns: 2` |
+| screen | background is the skin's `background` color; the root element fills the screen unless sized (D-043) |
+
 ## 5. UI IR (M3, platform-independent)
 
 The UI IR is the contract between the frontend and every backend:
@@ -132,10 +163,13 @@ Compose for preview and Android now, possibly SwiftUI later. It holds:
 
 - Fully resolved, typed values. Tokens are resolved, but each resolved
   value keeps its token name so backends can emit theme references.
-- Components expanded, or kept as reusable IR functions (decided in M3).
-- Stable node IDs derived from file plus path, never from memory
-  addresses.
+- Components and layouts are expanded inline (D-029). Each element lists
+  its `origin` chain.
+- Stable node IDs are paths: `Home/0/2` is a child-index path,
+  `Home/3:AppButton` is a component expansion, and `Home/slot/1` is slot
+  content.
 - No Android types.
 
-It is serializable, so it can be snapshot-tested, and ordered
-deterministically.
+It is ordered deterministically. `era check --ir` prints it as text,
+and `crates/era_ir/tests/snapshots/showcase.ir` is the snapshot of the
+showcase.

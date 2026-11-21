@@ -1,0 +1,13 @@
+component Badge {
+    prop count: text
+
+    stack {
+        width: 22
+        height: 22
+        radius: pill
+        background: warning
+        align: center
+
+        text count { style: badge, color: text }
+    }
+}

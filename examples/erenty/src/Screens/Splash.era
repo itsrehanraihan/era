@@ -1,0 +1,12 @@
+screen Splash {
+    title: "E-Renty"
+
+    stack {
+        width: fill
+        height: fill
+        background: brand
+        align: center
+
+        image "Images/logo.png" { width: 212, height: 32, fit: contain }
+    }
+}

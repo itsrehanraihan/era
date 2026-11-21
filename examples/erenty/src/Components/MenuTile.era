@@ -1,0 +1,20 @@
+// Illustrated shortcut in the menu grid. A `slot` after the label holds an
+// optional badge.
+component MenuTile {
+    prop art: image
+    prop name: text
+
+    column {
+        width: fill
+        align: center
+        gap: md
+
+        image art { width: 48, height: 38, fit: contain }
+        row {
+            align: center
+            gap: xs
+            text name { style: label }
+            slot
+        }
+    }
+}

@@ -1,0 +1,28 @@
+component SettingsRow {
+    prop glyph: icon
+    prop heading: text
+    prop detail: text
+
+    row {
+        width: fill
+        align: center
+        gap: md
+        padding_y: md
+
+        stack {
+            width: 44
+            height: 44
+            radius: md
+            background: background
+            align: center
+            icon glyph { size: 22, color: secondary }
+        }
+        column {
+            width: fill
+            gap: xs
+            text heading { style: title }
+            text detail { style: caption, color: muted }
+        }
+        icon "Icons/chevron_right.svg" { size: 20, color: muted }
+    }
+}

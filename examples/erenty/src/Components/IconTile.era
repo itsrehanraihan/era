@@ -1,0 +1,15 @@
+// Square floating button: back, menu and notification buttons.
+component IconTile {
+    prop glyph: icon
+
+    stack {
+        width: 44
+        height: 44
+        radius: md
+        background: surface
+        elevation: sm
+        align: center
+
+        icon glyph { size: 20, color: text }
+    }
+}

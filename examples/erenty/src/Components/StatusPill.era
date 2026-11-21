@@ -1,0 +1,15 @@
+component StatusPill {
+    prop label: text
+
+    row {
+        align: center
+        gap: sm
+        padding_x: md
+        padding_y: xs
+        radius: pill
+        background: info_soft
+
+        stack { width: 8, height: 8, radius: pill, background: info }
+        text label { style: caption_strong, color: info }
+    }
+}

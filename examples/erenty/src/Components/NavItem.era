@@ -1,0 +1,27 @@
+component NavItem {
+    prop glyph: icon
+    prop label: text
+    variant state: idle | active = idle
+
+    column {
+        width: fill
+        align: center
+        gap: xs
+
+        stack {
+            width: 44
+            height: 36
+            radius: md
+            align: center
+            background: none
+            when state is active { background: mint_soft }
+
+            icon glyph {
+                size: 22
+                color: muted
+                when state is active { color: secondary }
+            }
+        }
+        text label { style: caption, color: muted }
+    }
+}

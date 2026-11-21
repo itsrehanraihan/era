@@ -1,0 +1,35 @@
+// One month in the distance chart. `level` is the bar height in dp; the
+// optional slot above the bar holds a tooltip.
+component Bar {
+    prop month: text
+    prop level: number
+    variant state: idle | active = idle
+
+    column {
+        width: fill
+        align: center
+        gap: sm
+
+        slot
+        stack {
+            width: fill
+            height: level
+            radius: md
+            background: bar
+            when state is active { background: primary }
+        }
+        text month { style: caption, color: muted }
+    }
+}
+
+component Tooltip {
+    prop label: text
+
+    row {
+        padding_x: xs
+        padding_y: xs
+        radius: pill
+        background: ink
+        text label { style: caption_strong, color: on_dark, max_lines: 1 }
+    }
+}

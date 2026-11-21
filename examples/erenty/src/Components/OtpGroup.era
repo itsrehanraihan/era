@@ -1,0 +1,23 @@
+// A group of three code digits. The digits go in the slot.
+component OtpGroup {
+    variant state: idle | focused = idle
+
+    row {
+        align: center
+        gap: lg
+        padding_x: lg
+        padding_y: md
+        radius: lg
+        background: surface
+        border_width: thin
+        border_color: border
+
+        when state is focused {
+            background: background
+            border_width: thick
+            border_color: focus
+        }
+
+        slot
+    }
+}

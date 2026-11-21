@@ -1,0 +1,53 @@
+screen VerifyCode {
+    title: "Verify code"
+
+    Page {
+        tint: surface
+
+        column {
+            width: fill
+            align: center
+            gap: md
+            padding_top: xl
+
+            image "Images/code.png" { width: 75, height: 53, fit: contain }
+            text "Enter your code" { style: heading, align: center }
+            text "We sent a 6-digit code to your email. Enter it to activate your account." {
+                color: muted
+                align: center
+            }
+        }
+
+        row {
+            width: fill
+            distribute: center
+            gap: md
+            padding_y: xl
+
+            OtpGroup {
+                state: focused
+                text "4" { style: code }
+                text "–" { style: code, color: placeholder }
+                text "–" { style: code, color: placeholder }
+            }
+            OtpGroup {
+                text "–" { style: code, color: placeholder }
+                text "–" { style: code, color: placeholder }
+                text "–" { style: code, color: placeholder }
+            }
+        }
+
+        row {
+            width: fill
+            distribute: center
+            gap: xs
+            padding_top: xl
+            padding_bottom: lg
+            text "Didn’t get a code?" { color: muted }
+            text "Resend in 0:42" { style: body_strong, color: secondary }
+        }
+
+        AppButton { label: "Verify", tone: disabled }
+        text "Change email" { style: body_strong, color: secondary, align: center, width: fill }
+    }
+}
