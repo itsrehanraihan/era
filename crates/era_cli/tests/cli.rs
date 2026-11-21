@@ -270,9 +270,12 @@ fn check_erenty_demo() {
 #[test]
 fn unimplemented_command_fails_honestly() {
     let tmp = tempfile::tempdir().unwrap();
-    let out = era_in(tmp.path(), &["build", "android"]);
+    let out = era_in(tmp.path(), &["build", "ios"]);
     assert_eq!(out.status.code(), Some(2));
-    assert!(stderr(&out).contains("not implemented yet"));
+    assert!(stderr(&out).contains("not part of the ERA MVP"));
+    let out = era_in(tmp.path(), &["build"]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(stderr(&out).contains("usage: era build android [path]"));
 }
 
 fn era_env(dir: &Path, args: &[&str], set: &[(&str, &str)], remove: &[&str]) -> Output {
@@ -406,4 +409,129 @@ fn bad_usage_is_rejected() {
     for args in [&["frobnicate"][..], &["new"], &["check", "a", "b"]] {
         assert_eq!(era_in(tmp.path(), args).status.code(), Some(2), "{args:?}");
     }
+}
+
+/// A folder that looks like an Android SDK (enough for ERA's check).
+fn fake_sdk() -> tempfile::TempDir {
+    let sdk = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(sdk.path().join("platforms")).unwrap();
+    sdk
+}
+
+#[test]
+fn build_android_needs_an_sdk() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let out = era_env(
+        &project,
+        &["build", "android"],
+        &[],
+        &["ANDROID_HOME", "ANDROID_SDK_ROOT"],
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        stderr(&out).contains("Android SDK not found"),
+        "{}",
+        stderr(&out)
+    );
+}
+
+#[test]
+fn build_android_writes_the_project() {
+    let sdk = fake_sdk();
+    let sdk_path = sdk.path().to_str().unwrap();
+    let out = era_env(
+        &repo_root().join("examples/erenty"),
+        &["build", "android"],
+        &[
+            ("ANDROID_HOME", sdk_path),
+            ("ERA_GRADLE", "/nonexistent/gradle"),
+        ],
+        &["ANDROID_SDK_ROOT"],
+    );
+    // Gradle is missing on purpose: everything up to the Gradle run is checked.
+    assert_eq!(out.status.code(), Some(2), "{}", stderr(&out));
+    assert!(stderr(&out).contains("`/nonexistent/gradle` was not found"));
+
+    let android = repo_root().join("examples/erenty/build/android");
+    let build = std::fs::read_to_string(android.join("build.gradle.kts")).unwrap();
+    for want in [
+        "applicationId = \"dev.era.erenty\"",
+        "minSdk = 24",
+        "versionCode = 100",
+        "versionName = \"0.1.0\"",
+    ] {
+        assert!(build.contains(want), "{want}");
+    }
+    let manifest = std::fs::read_to_string(android.join("src/main/AndroidManifest.xml")).unwrap();
+    assert!(manifest.contains("android:name=\"dev.era.erenty.ui.MainActivity\""));
+    let strings = std::fs::read_to_string(android.join("src/main/res/values/strings.xml")).unwrap();
+    assert!(strings.contains("<string name=\"app_name\">E-Renty</string>"));
+    let drawables = std::fs::read_dir(android.join("src/main/res/drawable"))
+        .unwrap()
+        .count();
+    assert_eq!(drawables, 12);
+    assert!(android.join("src/main/assets/Images/logo.png").is_file());
+    assert!(
+        android
+            .join("src/main/assets/Fonts/Inter-Medium.ttf")
+            .is_file()
+    );
+    let ids =
+        std::fs::read_to_string(android.join("src/main/kotlin/dev/era/erenty/ui/EraIconIds.kt"))
+            .unwrap();
+    assert!(
+        ids.contains("\"Icons/home.svg\" to R.drawable.era_icon_icons_home,"),
+        "{ids}"
+    );
+    let local = std::fs::read_to_string(android.join("local.properties")).unwrap();
+    assert!(local.contains("sdk.dir="));
+}
+
+#[test]
+fn build_android_reports_unsupported_icons() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    std::fs::create_dir_all(project.join("Assets/Icons")).unwrap();
+    std::fs::write(
+        project.join("Assets/Icons/spin.svg"),
+        r#"<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0z" transform="rotate(45)"/></svg>"#,
+    )
+    .unwrap();
+    let app = project.join("src/app.era");
+    let src = std::fs::read_to_string(&app).unwrap();
+    std::fs::write(
+        &app,
+        src.replace(
+            "text \"Hello from ERA\"",
+            "text \"Hello from ERA\"\n        icon \"Icons/spin.svg\"",
+        ),
+    )
+    .unwrap();
+    let sdk = fake_sdk();
+    let out = era_env(
+        &project,
+        &["build", "android"],
+        &[("ANDROID_HOME", sdk.path().to_str().unwrap())],
+        &[],
+    );
+    assert_eq!(out.status.code(), Some(1), "{}", stderr(&out));
+    let err = stderr(&out);
+    assert!(err.contains("error[E3001]: cannot convert icon `Icons/spin.svg` for Android: `transform` is not supported"), "{err}");
+    assert!(err.contains("--> Assets/Icons/spin.svg"), "{err}");
+}
+
+/// Real APK build. Needs Gradle 8.x, ANDROID_HOME (platform 35, build-tools)
+/// and network access (or a warm cache): `cargo test -p era_cli -- --ignored`.
+#[test]
+#[ignore]
+fn build_android_apk_smoke_test() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "smoke");
+    let out = era_in(&project, &["build", "android"]);
+    assert!(out.status.success(), "{}\n{}", stdout(&out), stderr(&out));
+    let apk = project.join("build/android/build/outputs/apk/debug/era-android-debug.apk");
+    let bytes = std::fs::read(&apk).unwrap();
+    assert_eq!(&bytes[..2], b"PK", "an APK is a zip file");
+    assert!(stdout(&out).contains("adb install -r"));
 }

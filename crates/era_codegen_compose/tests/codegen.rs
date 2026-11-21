@@ -89,7 +89,7 @@ fn screen_root_fills_and_uses_skin_background() {
         "{code}"
     );
     assert!(
-        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight()) {"),
+        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight().safeDrawingPadding()) {"),
         "{code}"
     );
     assert!(
@@ -98,6 +98,12 @@ fn screen_root_fills_and_uses_skin_background() {
         ),
         "{code}"
     );
+}
+
+#[test]
+fn only_the_screen_root_gets_safe_area_padding() {
+    let code = screen_code("column { row { text \"a\" } }");
+    assert_eq!(code.matches("safeDrawingPadding()").count(), 1, "{code}");
 }
 
 #[test]
@@ -143,7 +149,7 @@ fn tokens_become_theme_references() {
         "card { gap: md, padding_x: lg, padding_y: sm, radius: pill, background: primary\n text \"x\" { style: heading, color: #FF000080 } }",
     );
     assert!(
-        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight().shadow(EraElevation.sm, RoundedCornerShape(EraRadius.pill)).background(c.primary, RoundedCornerShape(EraRadius.pill)).padding(horizontal = EraSpacing.lg, vertical = EraSpacing.sm), verticalArrangement = Arrangement.spacedBy(EraSpacing.md, Alignment.Top))"),
+        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight().shadow(EraElevation.sm, RoundedCornerShape(EraRadius.pill)).background(c.primary, RoundedCornerShape(EraRadius.pill)).safeDrawingPadding().padding(horizontal = EraSpacing.lg, vertical = EraSpacing.sm), verticalArrangement = Arrangement.spacedBy(EraSpacing.md, Alignment.Top))"),
         "{code}"
     );
     assert!(

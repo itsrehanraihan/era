@@ -10,8 +10,8 @@ all pass.
 | M1 | `era new`, `era.toml`, project discovery, `era check` (structure) | **Done** |
 | M2 | Lexer, parser and AST with spans; parser tests | **Done** |
 | M3 | Skin tokens, semantic checks, UI IR, asset validation | **Done** |
-| M4 | Preview from the UI IR | **Done; awaiting review** |
-| M5 | Kotlin/Compose codegen, Android host project, debug APK | Not started |
+| M4 | Preview from the UI IR | **Done** |
+| M5 | Kotlin/Compose codegen, Android host project, debug APK | **APK builds; on-device check pending (owner device)** |
 | M6 | Button events, minimal state, navigation | Not started |
 
 ## M0 deliverables
@@ -161,14 +161,56 @@ Known limitations:
 - Remaining visual gaps against the mockups are the open questions
   Q-07 to Q-11 (gradients, rich text, overlap, dashed lines, safe areas).
 
-## Next smallest task (M5)
+## M5 deliverables
 
-1. Install the Android SDK (command-line tools, platform 35, build-tools)
-   in the dev environment. Decide the AGP version and the min/target SDK.
-2. Add the `platforms/android/` host: `MainActivity` showing
-   `EraStartScreen`, plus `eraImage`/`eraIcon`/`eraFontFamily` for
-   Android resources.
-3. Copy assets into `res/` with sanitized names. Decide Q-03 (SVG to
-   VectorDrawable).
-4. Add `era build android`, which builds a debug APK, with a smoke test.
-   Install and launch on an emulator or device (Q-06).
+- `platforms/android/`: a single-module Android host (AGP 8.9.3, SDK 35,
+  edge to edge, platform theme) that shows the start screen. It implements
+  the Android `eraImage`/`eraIcon`/`eraFontFamily` (D-044, D-053).
+- An SVG → VectorDrawable converter in Rust (D-051), with clear errors for
+  unsupported SVG features (E3001).
+- Generated Android resources: icon drawables, `EraIconIds.kt` and
+  `strings.xml` (the app name).
+- Safe-area handling on the screen root (D-050), shared with the preview.
+- `era build android [path]` writes `build/android/` (incremental, with
+  stale files removed), runs `gradle assembleDebug`, and prints the APK
+  path plus `adb` install and launch commands.
+- **The E-Renty APK builds** (8.1 MB). It was checked with `aapt2` and
+  `apksigner`:
+  - package `dev.era.erenty`, label "E-Renty", target SDK 35,
+    `MainActivity` as the launcher
+  - all 9 images and 4 fonts in `assets/`, and 12 vector icons in `res/`
+  - the four screen classes compiled
+  - signed with the debug key
+- Tests: SVG converter unit tests, Android generator unit tests, and CLI
+  tests (missing SDK, the generated project's contents, an unsupported
+  icon error). There is also a real APK smoke test, run with
+  `cargo test -p era_cli -- --ignored`, which passed.
+
+Exit criteria status: **"installable Android app with the expected
+visual appearance" is not fully verified.** The APK is built, signed and
+structurally correct, but it has not been installed or launched, and its
+on-device appearance has not been seen (Q-06). This needs the owner's
+device:
+
+```bash
+adb install -r examples/erenty/build/android/build/outputs/apk/debug/era-android-debug.apk
+```
+
+```bash
+adb shell am start -n dev.era.erenty/dev.era.erenty.ui.MainActivity --es era.screen Home
+```
+
+Known limitations:
+- No launcher icon (Q-12). Debug builds only (D-055).
+- Only the start screen is shown until navigation (M6). Use `era.screen`
+  to open the others (D-054).
+- The Android SDK was installed by hand in the dev container
+  (`/opt/android-sdk`). A fresh container needs it installed again.
+
+## Next smallest task
+
+1. Owner: install the E-Renty APK on a device and compare it with the
+   preview. Report any differences.
+2. M6: basic button events, minimal state, and navigation between
+   screens, while keeping logic separate from UI declarations. Start with
+   a design proposal for the syntax (needs owner approval).

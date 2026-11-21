@@ -11,16 +11,19 @@ ten minutes.
 > - **previewing** the real native UI with `era preview`, as a window or
 >   PNG screenshots
 >
-> **Not yet:** Android APK builds (M5), and taps, state and navigation
-> (M6). `era build` prints "not implemented yet".
+> - **building an Android APK** with `era build android`
+>
+> **Not yet:** taps, state and navigation (M6). The app opens on its start
+> screen.
 
 ---
 
 ## 1. Install the prerequisites
 
 You need **Rust 1.88 or newer** and **Git**. For `era preview` (step 10)
-you also need **JDK 17+** and **Gradle 8.x**. They are not needed for
-`era check`.
+you also need **JDK 17+** and **Gradle 8.x**. For `era build android`
+(step 11) you also need the **Android SDK**. None of these are needed
+for `era check`.
 
 ```bash
 rustc --version
@@ -294,7 +297,44 @@ Preview images are in …/my_app/build/preview/png
 - Run `era preview` again after every change to see the update. There is
   no hot reload yet.
 
-## 11. Explore the E-Renty demo
+## 11. Build the Android app
+
+You need the **Android SDK** (platform 35 and build-tools). The easiest
+way to get it is to install Android Studio. Point ERA at the SDK:
+
+```bash
+export ANDROID_HOME="$HOME/Android/Sdk"
+```
+
+(On macOS it's usually `~/Library/Android/sdk`.) Then build:
+
+```bash
+era build android
+```
+
+```text
+Built …/my_app/build/android/build/outputs/apk/debug/era-android-debug.apk (…)
+```
+
+Install it on a phone with USB debugging enabled, or on an emulator:
+
+```bash
+adb install -r build/android/build/outputs/apk/debug/era-android-debug.apk
+```
+
+The app opens on your `start` screen. To check another screen before
+navigation exists, open it by name:
+
+```bash
+adb shell am start -n dev.era.my_app/dev.era.my_app.ui.MainActivity --es era.screen Home
+```
+
+The first build downloads the Android build tools, which takes a few
+minutes. SVG icons are converted to Android vector drawables. If an icon
+uses something unsupported, such as a transform or a gradient, ERA
+explains what to change.
+
+## 12. Explore the E-Renty demo
 
 The repository includes a full four-screen demo built from real
 mockups: Splash, Home, Menu and Verify code.
@@ -311,7 +351,7 @@ era preview ../era/examples/erenty --png
 to see layouts, slots, variants, badges, a bar chart and a bottom
 navigation bar written in ERA.
 
-## 12. When something is wrong
+## 13. When something is wrong
 
 Errors point at the exact spot and usually suggest a fix:
 
@@ -335,8 +375,10 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | `E2145 missing required prop` | Pass the prop: `AppButton { label: "..." }` |
 | `gradle was not found` (preview) | Install Gradle 8.x or set `ERA_GRADLE` |
 | `no display found` (preview) | Use `era preview --png` |
+| `Android SDK not found` | Install the SDK and set `ANDROID_HOME` |
+| `E3001 cannot convert icon` | Simplify the SVG: flatten transforms, outline text, no gradients |
 
-## 13. Syntax cheat sheet
+## 14. Syntax cheat sheet
 
 | Want | Write |
 |---|---|
@@ -355,7 +397,7 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | No color / no shadow | `background: none`, `elevation: none` |
 | Comment | `// like this` |
 
-## 14. Learn more
+## 15. Learn more
 
 | Document | What's inside |
 |---|---|

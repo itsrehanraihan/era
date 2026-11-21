@@ -1,4 +1,4 @@
-# Compose Backend (preview: M4 ✅, Android APK: M5)
+# Compose Backend (preview: M4 ✅, Android APK: M5 ✅ built, on-device check pending)
 
 ## Strategy
 
@@ -34,11 +34,11 @@ deterministic, and both examples are snapshot-tested.
 
 Each host implements three functions in the generated package:
 
-| Function | Desktop preview | Android (M5) |
+| Function | Desktop preview | Android |
 |---|---|---|
-| `@Composable eraImage(path): Painter` | `loadImageBitmap` from `Assets/` | `painterResource(R.drawable.…)` |
-| `@Composable eraIcon(path): Painter` | `loadSvgPainter` from `Assets/` | VectorDrawable (Q-03) |
-| `eraFontFamily(files): FontFamily` | `Font(File, weight)`, with the weight taken from the file name | `res/font` |
+| `@Composable eraImage(path): Painter` | `loadImageBitmap` from `Assets/` | `BitmapFactory` from the APK's `assets/` (D-053) |
+| `@Composable eraIcon(path): Painter` | `loadSvgPainter` from `Assets/` | `painterResource` of the converted VectorDrawable (D-051) |
+| `eraFontFamily(files): FontFamily` | `Font(File, weight)`, with the weight taken from the file name | `Font(path, assets, weight)` |
 
 ## Element mapping
 
@@ -69,7 +69,7 @@ Each host implements three functions in the generated package:
   `Arrangement.spacedBy(gap, alignment)`. `between/around/evenly` use
   `SpaceBetween/Around/Evenly`, and `gap` is ignored for them.
 - **Modifier order:** size → shadow → clip → background → border →
-  scroll → padding.
+  safe-area insets (screen root only, D-050) → scroll → padding.
 - **The screen root fills the screen** unless it is sized (D-043).
 
 ## Desktop preview (`era preview`, M4)
@@ -92,15 +92,35 @@ with the generated files added. Gradle then runs it.
 - Only changed files are rewritten, so Gradle's up-to-date checks work.
   Stale screens are deleted.
 
-## Android (M5, plan)
+## Android (`era build android`, M5)
 
-- Copy a host template from `platforms/android/`, with `MainActivity`
-  showing `EraStartScreen`.
-- Copy assets to `res/drawable` and `res/font`, with names sanitized and
-  the mapping recorded.
-- Convert SVG icons (Q-03).
-- Build a debug APK with Gradle. Install and launch on an emulator or
-  device, which probably needs the owner's machine (Q-06).
+`platforms/android/` is copied into `<project>/build/android/`, together
+with the generated Compose files and the Android resources. Gradle then
+runs `assembleDebug`.
+
+| Pin (D-052) | Version |
+|---|---|
+| Android Gradle Plugin | 8.9.3 |
+| compileSdk / targetSdk | 35 |
+| minSdk | `[android] min_sdk` in `era.toml` (default 24) |
+| Compose | BOM 2025.05.01 (`foundation`, `ui`) |
+| activity-compose | 1.10.1 |
+| Kotlin | 2.1.21, JVM target 17 |
+| SDK location | `ANDROID_HOME` or `ANDROID_SDK_ROOT`, written to `local.properties` |
+
+- **Assets (D-053):** images and fonts go to `src/main/assets/<path>`.
+  SVG icons go to `res/drawable/era_icon_*.xml` (D-051), and
+  `EraIconIds.kt` maps ERA paths to resource ids.
+- **App:** `MainActivity` runs edge to edge and picks light or dark from
+  the system (when the skin has dark colors). It shows `EraStartScreen`,
+  or the screen named by the `era.screen` intent extra (D-054). The app
+  label comes from `app "..."`. The version code is
+  `MAJOR*10000 + MINOR*100 + PATCH`.
+- **Output:** `build/android/build/outputs/apk/debug/era-android-debug.apk`,
+  signed with the debug key (D-055).
+- **Verification here:** APK contents and signature (`aapt2`,
+  `apksigner`). There is no emulator (no KVM), and a JVM screenshot tool
+  (Paparazzi) was tried and was incompatible with these versions (Q-06).
 
 ## Toolchain status (dev container, 2026-11-21)
 
@@ -109,4 +129,5 @@ with the generated files added. Gradle then runs it.
 | Rust 1.97, JDK 21, Gradle 8.14.3 | ✅ |
 | Maven Central, Google Maven, Gradle plugin portal | ✅ reachable |
 | Compose Desktop headless rendering | ✅ verified (`era preview --png`) |
-| Android SDK | ❌ not installed yet (M5) |
+| Android SDK (cmdline-tools, platform 35, build-tools 35.0.0, platform-tools) | ✅ installed at `/opt/android-sdk` in the dev container (not persistent) |
+| Android emulator | ❌ no KVM in the container |

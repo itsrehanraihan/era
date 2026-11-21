@@ -172,6 +172,33 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   License 1.1; the license is in `Assets/Files/`). This also exercises
   the custom-font path.
 
+## Accepted in M5
+
+- **D-050 Safe areas.** A screen's root element draws its background
+  behind the system bars, and its content is padded clear of them
+  (`safeDrawingPadding()`). The Android app runs edge to edge, which
+  Android 15 requires. On the desktop preview the insets are zero.
+- **D-051 SVG icons are converted to Android VectorDrawables in Rust**, at
+  build time. The supported subset is `path`, `circle`, `ellipse`, `rect`,
+  `line`, `polyline`, `polygon` and untransformed `g`, with
+  fill/stroke/opacity/linecap/linejoin/fill-rule, also via `style`.
+  Unsupported features (transforms, gradients, text, masks, unknown colors)
+  are build errors (E3001) that name the feature. This needs one new
+  dependency: `roxmltree`, a small pure-Rust XML reader.
+- **D-052 Pinned Android toolchain.** AGP 8.9.3, compile/target SDK 35,
+  min SDK from `era.toml` (default 24), Compose BOM 2025.05.01 (foundation
+  and ui only), activity-compose 1.10.1, JVM target 17. The platform theme
+  is `Theme.Material.Light.NoActionBar`, with no AppCompat or Material.
+- **D-053 Images and fonts are packaged in the APK's `assets/` folder at
+  their ERA paths**, not in `res/`, so no file renaming is needed. Only
+  icons become resources (`era_icon_<path>`), looked up through a generated
+  `EraIconIds` table.
+- **D-054 Debug screen selection.** Until navigation exists (M6), the
+  intent extra `era.screen` opens any screen:
+  `adb shell am start -n <id>/<id>.ui.MainActivity --es era.screen Home`.
+- **D-055 `era build android` builds a debug APK** signed with the
+  standard debug key. Release signing is out of scope for the MVP.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
@@ -182,7 +209,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **Q-02 (Resolved: named props only for the MVP)** **Positional props for components.** Should `AppButton "Go"` be
   allowed, in addition to `AppButton { label: "Go" }`? The MVP proposal
   supports named props only.
-- **Q-03 Icon format.** SVG needs conversion to an Android VectorDrawable,
+- **Q-03 (Resolved in M5, D-051)** **Icon format.** SVG needs conversion to an Android VectorDrawable,
   either with a restricted SVG subset converted in Rust or by bundling an
   icon set. This must be decided before M5.
 - **Q-04 Logic file extension.** The brief uses `.er` for logic files.
@@ -204,8 +231,16 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   approximates both.
 - **Q-10 Dashed lines and italic text.** The chart grid lines are
   dashed, and the wordmark is italic. The demo uses the logo as an image.
-- **Q-11 System bars and safe areas.** The status bar and home indicator
+- **Q-11 (Partly resolved, D-050)** **System bars and safe areas.** The status bar and home indicator
   in the mockups are drawn by the OS. Backends must add safe-area insets.
-- **Q-06 Emulator testing.** This cloud container probably lacks KVM. The
+- **Q-12 App launcher icon.** The APK uses the system default icon. An
+  `app` property such as `icon: "Images/app_icon.png"` could generate
+  adaptive icons.
+- **Q-06 (Blocked in this environment) Emulator testing.** The dev
+  container has no KVM, so no emulator. A JVM screenshot tool was tried
+  (Paparazzi): 1.3.5's layout engine is too old for Android 15 APIs, and
+  2.0-alpha needs a newer AGP than D-052. On-device install and launch
+  must be done on the owner's machine or phone. Original question:
+  **Emulator testing.** This cloud container probably lacks KVM. The
   "install and launch" step of M5 may need the owner's machine or a
   physical device.

@@ -181,7 +181,7 @@ fun HomeScreen() {
     val c = LocalEraColors.current
     Box(Modifier.fillMaxSize().background(c.background)) {
         // scroll @Home:MainLayout <MainLayout>
-        Box(Modifier.fillMaxWidth().fillMaxHeight().verticalScroll(rememberScrollState())) {
+        Box(Modifier.fillMaxWidth().fillMaxHeight().safeDrawingPadding().verticalScroll(rememberScrollState())) {
             // column @Home:MainLayout/0 <MainLayout>
             Column(Modifier.background(c.background).padding(EraSpacing.lg), verticalArrangement = Arrangement.spacedBy(EraSpacing.lg, Alignment.Top)) {
                 // text @Home:MainLayout/0/0 <MainLayout>

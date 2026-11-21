@@ -1,5 +1,6 @@
 //! `era` command-line entry point.
 
+mod android;
 mod check;
 mod preview;
 
@@ -22,7 +23,7 @@ COMMANDS:
     preview [path]          Open a desktop preview window of every screen
     preview [path] --png [dir]
                             Render every screen to PNG (default dir: build/preview/png)
-    build android           Build an Android debug APK  (planned: M5)
+    build android [path]    Build an Android debug APK (needs JDK 17+, Gradle 8.x, ANDROID_HOME)
     --version               Print version
     --help                  Print this help";
 
@@ -59,12 +60,13 @@ fn main() -> ExitCode {
             Ok((path, png)) => cmd_preview(path.as_deref(), png),
             Err(msg) => usage_error(&msg),
         },
-        ["build", ..] => {
-            eprintln!(
-                "error: `era build` is not implemented yet (planned for M5, see MILESTONES.md)"
-            );
+        ["build", "android"] => cmd_build_android(None),
+        ["build", "android", p] if !p.starts_with('-') => cmd_build_android(Some(Path::new(p))),
+        ["build", "ios", ..] => {
+            eprintln!("error: iOS output is not part of the ERA MVP (see DECISIONS D-002)");
             ExitCode::from(EXIT_USAGE)
         }
+        ["build", ..] => usage_error("usage: era build android [path]"),
         [other, ..] => usage_error(&format!("unknown command `{other}`")),
     }
 }
@@ -240,6 +242,19 @@ fn cmd_preview(path: Option<&Path>, png: Option<Option<PathBuf>>) -> ExitCode {
         }
     });
     preview::run(&a.root, app, png.as_deref())
+}
+
+fn cmd_build_android(path: Option<&Path>) -> ExitCode {
+    let a = match analyze(path) {
+        Ok(a) => a,
+        Err(code) => return code,
+    };
+    let Some(app) = &a.report.app else {
+        eprintln!("error: no UI to build");
+        return ExitCode::from(EXIT_ERRORS);
+    };
+    println!("Checked `{}`: {}", a.project.manifest.name, ir_summary(app));
+    android::run(&a.root, &a.project.manifest, app)
 }
 
 /// Render a diagnostic, loading its file's text when it has a span.

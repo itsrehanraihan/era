@@ -225,7 +225,7 @@ fun HomeScreen() {
     val c = LocalEraColors.current
     Box(Modifier.fillMaxSize().background(c.background)) {
         // column @Home
-        Column(Modifier.fillMaxWidth().fillMaxHeight()) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight().safeDrawingPadding()) {
             // scroll @Home/0
             Box(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 // column @Home/0/0
@@ -492,7 +492,7 @@ fun MenuScreen() {
     val c = LocalEraColors.current
     Box(Modifier.fillMaxSize().background(c.background)) {
         // scroll @Menu:Page <Page>
-        Box(Modifier.fillMaxWidth().fillMaxHeight().background(c.background).verticalScroll(rememberScrollState())) {
+        Box(Modifier.fillMaxWidth().fillMaxHeight().background(c.background).safeDrawingPadding().verticalScroll(rememberScrollState())) {
             // column @Menu:Page/0 <Page>
             Column(Modifier.fillMaxWidth().padding(EraSpacing.lg), verticalArrangement = Arrangement.spacedBy(EraSpacing.lg, Alignment.Top)) {
                 // stack @Menu:Page/0/0:IconTile <Page>IconTile>
@@ -709,7 +709,7 @@ fun SplashScreen() {
     val c = LocalEraColors.current
     Box(Modifier.fillMaxSize().background(c.background)) {
         // stack @Splash
-        Box(Modifier.fillMaxWidth().fillMaxHeight().background(c.brand), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().fillMaxHeight().background(c.brand).safeDrawingPadding(), contentAlignment = Alignment.Center) {
             // image @Splash/0
             Image(painter = eraImage("Images/logo.png"), contentDescription = null, modifier = Modifier.width(212.dp).height(32.dp), contentScale = ContentScale.Fit)
         }
@@ -748,7 +748,7 @@ fun VerifyCodeScreen() {
     val c = LocalEraColors.current
     Box(Modifier.fillMaxSize().background(c.background)) {
         // scroll @VerifyCode:Page <Page>
-        Box(Modifier.fillMaxWidth().fillMaxHeight().background(c.surface).verticalScroll(rememberScrollState())) {
+        Box(Modifier.fillMaxWidth().fillMaxHeight().background(c.surface).safeDrawingPadding().verticalScroll(rememberScrollState())) {
             // column @VerifyCode:Page/0 <Page>
             Column(Modifier.fillMaxWidth().padding(EraSpacing.lg), verticalArrangement = Arrangement.spacedBy(EraSpacing.lg, Alignment.Top)) {
                 // stack @VerifyCode:Page/0/0:IconTile <Page>IconTile>

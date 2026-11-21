@@ -6,9 +6,11 @@
 //! that each platform implements: `eraImage(path)`, `eraIcon(path)` and
 //! `eraFontFamily(files)` (see `platforms/`). Output is deterministic.
 
+pub mod android;
 pub mod kotlin;
 mod runtime;
 mod screens;
+pub mod svg;
 mod theme;
 
 use era_ir::ir::App;

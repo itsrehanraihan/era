@@ -7,6 +7,9 @@ publish.workspace = true
 
 [dependencies]
 era_ir = { path = "../era_ir" }
+# Read SVG icons to convert them to Android VectorDrawables (Q-03). Small,
+# pure Rust, no dependencies of its own.
+roxmltree = "0.21"
 
 [dev-dependencies]
 era_project = { path = "../era_project" }

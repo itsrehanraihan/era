@@ -20,6 +20,12 @@ era check examples/erenty --ir
 era preview examples/erenty --png
 ```
 
+Build the Android app (needs the Android SDK):
+
+```bash
+era build android examples/erenty
+```
+
 The renders are written to `examples/erenty/build/preview/png/`. See
 `docs/images/erenty-preview.png` for the current result.
 
@@ -60,5 +66,6 @@ These come from features ERA doesn't have yet (see `DECISIONS.md`):
 - The dashed chart grid lines are omitted (Q-10).
 - The status bar and home indicator belong to the OS (Q-11).
 - Screens don't navigate yet. Navigation and button actions arrive in M6.
-- Android builds arrive in M5. Today the demo renders in the desktop
-  preview.
+- The Android APK opens on Splash, the start screen. To see another
+  screen before navigation exists (M6), use
+  `adb shell am start -n dev.era.erenty/dev.era.erenty.ui.MainActivity --es era.screen Home`.

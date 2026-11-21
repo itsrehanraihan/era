@@ -31,7 +31,7 @@ const HOST_KOTLIN: &[(&str, &str)] = &[
 ];
 
 /// Write `contents` only when it differs, so Gradle's up-to-date checks work.
-fn write_if_changed(path: &Path, contents: &str) -> std::io::Result<()> {
+pub(crate) fn write_if_changed(path: &Path, contents: &str) -> std::io::Result<()> {
     if std::fs::read_to_string(path).ok().as_deref() == Some(contents) {
         return Ok(());
     }
@@ -42,7 +42,7 @@ fn write_if_changed(path: &Path, contents: &str) -> std::io::Result<()> {
 }
 
 /// Remove files under `dir` that are not in `keep` (stale generated code).
-fn remove_stale(dir: &Path, keep: &BTreeSet<PathBuf>) {
+pub(crate) fn remove_stale(dir: &Path, keep: &BTreeSet<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -96,7 +96,7 @@ pub fn write_project(root: &Path, app: &App, png: Option<&Path>) -> std::io::Res
     Ok(out)
 }
 
-fn gradle_command() -> String {
+pub(crate) fn gradle_command() -> String {
     std::env::var("ERA_GRADLE").unwrap_or_else(|_| "gradle".into())
 }
 

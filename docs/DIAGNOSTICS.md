@@ -121,3 +121,10 @@ fail. `W` is a warning.
 | E2150 | An asset file does not exist |
 | E2151 | An invalid asset path (absolute, `..`, backslashes) |
 | E2152 | The wrong file type for `image` or `icon` |
+
+## Android build (M5)
+
+| Code | Meaning |
+|---|---|
+| E3001 | An SVG icon uses a feature the VectorDrawable converter doesn't support (transform, gradient, text, mask, unknown color...) |
+| E3002 | The Android project cannot be written to disk |

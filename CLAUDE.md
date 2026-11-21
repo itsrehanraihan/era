@@ -42,8 +42,9 @@ cargo fmt --all -- --check
 cargo check --workspace
 cargo test --workspace
 ```
-When code generation or the preview host changes, also run the real
-Gradle smoke test (it needs Gradle and network access):
+When code generation, the preview host or the Android host changes,
+also run the real Gradle smoke tests. They need Gradle, network access,
+and `ANDROID_HOME` for the APK test:
 ```bash
 cargo test -p era_cli -- --ignored
 ```

@@ -68,6 +68,6 @@ because it is part of the visual design. Identity and packaging live in
 | `era new <name>` | M1 ✅ | Create a minimal project: `era.toml`, `src/app.era`, `.gitignore` |
 | `era check [path] [--ir]` | M1–M3 ✅ | Validate the manifest, project layout, syntax, structure, skins, properties, references and assets, then build the UI IR. `--ir` prints the resolved tree |
 | `era preview [path] [--png [dir]]` | M4 ✅ | Generate Compose code and run the desktop preview: a window, or PNGs of every screen. Needs JDK 17+ and Gradle 8.x (see ANDROID_BACKEND.md) |
-| `era build android` | M5 | Generate Kotlin/Compose, run Gradle, produce a debug APK |
+| `era build android [path]` | M5 ✅ | Generate Kotlin/Compose and the Android project, run `gradle assembleDebug`, and print the APK path and `adb` commands. Needs JDK 17+, Gradle 8.x and `ANDROID_HOME` |
 
 Exit codes: `0` success, `1` project has errors, `2` usage or environment error.

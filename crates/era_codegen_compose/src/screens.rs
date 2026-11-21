@@ -5,7 +5,8 @@
 //!   the cross axis it becomes `fillMaxWidth/Height()`. Along an axis that is
 //!   scrolling (unbounded) `fill` is ignored, because Compose cannot fill
 //!   infinite space.
-//! - Modifier order: size, shadow, clip, background, border, scroll, padding.
+//! - Modifier order: size, shadow, clip, background, border, safe-area
+//!   insets (screen root only), scroll, padding.
 
 use std::fmt::Write as _;
 
@@ -75,6 +76,7 @@ pub fn screen(s: &Screen, package: &str) -> String {
         v_unbounded: false,
         h_unbounded: false,
         stretch: false,
+        root: true,
     };
     e.element(&s.root, root_ctx);
     let title = s
@@ -117,6 +119,9 @@ struct Ctx {
     h_unbounded: bool,
     /// The parent's `align: stretch`: fill the cross axis by default.
     stretch: bool,
+    /// The screen's root element: its background extends behind the system
+    /// bars, and its content is padded clear of them (D-050).
+    root: bool,
 }
 
 struct Emitter {
@@ -287,6 +292,9 @@ impl Emitter {
                 .unwrap_or_else(|| "c.border".into());
             m.push(format!("border({w}, {})", with_shape(col)));
         }
+        if ctx.root {
+            m.push("safeDrawingPadding()".into());
+        }
         if let Some(s) = scroll {
             m.push(s.to_string());
         }
@@ -401,6 +409,7 @@ impl Emitter {
                 let child = Ctx {
                     parent: Parent::Box,
                     stretch: false,
+                    root: false,
                     ..ctx
                 };
                 self.block(
@@ -425,6 +434,7 @@ impl Emitter {
                     v_unbounded: vertical,
                     h_unbounded: !vertical,
                     stretch: false,
+                    root: false,
                 };
                 self.block(&format!("Box({m})"), |s| {
                     for c in &e.children {
@@ -610,6 +620,7 @@ impl Emitter {
         let child = Ctx {
             parent: if row { Parent::Row } else { Parent::Column },
             stretch: align_kw == Some("stretch"),
+            root: false,
             ..ctx
         };
         let head = format!(
@@ -638,6 +649,7 @@ impl Emitter {
         let cell = Ctx {
             parent: Parent::Box,
             stretch: false,
+            root: false,
             ..ctx
         };
         self.block(&format!("Column({m}, verticalArrangement = Arrangement.spacedBy({gap}))"), |s| {
