@@ -1,0 +1,14 @@
+layout MainLayout {
+    prop heading: text
+
+    scroll {
+        column {
+            background: background
+            padding: lg
+            gap: lg
+
+            text heading { style: display }
+            slot
+        }
+    }
+}

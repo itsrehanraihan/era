@@ -1,0 +1,11 @@
+// One color chip in the palette preview.
+component Swatch {
+    prop name: text
+    prop color: color
+
+    column {
+        gap: xs
+        stack { width: 64, height: 64, radius: md, background: color, border_width: thin, border_color: border }
+        text name { style: caption, color: muted }
+    }
+}

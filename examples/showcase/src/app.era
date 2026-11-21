@@ -1,0 +1,4 @@
+app "ERA Showcase" {
+    skin: Studio
+    start: Home
+}

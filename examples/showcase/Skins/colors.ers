@@ -1,0 +1,15 @@
+skin Studio {
+    colors {
+        background: #FFFFFF
+        surface:    #F7F7F7
+        text:       #171717
+        muted:      #737373
+        border:     #E8E8E8
+        primary:    #FF6B35
+        on_primary: #FFFFFF
+        secondary:  #2B2D42
+        success:    #2E9E5B
+        warning:    #F2A93B
+        danger:     #E5484D
+    }
+}

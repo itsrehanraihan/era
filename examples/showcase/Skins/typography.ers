@@ -1,0 +1,10 @@
+skin Studio {
+    typography {
+        font: "system"
+        display { size: 40, weight: bold,     line_height: 46, tracking: -0.5 }
+        heading { size: 28, weight: bold,     line_height: 34 }
+        title   { size: 20, weight: semibold, line_height: 26 }
+        body    { size: 16, weight: regular,  line_height: 24 }
+        caption { size: 13, weight: medium,   line_height: 18 }
+    }
+}
