@@ -27,6 +27,16 @@ pub enum ValueType {
     Action,
     /// `visible`: `true`, `false`, bool state or a bool prop (M6).
     Condition,
+    /// A length that may be negative or a percentage: `top: -8px`, `left: 10%` (M8).
+    Offset,
+    /// A spacing value or `auto` (`margin`, M8).
+    Margin,
+    /// `16 / 9` or `1.5` (`aspectRatio`, M8).
+    Ratio,
+    /// A number from 0 to 1 (`opacity`, M8).
+    Unit,
+    /// A CSS shorthand expanded into other properties (`border`, `inset`, M8).
+    Shorthand,
     /// `bind`: text state an input reads and writes (M6).
     Binding,
 }
@@ -54,6 +64,11 @@ impl ValueType {
             ValueType::Action => "an action: `go Screen`, `back` or `Store.action`".into(),
             ValueType::Condition => "`true`, `false` or bool state like `Session.verified`".into(),
             ValueType::Binding => "text state like `Session.code`".into(),
+            ValueType::Offset => "a length like `8px`, `-4px` or `10%`".into(),
+            ValueType::Margin => "a length like `8px`, a spacing token, or `auto`".into(),
+            ValueType::Ratio => "a ratio like `16 / 9` or `1.5`".into(),
+            ValueType::Unit => "a number from 0 to 1".into(),
+            ValueType::Shorthand => "CSS shorthand values".into(),
         }
     }
 }
@@ -130,9 +145,106 @@ pub const COMMON: &[(&str, ValueType)] = &[
     ("clip", ValueType::Bool),
     ("on_press", ValueType::Action),
     ("visible", ValueType::Condition),
+    // M8: CSS layout properties (docs/CSS_SPEC.md §4–§6).
+    ("margin", ValueType::Margin),
+    ("margin_x", ValueType::Margin),
+    ("margin_y", ValueType::Margin),
+    ("margin_top", ValueType::Margin),
+    ("margin_bottom", ValueType::Margin),
+    ("margin_start", ValueType::Margin),
+    ("margin_end", ValueType::Margin),
+    (
+        "position",
+        ValueType::Keyword(&["static", "relative", "absolute", "fixed"]),
+    ),
+    ("top", ValueType::Offset),
+    ("right", ValueType::Offset),
+    ("bottom", ValueType::Offset),
+    ("left", ValueType::Offset),
+    ("inset", ValueType::Shorthand),
+    (
+        "z_index",
+        ValueType::Number {
+            min: -1_000_000.0,
+            integer: true,
+        },
+    ),
+    ("opacity", ValueType::Unit),
+    ("aspect_ratio", ValueType::Ratio),
+    (
+        "flex",
+        ValueType::Number {
+            min: 0.0,
+            integer: false,
+        },
+    ),
+    (
+        "align_self",
+        ValueType::Keyword(&["auto", "start", "center", "end", "stretch"]),
+    ),
+    (
+        "display",
+        ValueType::Keyword(&["flex", "block", "grid", "none"]),
+    ),
+    ("visibility", ValueType::Keyword(&["visible", "hidden"])),
+    (
+        "overflow",
+        ValueType::Keyword(&["visible", "hidden", "clip", "scroll", "auto"]),
+    ),
+    ("border", ValueType::Shorthand),
 ];
 
+/// Normalised spellings (lowercase, no `_`/`-`) that map to an ERA
+/// property: CSS names and common synonyms. Every spelling of a property
+/// works: `font-size`, `fontSize`, `font_size`, `fontsize` (D-072).
+const ALIASES: &[(&str, &str)] = &[
+    ("borderradius", "radius"),
+    ("justifycontent", "distribute"),
+    ("alignitems", "align"),
+    ("textstyle", "style"),
+    ("onclick", "on_press"),
+    ("lineclamp", "max_lines"),
+    ("webkitlineclamp", "max_lines"),
+    ("objectfit", "fit"),
+    ("backgroundcolor", "background"),
+    ("paddingleft", "padding_start"),
+    ("paddingright", "padding_end"),
+    ("paddinginline", "padding_x"),
+    ("paddingblock", "padding_y"),
+    ("paddinginlinestart", "padding_start"),
+    ("paddinginlineend", "padding_end"),
+    ("paddingblockstart", "padding_top"),
+    ("paddingblockend", "padding_bottom"),
+    ("marginleft", "margin_start"),
+    ("marginright", "margin_end"),
+    ("margininline", "margin_x"),
+    ("marginblock", "margin_y"),
+    ("margininlinestart", "margin_start"),
+    ("margininlineend", "margin_end"),
+    ("marginblockstart", "margin_top"),
+    ("marginblockend", "margin_bottom"),
+    ("flexgrow", "flex"),
+    ("rowgap", "gap"),
+    ("columngap", "gap"),
+    ("gridtemplatecolumns", "columns"),
+    ("textalign", "align"),
+];
+
+/// Lowercase without `_` and `-`: `font-size`, `fontSize`, `font_size` and
+/// `fontsize` all normalise to `fontsize`.
+pub fn normalize(name: &str) -> String {
+    name.chars()
+        .filter(|c| *c != '_' && *c != '-')
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
 const LINEAR: &[(&str, ValueType)] = &[
+    (
+        "flex_direction",
+        ValueType::Keyword(&["row", "column", "row-reverse", "column-reverse"]),
+    ),
+    ("flex_wrap", ValueType::Keyword(&["nowrap", "wrap"])),
     ("gap", SPACING),
     ("align", ALIGN),
     ("distribute", DISTRIBUTE),
@@ -252,20 +364,38 @@ pub fn primitive(name: &str) -> Option<&'static Primitive> {
 
 impl Primitive {
     pub fn property(&self, name: &str) -> Option<ValueType> {
+        let key = self.key(name)?;
         self.props
             .iter()
             .chain(COMMON)
-            .find(|(n, _)| *n == name)
+            .find(|(n, _)| *n == key)
             .map(|(_, t)| *t)
     }
 
-    /// The `&'static` key for a property name (for IR maps).
+    /// The canonical `&'static` key for any spelling of a property name
+    /// (`border-radius`, `borderRadius`, `radius`, ...).
     pub fn key(&self, name: &str) -> Option<&'static str> {
-        self.props
+        let n = normalize(name);
+        let find = |target: &str| {
+            self.props
+                .iter()
+                .chain(COMMON)
+                .find(|(k, _)| normalize(k) == target)
+                .map(|(k, _)| *k)
+        };
+        if let Some(k) = find(&n) {
+            return Some(k);
+        }
+        // `color` on a button or input means its text colour.
+        if n == "color"
+            && let Some(k) = find("textcolor")
+        {
+            return Some(k);
+        }
+        ALIASES
             .iter()
-            .chain(COMMON)
-            .find(|(n, _)| *n == name)
-            .map(|(n, _)| *n)
+            .find(|(a, _)| *a == n)
+            .and_then(|(_, canon)| find(&normalize(canon)))
     }
 
     pub fn property_names(&self) -> impl Iterator<Item = &'static str> + '_ {

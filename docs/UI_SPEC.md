@@ -137,6 +137,30 @@ A layout is used with exactly the same syntax as a component. The
 difference is semantic: a layout may only be a screen's root node, and it
 must contain one `slot`.
 
+## 3b. CSS layout properties (M8 phase 1, every element)
+
+| Property | Values |
+|---|---|
+| `width`, `height` | `120px`, `50%`, `2fr`, `30vw`/`vh`, `fill`, `fit`/`auto`, `stretch`, `min-content`, `max-content` |
+| `margin` (1–4), `margin-top/right/bottom/left/x/y/inline/block` | lengths, spacing tokens, `auto` |
+| `padding` (1–4) | lengths, spacing tokens |
+| `border` | `1px solid colour`, `none` |
+| `position` | `static`, `relative`, `absolute`, `fixed` |
+| `top`, `right`, `bottom`, `left`, `inset` (1–4) | lengths (may be negative) |
+| `z-index` | integer |
+| `opacity` | 0–1 or `%` |
+| `visibility` | `visible`, `hidden` |
+| `display` | `flex`, `block`, `grid`, `none` |
+| `overflow` | `visible`, `hidden`, `clip`, `scroll`, `auto` |
+| `aspect-ratio` | `16 / 9`, `1.5` |
+| `flex`, `flex-grow` | number |
+| `align-self` | `auto`, `flex-start`, `center`, `flex-end`, `stretch` |
+| `flex-direction`, `flex-wrap` (row/column/card) | `row`, `column`, `-reverse`; `nowrap`, `wrap` |
+
+Every property can be written in any spelling (`justify-content`,
+`justifyContent`, `justify_content`). The full mapping is in
+`docs/CSS_SPEC.md`.
+
 ## 4a. Interactions (M6)
 
 ```era

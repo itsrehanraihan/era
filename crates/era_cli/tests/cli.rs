@@ -101,14 +101,14 @@ fn check_showcase_example() {
     assert!(out.status.success(), "{}", stderr(&out));
     assert!(
         stdout(&out).starts_with(
-            "Checked `showcase` (dev.era.showcase): 5 UI file(s), 3 skin file(s), 2 asset(s), 0 warning(s)"
+            "Checked `showcase` (dev.era.showcase): 6 UI file(s), 3 skin file(s), 2 asset(s), 0 warning(s)"
         ),
         "{}",
         stdout(&out)
     );
     assert!(
         stdout(&out)
-            .contains("Declarations: 1 app, 1 screen, 1 layout, 2 components, 1 skin, 1 store")
+            .contains("Declarations: 1 app, 2 screens, 1 layout, 2 components, 1 skin, 1 store")
     );
 }
 
@@ -136,20 +136,17 @@ fn check_reports_syntax_error_in_era_file() {
     std::fs::create_dir_all(project.join("src/Screens")).unwrap();
     std::fs::write(
         project.join("src/Screens/About.era"),
-        "screen About {\n    column {\n        gap: 16px\n        text \"About\"\n    }\n}\n",
+        "screen About {\n    column {\n        gap: 16qq\n        text \"About\"\n    }\n}\n",
     )
     .unwrap();
 
     let out = era_in(&project, &["check"]);
     assert_eq!(out.status.code(), Some(1));
     let err = stderr(&out);
-    assert!(
-        err.contains("error[E1006]: unexpected `px` after number"),
-        "{err}"
-    );
+    assert!(err.contains("error[E1006]: unknown unit `qq`"), "{err}");
     assert!(err.contains("--> src/Screens/About.era:3:14"), "{err}");
-    assert!(err.contains("3 |         gap: 16px"), "{err}");
-    assert!(err.contains("ERA numbers have no units"), "{err}");
+    assert!(err.contains("3 |         gap: 16qq"), "{err}");
+    assert!(err.contains("units are: px"), "{err}");
 }
 
 #[test]

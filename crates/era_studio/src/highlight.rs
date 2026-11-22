@@ -48,7 +48,7 @@ pub fn classify(text: &str) -> Vec<(std::ops::Range<usize>, Class)> {
             TokenKind::Ident(w) if CONTEXTUAL.contains(&w.as_str()) => Class::Keyword,
             TokenKind::Ident(_) => Class::Word,
             TokenKind::String(_) => Class::String,
-            TokenKind::Number(_) => Class::Number,
+            TokenKind::Number(_) | TokenKind::Dimension(..) => Class::Number,
             TokenKind::Color(c) => Class::Color(c.r, c.g, c.b, c.a),
             TokenKind::Error => Class::Error,
             TokenKind::Newline | TokenKind::Eof => Class::Plain,
@@ -156,8 +156,9 @@ mod tests {
 
     #[test]
     fn errors_and_unicode() {
-        let got = classes("text \"é\" { gap: 16px }");
-        assert!(got.contains(&("16px", Class::Error)), "{got:?}");
+        let got = classes("text \"é\" { gap: 16qq; width: 50% }");
+        assert!(got.contains(&("16qq", Class::Error)), "{got:?}");
+        assert!(got.contains(&("50%", Class::Number)), "{got:?}");
         assert!(got.contains(&("\"é\"", Class::String)));
     }
 

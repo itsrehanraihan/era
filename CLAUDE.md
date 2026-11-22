@@ -24,6 +24,18 @@ generated Kotlin and Jetpack Compose.
 - Do not start out-of-scope work: iOS, generics, macros, plugins,
   animations, networking, or an IDE.
 
+## MVP follows HTML/CSS (owner rule, D-080, 2026-11-22)
+For the MVP, ERA is built **the HTML/CSS way**: CSS property names (every
+spelling works: `font-size`, `fontSize`, `font_size`, `fontsize`), CSS
+values and units, CSS shorthands, CSS keyword spellings, HTML element
+names as aliases, and CSS-style states and media rules. Don't invent
+ERA-specific syntax where CSS already has a form. Native output only (no
+WebView); web-only CSS gets an ERA equivalent and a clear error.
+The owner will reshape the syntax for **v2**. Every construct you add
+must also be added to `docs/V2_SYNTAX_CHEATSHEET.md` (with an empty
+"Your v2 syntax" cell), and its status flipped from 🧩 to ✅ there and in
+`docs/CSS_SPEC.md`.
+
 ## Keep docs in sync (owner rule)
 Every change updates the docs it affects, in the same commit:
 - Syntax or grammar changes go in `docs/GRAMMAR.md`, plus a `DECISIONS.md`

@@ -35,8 +35,8 @@ fail. `W` is a warning.
 | E1002 | Unknown string escape or invalid `\u{...}` |
 | E1003 | Invalid color (must be `#RGB`, `#RRGGBB` or `#RRGGBBAA`) |
 | E1004 | Unexpected character (including non-ASCII outside strings) |
-| E1005 | Malformed number (`1.`, `.5`) |
-| E1006 | Unit after a number (`16px`). ERA numbers have no units |
+| E1005 | Malformed number (`1.`) |
+| E1006 | Unknown unit after a number (`16qq`). Units: px dp pt rem em vw vh vmin vmax fr deg rad turn s ms |
 
 ## Syntax (M2): grammar
 
@@ -44,7 +44,7 @@ fail. `W` is a warning.
 |---|---|
 | E1101 | Expected X, found Y (general syntax error) |
 | E1102 | Unclosed `{` (points at the opening brace) |
-| E1103 | Two items on one line without a `,` |
+| E1103 | Two items on one line without a `;` (or `,`) |
 | E1104 | A `screen`/`layout`/`component`/`skin`/`app` declared inside another block |
 | E1105 | A block `{` used as a property value |
 | E1106 | Unknown prop type (allowed: text, number, bool, color, image, icon) |
@@ -146,3 +146,10 @@ fail. `W` is a warning.
 | E2171 | Initial value doesn't match the state type |
 | E2172 | An action step names unknown state |
 | E2173 | An action step has the wrong type (`toggle` non-bool, `add` non-number, `set` mismatch) |
+
+## CSS values (M8)
+
+| Code | Meaning |
+|---|---|
+| E2134 | A unit that the property doesn't take (`width: 45deg`, `gap: 2fr`) |
+| E2135 | A CSS feature planned for a later phase (e.g. `dashed` borders, P3) |

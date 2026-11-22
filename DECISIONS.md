@@ -277,14 +277,14 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   shorthands, with `px` = dp (CSS_SPEC §3). Every sizing mode is required
   by the owner: fixed, %, fill, fit/auto, fr, min/max-content, vw/vh,
   aspect-ratio (§4).
-- **D-074 (Proposed, breaking) `;` separates items on one line**, as in
+- **D-074 (Accepted, not breaking, see D-080) `;` separates items on one line**, as in
   CSS, so `,` can appear inside values (`rgba(0, 0, 0, .1)`, several
   shadows). Newlines still separate items. `era fmt --fix` migrates.
-- **D-075 (Proposed, owner hasn't decided) Interaction states and
+- **D-075 (Accepted, D-080) Interaction states and
   responsiveness:** `hover`/`active`/`focus`/`disabled` blocks, `media
   (minWidth: …)` rules, and optional style classes in skins. No CSS
   selectors or cascade.
-- **D-076 (Proposed) HTML element names as aliases** (`div`, `p`, `h1`,
+- **D-076 (Accepted, D-080) HTML element names as aliases** (`div`, `p`, `h1`,
   `img`, `a`, …) plus new form controls (checkbox, radio, switch, slider,
   select, textarea, date/time) and `list` (§11).
 - **D-077 (Proposed) Inheritance:** only `color` and font properties
@@ -295,6 +295,37 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   and `calc()` with mixed units come later.
 - **D-079 (Accepted, owner 2026-11-21) Rollout:** spec first
   (`docs/CSS_SPEC.md`), then phases P1–P8, each tested and shipped.
+
+## Accepted 2026-11-22: the MVP follows HTML/CSS
+
+- **D-080 (owner) The MVP is built the HTML/CSS way. The owner will
+  reshape the syntax, patterns and grammar for v2.** This settles the
+  open M8 decisions:
+  - **D-072:** every spelling works (kebab, camel, snake, lowercase).
+  - **D-073:** full CSS values; plain numbers still work.
+  - **D-074:** `;` separates items as in CSS, and `,` keeps working, so
+    there is no breaking change.
+  - **D-075:** states and media rules are accepted.
+  - **D-076:** HTML element names are accepted as aliases.
+
+  `docs/V2_SYNTAX_CHEATSHEET.md` is the owner's input sheet for v2.
+- **D-081 Phase 1 semantics** (implemented):
+  - `px` = dp; `pt` = 4/3 dp; `rem`/`em` = 16 dp.
+  - `%` is relative to the parent's content box.
+  - `fr` and `flex` become `weight`.
+  - `vw`/`vh` use the screen size (`LocalEraScreenSize`).
+  - `display: none` removes the element. `flex-direction` turns a column
+    into a row (or back) and reverses the children if asked.
+  - `position: absolute` is placed against the parent's **padding box**,
+    in an overlay that doesn't change the parent's size, and isn't
+    squeezed by it. `position: fixed` is pinned to the screen.
+    `position: relative` only offsets the element.
+  - Shadows never clip content (only `overflow: hidden` does).
+  - A row with `justify-content: space-between/around/evenly` and no
+    width, inside a column, takes the full width, like a block-level flex
+    row.
+  - A comma followed by a value-like token continues a CSS list value
+    (`0 1px red, 0 2px blue`); otherwise it separates items as before.
 
 ## Open questions
 

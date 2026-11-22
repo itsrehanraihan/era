@@ -25,7 +25,7 @@ Examples:
 - `examples/showcase/`: a compact tour of the design system, also used
   as a test fixture.
 
-Coming next: CSS-familiar styling, with `fontSize: 18px` and `boxShadow: 0 4px 12px rgba(0,0,0,.1)` written as on the web (`docs/CSS_SPEC.md`, under review).
+ERA's MVP follows **HTML/CSS**: `padding: 8px 16px`, `margin: 0 auto`, `width: 50%`, `position: absolute`, `justify-content: space-between`, in any spelling (`font-size`, `fontSize`, `font_size`). See `docs/CSS_SPEC.md`, and `docs/V2_SYNTAX_CHEATSHEET.md` for the v2 plan.
 
 See `MILESTONES.md`, `DECISIONS.md` and `docs/`.
 

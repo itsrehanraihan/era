@@ -16,6 +16,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -40,6 +44,17 @@ fun EraApp() {{
     val screen = EraScreens.firstOrNull {{ it.name == name }} ?: EraScreens.first()
     screen.content()
 }}
+
+/** The screen's size, for `vw`/`vh` units. Set by each screen. */
+val LocalEraScreenSize = staticCompositionLocalOf {{ DpSize(402.dp, 874.dp) }}
+
+/** `50vw`: a share of the screen width. */
+@Composable
+fun eraVw(percent: Float): Dp = LocalEraScreenSize.current.width * (percent / 100f)
+
+/** `50vh`: a share of the screen height. */
+@Composable
+fun eraVh(percent: Float): Dp = LocalEraScreenSize.current.height * (percent / 100f)
 
 /** Numbers in text: `3.0` shows as `3`. */
 fun eraText(x: Double): String =

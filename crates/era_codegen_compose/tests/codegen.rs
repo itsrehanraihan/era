@@ -78,6 +78,7 @@ fn files_and_package() {
             "dev/era/showcase/ui/EraStores.kt",
             "dev/era/showcase/ui/EraTheme.kt",
             "dev/era/showcase/ui/screens/HomeScreen.kt",
+            "dev/era/showcase/ui/screens/LayoutScreen.kt",
         ]
     );
 }
@@ -87,7 +88,7 @@ fn screen_root_fills_and_uses_skin_background() {
     let code = screen_code("column { text \"Hi\" }");
     assert!(code.contains("fun HomeScreen() {"), "{code}");
     assert!(
-        code.contains("Box(Modifier.fillMaxSize().background(c.background)) {"),
+        code.contains("BoxWithConstraints(Modifier.fillMaxSize().background(c.background)) {"),
         "{code}"
     );
     assert!(
@@ -151,7 +152,7 @@ fn tokens_become_theme_references() {
         "card { gap: md, padding_x: lg, padding_y: sm, radius: pill, background: primary\n text \"x\" { style: heading, color: #FF000080 } }",
     );
     assert!(
-        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight().shadow(EraElevation.sm, RoundedCornerShape(EraRadius.pill)).background(c.primary, RoundedCornerShape(EraRadius.pill)).safeDrawingPadding().padding(horizontal = EraSpacing.lg, vertical = EraSpacing.sm), verticalArrangement = Arrangement.spacedBy(EraSpacing.md, Alignment.Top))"),
+        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight().shadow(EraElevation.sm, RoundedCornerShape(EraRadius.pill), clip = false).background(c.primary, RoundedCornerShape(EraRadius.pill)).safeDrawingPadding().padding(horizontal = EraSpacing.lg, vertical = EraSpacing.sm), verticalArrangement = Arrangement.spacedBy(EraSpacing.md, Alignment.Top))"),
         "{code}"
     );
     assert!(
@@ -439,4 +440,75 @@ fn runtime_has_navigation() {
     .unwrap();
     let out = generate(&build_app(dir.path()));
     assert!(out.files.iter().all(|(p, _)| !p.ends_with("EraStores.kt")));
+}
+
+// ----- M8: CSS layout ---------------------------------------------------------
+
+#[test]
+fn css_sizes_become_compose_modifiers() {
+    let code = screen_code(
+        "column { row { text \"a\" { width: 25% }\n text \"b\" { width: 2fr }\n text \"c\" { width: 30vw; aspect-ratio: 2 } }\n text \"d\" { width: max-content; opacity: .5; z-index: 3 } }",
+    );
+    assert!(
+        code.contains("BasicText(\"a\", modifier = Modifier.fillMaxWidth(0.25f)"),
+        "{code}"
+    );
+    assert!(
+        code.contains("BasicText(\"b\", modifier = Modifier.weight(2f)"),
+        "{code}"
+    );
+    assert!(code.contains("width(eraVw(30f)).aspectRatio(2f)"), "{code}");
+    assert!(
+        code.contains("width(IntrinsicSize.Max).zIndex(3f).alpha(0.5f)"),
+        "{code}"
+    );
+}
+
+#[test]
+fn margins_and_auto_centering() {
+    let code = screen_code(
+        "column { text \"a\" { margin: 8px 16px }\n column { width: 200px; margin: 0 auto } }",
+    );
+    assert!(
+        code.contains(
+            "BasicText(\"a\", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)"
+        ),
+        "{code}"
+    );
+    assert!(
+        code.contains(
+            "Modifier.padding(vertical = 0.dp).align(Alignment.CenterHorizontally).width(200.dp)"
+        ),
+        "{code}"
+    );
+}
+
+#[test]
+fn absolute_fixed_and_relative_positioning() {
+    let code = screen_code(
+        "column { padding: 20px\n text \"x\" { position: relative; top: 4px }\n stack { position: absolute; top: -8px; right: -8px; width: 28px; height: 28px }\n stack { position: fixed; bottom: 24px; right: 20px } }",
+    );
+    // relative: offset only
+    assert!(
+        code.contains("BasicText(\"x\", modifier = Modifier.offset(x = 0.dp, y = 4.dp)"),
+        "{code}"
+    );
+    // absolute: overlay against the padding box, not squeezed
+    assert!(code.contains("Box(Modifier.matchParentSize())"), "{code}");
+    assert!(code.contains("align(Alignment.TopEnd).wrapContentSize(Alignment.TopEnd, unbounded = true).offset(x = 8.dp, y = (-8).dp)"), "{code}");
+    // fixed: pinned at screen level, bottom-end
+    assert!(code.contains("align(Alignment.BottomEnd).wrapContentSize(Alignment.BottomEnd, unbounded = true).offset(x = (-20).dp, y = (-24).dp)"), "{code}");
+}
+
+#[test]
+fn wrap_scroll_and_shadows_do_not_clip() {
+    let code = screen_code(
+        "column { row { flex-wrap: wrap; gap: 4px; text \"a\"; text \"b\" }\n column { overflow: auto; text \"c\" }\n card { text \"d\" } }",
+    );
+    assert!(code.contains("FlowRow(Modifier, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start), verticalArrangement = Arrangement.spacedBy(4.dp))"), "{code}");
+    assert!(
+        code.contains("verticalScroll(rememberScrollState())"),
+        "{code}"
+    );
+    assert!(code.contains("clip = false"), "{code}");
 }

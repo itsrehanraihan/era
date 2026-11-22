@@ -52,6 +52,8 @@ pub enum TokenKind {
     Keyword(Keyword),
     String(String),
     Number(f64),
+    /// A number with a CSS unit: `16px`, `50%`, `1fr`, `1.5rem`, `100vw`, `45deg`.
+    Dimension(f64, String),
     Color(Color),
     LBrace,
     RBrace,
@@ -59,6 +61,10 @@ pub enum TokenKind {
     Comma,
     Pipe,
     Dot,
+    LParen,
+    RParen,
+    Semicolon,
+    Slash,
     Eq,
     Question,
     Newline,
@@ -83,6 +89,11 @@ impl TokenKind {
             TokenKind::Comma => "`,`".into(),
             TokenKind::Pipe => "`|`".into(),
             TokenKind::Dot => "`.`".into(),
+            TokenKind::LParen => "`(`".into(),
+            TokenKind::RParen => "`)`".into(),
+            TokenKind::Semicolon => "`;`".into(),
+            TokenKind::Slash => "`/`".into(),
+            TokenKind::Dimension(_, u) => format!("a `{u}` value"),
             TokenKind::Eq => "`=`".into(),
             TokenKind::Question => "`?`".into(),
             TokenKind::Newline => "end of line".into(),
@@ -108,6 +119,12 @@ struct Lexer<'a> {
 
 /// Tokenize `src`. Always returns a token list ending in `Eof`; invalid input
 /// produces diagnostics and is skipped so parsing can continue.
+/// CSS units ERA understands (D-073).
+pub const UNITS: &[&str] = &[
+    "px", "dp", "pt", "rem", "em", "vw", "vh", "vmin", "vmax", "fr", "deg", "rad", "turn", "s",
+    "ms",
+];
+
 pub fn lex(src: &str, path: &str) -> (Vec<Token>, Vec<Diagnostic>) {
     let mut lx = Lexer {
         src,
@@ -186,6 +203,14 @@ impl Lexer<'_> {
                     self.bump();
                 }
                 '/' if self.peek2() == Some('/') => self.eat_while(|c| c != '\n'),
+                '/' => self.single(TokenKind::Slash),
+                '(' => self.single(TokenKind::LParen),
+                ')' => self.single(TokenKind::RParen),
+                ';' => self.single(TokenKind::Semicolon),
+                // CSS `!important` has no meaning in ERA (no cascade): ignored.
+                '!' if self.src[self.pos + 1..].starts_with("important") => {
+                    self.pos += "!important".len();
+                }
                 '{' => self.single(TokenKind::LBrace),
                 '}' => self.single(TokenKind::RBrace),
                 ':' => self.single(TokenKind::Colon),
@@ -198,18 +223,7 @@ impl Lexer<'_> {
                 '-' if self.peek2().is_some_and(|c| c.is_ascii_digit()) => self.number(),
                 c if c.is_ascii_digit() => self.number(),
                 c if is_ident_start(c) => self.ident(),
-                '.' if self.peek2().is_some_and(|c| c.is_ascii_digit()) => {
-                    self.bump();
-                    self.eat_while(|c| c.is_ascii_digit());
-                    let text = &self.src[start + 1..self.pos];
-                    let help = format!("write `0.{text}`");
-                    self.error(
-                        "E1005",
-                        "a number cannot start with `.`",
-                        Span::new(start, self.pos),
-                    )
-                    .help = Some(help);
-                }
+                '.' if self.peek2().is_some_and(|c| c.is_ascii_digit()) => self.number(),
                 '.' => self.single(TokenKind::Dot),
                 other => {
                     self.bump();
@@ -238,7 +252,15 @@ impl Lexer<'_> {
 
     fn ident(&mut self) {
         let start = self.pos;
-        self.eat_while(is_ident_continue);
+        // CSS words may contain hyphens: `space-between`, `font-size`.
+        loop {
+            self.eat_while(is_ident_continue);
+            if self.peek() == Some('-') && self.peek2().is_some_and(|c| c.is_ascii_alphanumeric()) {
+                self.bump();
+            } else {
+                break;
+            }
+        }
         let text = &self.src[start..self.pos];
         let kind = match Keyword::ALL.iter().find(|(k, _)| *k == text) {
             Some((_, kw)) => TokenKind::Keyword(*kw),
@@ -269,22 +291,34 @@ impl Lexer<'_> {
                 return;
             }
         }
-        // A number glued to letters (`16px`, `2x`) is almost certainly a unit.
-        if self.peek().is_some_and(is_ident_start) {
+        let num_end = self.pos;
+        // CSS units: `16px`, `50%`, `1fr`, `1.5rem`, `45deg`.
+        let unit = if self.peek() == Some('%') {
+            self.bump();
+            Some("%".to_string())
+        } else if self.peek().is_some_and(is_ident_start) {
             let unit_start = self.pos;
             self.eat_while(is_ident_continue);
             let unit = self.src[unit_start..self.pos].to_string();
-            self.error(
-                "E1006",
-                format!("unexpected `{unit}` after number"),
-                Span::new(start, self.pos),
-            )
-            .help = Some("ERA numbers have no units: sizes are dp, font sizes are sp".into());
-            return;
-        }
-        let text = &self.src[start..self.pos];
+            if !UNITS.contains(&unit.as_str()) {
+                self.error(
+                    "E1006",
+                    format!("unknown unit `{unit}`"),
+                    Span::new(start, self.pos),
+                )
+                .help = Some(format!("units are: {}", UNITS.join(", ")));
+                return;
+            }
+            Some(unit)
+        } else {
+            None
+        };
+        let text = &self.src[start..num_end];
         match text.parse::<f64>() {
-            Ok(v) => self.push(TokenKind::Number(v), start),
+            Ok(v) => match unit {
+                Some(u) => self.push(TokenKind::Dimension(v, u), start),
+                None => self.push(TokenKind::Number(v), start),
+            },
             Err(_) => {
                 self.error(
                     "E1005",

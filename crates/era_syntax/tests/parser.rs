@@ -266,7 +266,7 @@ fn recovery_reports_independent_errors() {
 #[test]
 fn lexer_errors_do_not_cascade() {
     // `16px` is reported once by the lexer, not again by the parser.
-    assert_eq!(codes("screen A { column { gap: 16px } }"), ["E1006"]);
+    assert_eq!(codes("screen A { column { gap: 16qq } }"), ["E1006"]);
     assert_eq!(codes("screen A { column { background: #12 } }"), ["E1003"]);
 }
 
@@ -385,4 +385,68 @@ fn store_syntax_errors() {
         codes("screen A { column { on_press: Session. } }"),
         ["E1101"]
     );
+}
+
+// ----- M8: CSS values ------------------------------------------------------
+
+fn prop_value(src: &str) -> ValueKind {
+    let f = ok(&format!("screen A {{ column {{ {src} }} }}"));
+    let Item::Property(p) = &root(&f).block.as_ref().unwrap().items[0] else {
+        panic!()
+    };
+    p.value.kind.clone()
+}
+
+#[test]
+fn css_terms_calls_and_layers() {
+    assert!(matches!(prop_value("padding: 8px 16px"), ValueKind::Terms(t) if t.len() == 2));
+    let ValueKind::Terms(t) = prop_value("border: 1px solid #ccc") else {
+        panic!()
+    };
+    assert_eq!(t[1].kind, ValueKind::Ident("solid".into()));
+    let ValueKind::Call(name, args) = prop_value("background: rgba(0, 0, 0, .1)") else {
+        panic!()
+    };
+    assert_eq!((name.as_str(), args.len()), ("rgba", 4));
+    let ValueKind::Call(name, args) =
+        prop_value("background: linear-gradient(135deg, #00E6B5, #00B894 80%)")
+    else {
+        panic!()
+    };
+    assert_eq!(name, "linear-gradient");
+    assert!(matches!(&args[2].kind, ValueKind::Terms(t) if t.len() == 2));
+    let ValueKind::Layers(l) = prop_value("box-shadow: 0 1px 2px red, 0 4px 8px rgba(0, 0, 0, .2)")
+    else {
+        panic!()
+    };
+    assert_eq!(l.len(), 2);
+    let ValueKind::Terms(t) = prop_value("aspect-ratio: 16 / 9") else {
+        panic!()
+    };
+    assert_eq!(t[1].kind, ValueKind::Slash);
+    assert!(
+        matches!(prop_value("grid-template-columns: repeat(3, 1fr)"), ValueKind::Call(n, _) if n == "repeat")
+    );
+}
+
+#[test]
+fn semicolons_and_old_commas_both_separate_items() {
+    let f = ok(
+        "screen A { column { gap: 8px; padding: 4px 8px; text \"a\", text \"b\", width: 50% } }",
+    );
+    assert_eq!(root(&f).block.as_ref().unwrap().items.len(), 5);
+    // `!important` is ignored.
+    let f = ok("screen A { column { gap: 8px !important } }");
+    let Item::Property(p) = &root(&f).block.as_ref().unwrap().items[0] else {
+        panic!()
+    };
+    assert_eq!(p.value.kind, ValueKind::Dimension(8.0, "px".into()));
+}
+
+#[test]
+fn then_chains_still_work_after_terms() {
+    let ValueKind::Seq(parts) = prop_value("on_press: Session.verify then go Home") else {
+        panic!()
+    };
+    assert_eq!(parts.len(), 2);
 }

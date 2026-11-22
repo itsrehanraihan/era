@@ -1,6 +1,8 @@
-# ERA × CSS: the CSS-familiar styling model (PROPOSAL, awaiting owner approval)
+# ERA × CSS: the CSS-familiar styling model
 
-Status: **draft for review.** Nothing in this document is implemented yet.
+Status: **approved (D-080: the MVP follows HTML/CSS). Phase 1 is
+implemented** (names, units, sizing, box spacing, positioning; see §15).
+The owner's v2 input sheet is `docs/V2_SYNTAX_CHEATSHEET.md`.
 It records the owner's 2026-11-21 direction: ERA should feel like
 HTML5/CSS3. ERA should be easy to understand, take little code, be highly
 customisable, and turn any UI into code. The sections marked **Decision**
@@ -321,3 +323,44 @@ Only built-in property names change.
 
 Each phase also updates ERA Studio: colouring for the new syntax,
 autocomplete for CSS names, and the Skin panel.
+
+## 15. Implementation status
+
+**Phase 1 (done, 2026-11-22):**
+
+- **Syntax:**
+  - every spelling of a name (kebab, camel, snake, lowercase)
+  - CSS aliases: `border-radius`, `justify-content`, `align-items`,
+    `text-align`, `object-fit`, `background-color`, `line-clamp`,
+    `padding-left/right/inline/block`, `margin-*`, `row-gap`/`column-gap`,
+    `flex-grow`
+  - `;` separators, hyphenated keywords, `.5`, `!important` (ignored)
+  - CSS units and function values in the parser
+- **Values and sizing:**
+  - `px`, `dp`, `pt`, `rem`, `em`, `%`, `fr`, `vw`, `vh`
+  - `auto`, `fit-content`, `stretch`, `min-content`, `max-content`
+  - `aspect-ratio` (`16 / 9`), `flex`, `align-self`
+  - CSS keyword spellings (`flex-start`, `space-between`, …)
+- **Box model:**
+  - `margin` with 1–4 values and `auto` centring
+  - `padding` shorthand with 1–4 values
+  - `border: 1px solid colour`, `border: none`
+  - `opacity` (also `%`), `visibility: hidden`, `display: none`
+  - `overflow: hidden / clip / scroll / auto`
+- **Layout:**
+  - `position: relative / absolute / fixed` with `top/right/bottom/left/inset`
+  - `z-index`
+  - `flex-direction` (including reverse) and `flex-wrap: wrap` (FlowRow)
+- **Verified** by IR and codegen tests, a rendered showcase screen
+  (`Layout`), and Android APK builds.
+
+**Next phases:**
+
+| Phase | Covers |
+|---|---|
+| P3 | Per-side borders and corners, dashed/dotted borders, outline |
+| P4 | Colour functions, named colours, `var()`, gradients, `box-shadow`, filters (and the Compose 1.9 bump) |
+| P5 | Typography properties and `span` |
+| P6 | CSS grid templates, `calc()`, transforms, percentage offsets |
+| P7 | HTML element aliases and form controls |
+| P8 | `hover`/`active`/`focus`/`disabled` and `media` rules |

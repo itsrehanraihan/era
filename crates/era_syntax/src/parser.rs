@@ -145,7 +145,10 @@ impl Parser<'_> {
     }
 
     fn skip_separators(&mut self) {
-        while matches!(self.peek_kind(), TokenKind::Newline | TokenKind::Comma) {
+        while matches!(
+            self.peek_kind(),
+            TokenKind::Newline | TokenKind::Comma | TokenKind::Semicolon
+        ) {
             self.bump();
         }
     }
@@ -174,7 +177,11 @@ impl Parser<'_> {
     fn recover_item(&mut self) {
         loop {
             match self.peek_kind() {
-                TokenKind::Newline | TokenKind::Comma | TokenKind::RBrace | TokenKind::Eof => {
+                TokenKind::Newline
+                | TokenKind::Comma
+                | TokenKind::Semicolon
+                | TokenKind::RBrace
+                | TokenKind::Eof => {
                     return;
                 }
                 TokenKind::LBrace => self.skip_braced(),
@@ -328,12 +335,16 @@ impl Parser<'_> {
                     let after = self.peek_kind();
                     if !matches!(
                         after,
-                        TokenKind::Newline | TokenKind::Comma | TokenKind::RBrace | TokenKind::Eof
+                        TokenKind::Newline
+                            | TokenKind::Comma
+                            | TokenKind::Semicolon
+                            | TokenKind::RBrace
+                            | TokenKind::Eof
                     ) {
                         let found = after.describe();
                         self.error_here(
                             "E1103",
-                            format!("expected a new line or `,` after {}, found {found}", item.describe()),
+                            format!("expected a new line or `;` after {}, found {found}", item.describe()),
                             Some("put each property and element on its own line, or separate them with `,`".into()),
                         );
                         self.recover_item();
@@ -463,7 +474,23 @@ impl Parser<'_> {
 
     /// A value, optionally chained with `then` (M6 actions).
     fn value(&mut self, what: &str) -> Option<Value> {
-        let first = self.single_value(what)?;
+        let first = self.terms(what)?;
+        // `a, b`: a comma followed by something value-like continues a list
+        // (`boxShadow: 0 1px red, 0 2px blue`); otherwise it separates items.
+        let mut layers = vec![first];
+        while *self.peek_kind() == TokenKind::Comma && self.value_continues_after_comma() {
+            self.bump();
+            layers.push(self.terms(what)?);
+        }
+        let first = if layers.len() == 1 {
+            layers.pop().unwrap()
+        } else {
+            let span = layers[0].span.to(layers.last().unwrap().span);
+            Value {
+                kind: ValueKind::Layers(layers),
+                span,
+            }
+        };
         if !self.at_word("then") {
             return Some(first);
         }
@@ -477,6 +504,72 @@ impl Parser<'_> {
             kind: ValueKind::Seq(parts),
             span,
         })
+    }
+
+    fn value_continues_after_comma(&self) -> bool {
+        match self.peek_kind_at(1) {
+            TokenKind::Number(_)
+            | TokenKind::Dimension(..)
+            | TokenKind::Color(_)
+            | TokenKind::String(_) => true,
+            TokenKind::Ident(w) => w == "inset" || *self.peek_kind_at(2) == TokenKind::LParen,
+            _ => false,
+        }
+    }
+
+    /// Space-separated terms up to the end of the value: `8px 16px`,
+    /// `1px solid #ccc`, `16 / 9`. A single term is returned as itself.
+    fn terms(&mut self, what: &str) -> Option<Value> {
+        let mut parts = vec![self.single_value(what)?];
+        loop {
+            let starts_term = match self.peek_kind() {
+                TokenKind::Ident(w) => w != "then",
+                TokenKind::String(_)
+                | TokenKind::Number(_)
+                | TokenKind::Dimension(..)
+                | TokenKind::Color(_)
+                | TokenKind::Slash
+                | TokenKind::Keyword(Keyword::True | Keyword::False | Keyword::None) => true,
+                _ => false,
+            };
+            if !starts_term {
+                break;
+            }
+            parts.push(self.single_value(what)?);
+        }
+        if parts.len() == 1 {
+            return parts.pop();
+        }
+        let span = parts[0].span.to(parts.last().unwrap().span);
+        Some(Value {
+            kind: ValueKind::Terms(parts),
+            span,
+        })
+    }
+
+    /// `name(arg, arg, ...)` after the name has been read.
+    fn call(&mut self, name: String, start: Span) -> Option<Value> {
+        self.bump(); // `(`
+        let mut args = Vec::new();
+        loop {
+            while *self.peek_kind() == TokenKind::Newline {
+                self.bump();
+            }
+            if let Some(close) = self.eat(&TokenKind::RParen) {
+                return Some(Value {
+                    kind: ValueKind::Call(name, args),
+                    span: start.to(close.span),
+                });
+            }
+            if !args.is_empty() && self.eat(&TokenKind::Comma).is_none() {
+                self.expected(&format!("`,` or `)` in `{name}(...)`"));
+                return None;
+            }
+            while *self.peek_kind() == TokenKind::Newline {
+                self.bump();
+            }
+            args.push(self.terms(&format!("a value inside `{name}(...)`"))?);
+        }
     }
 
     fn at_word(&self, word: &str) -> bool {
@@ -520,12 +613,20 @@ impl Parser<'_> {
                 span,
             });
         }
+        if let TokenKind::Ident(name) = self.peek_kind().clone()
+            && *self.peek_kind_at(1) == TokenKind::LParen
+        {
+            let start = self.bump().span;
+            return self.call(name, start);
+        }
         if matches!(self.peek_kind(), TokenKind::Ident(_)) {
             return self.path_or_ident();
         }
         let kind = match self.peek_kind().clone() {
             TokenKind::String(s) => ValueKind::String(s),
             TokenKind::Number(n) => ValueKind::Number(n),
+            TokenKind::Dimension(n, u) => ValueKind::Dimension(n, u),
+            TokenKind::Slash => ValueKind::Slash,
             TokenKind::Color(c) => ValueKind::Color(c),
             TokenKind::Ident(i) => ValueKind::Ident(i),
             TokenKind::Keyword(Keyword::True) => ValueKind::Bool(true),

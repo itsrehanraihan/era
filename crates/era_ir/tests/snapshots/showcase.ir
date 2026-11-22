@@ -59,6 +59,36 @@ screen Home title="Home" background=background(#FFFFFF)
         button "Details" {background=none on_press=[Counter.toggle_details] padding_x=lg(24) padding_y=sm(8) radius=pill(999) style=body text_color=primary(#FF6B35)} @Home/slot/12/2:AppButton <AppButton>
       input {background=surface(#F7F7F7) bind=Counter.name border_color=border(#E8E8E8) border_width=thin(1) padding=sm(8) placeholder="Your name" radius=sm(8) style=body text_color=text(#171717) width=fill} @Home/slot/13
       text "Hello, {Counter.name}! Braces need doubling: {{like this}}." {color=muted(#737373) style=body visible=Counter.details} @Home/slot/14
+screen Layout title="CSS layout" background=background(#FFFFFF)
+  scroll {direction=vertical height=fill width=fill} @Layout
+    column {gap=16 padding_bottom=24 padding_end=16 padding_start=16 padding_top=24 width=100%} @Layout/0
+      text "CSS layout" {color=text(#171717) style=display} @Layout/0/0
+      row {gap=8} @Layout/0/1
+        stack {background=primary(#FF6B35) height=48 radius=8 width=25%} @Layout/0/1/0
+        stack {background=secondary(#2B2D42) height=48 radius=8 width=1fr} @Layout/0/1/1
+        stack {background=success(#2E9E5B) height=48 radius=8 width=2fr} @Layout/0/1/2
+      column {border_color=border(#E8E8E8) border_width=1 margin_bottom=0 margin_end=auto margin_start=auto margin_top=0 padding=12 radius=12 width=200} @Layout/0/2
+        text "margin: 0 auto" {align=center color=text(#171717) style=body width=100%} @Layout/0/2/0
+      card {background=surface(#F7F7F7) elevation=sm(1) padding=20 position=relative radius=md(14)} @Layout/0/3
+        text "Card with a badge" {color=text(#171717) style=body} @Layout/0/3/0
+        stack {align=center background=danger(#E5484D) height=28 position=absolute radius=999 right=-8 top=-8 width=28 z_index=2} @Layout/0/3/1
+          text "3" {color=on_primary(#FFFFFF) style=caption} @Layout/0/3/1/0
+      row {flex_wrap=wrap gap=8} @Layout/0/4
+        text "Kotlin" {border_color=border(#E8E8E8) border_width=1 color=text(#171717) padding_bottom=6 padding_end=12 padding_start=12 padding_top=6 radius=999 style=body} @Layout/0/4/0
+        text "Compose" {border_color=border(#E8E8E8) border_width=1 color=text(#171717) padding_bottom=6 padding_end=12 padding_start=12 padding_top=6 radius=999 style=body} @Layout/0/4/1
+        text "Rust" {border_color=border(#E8E8E8) border_width=1 color=text(#171717) padding_bottom=6 padding_end=12 padding_start=12 padding_top=6 radius=999 style=body} @Layout/0/4/2
+        text "Design tokens" {border_color=border(#E8E8E8) border_width=1 color=text(#171717) padding_bottom=6 padding_end=12 padding_start=12 padding_top=6 radius=999 style=body} @Layout/0/4/3
+        text "Native UI" {border_color=border(#E8E8E8) border_width=1 color=text(#171717) padding_bottom=6 padding_end=12 padding_start=12 padding_top=6 radius=999 style=body} @Layout/0/4/4
+        text "No WebView" {border_color=border(#E8E8E8) border_width=1 color=text(#171717) padding_bottom=6 padding_end=12 padding_start=12 padding_top=6 radius=999 style=body} @Layout/0/4/5
+      row {align=center gap=12} @Layout/0/5
+        image "Images/hero.png" {aspect_ratio=1.7777777777777777 clip=true fit=cover radius=12 width=30vw} @Layout/0/5/0
+        image "Images/hero.png" {aspect_ratio=1 clip=true fit=cover opacity=0.5 radius=999 width=64} @Layout/0/5/1
+      row {distribute=between flex_direction=row-reverse} @Layout/0/6
+        text "last in source" {color=text(#171717) style=body} @Layout/0/6/1
+        text "first in source" {color=text(#171717) style=body} @Layout/0/6/0
+      spacer {size=72} @Layout/0/7
+      stack {align=center background=primary(#FF6B35) bottom=24 elevation=md(4) height=56 position=fixed radius=999 right=20 width=56} @Layout/0/8
+        text "+" {color=on_primary(#FFFFFF) style=heading} @Layout/0/8/0
 stores
   store Counter
     state count: number = 0

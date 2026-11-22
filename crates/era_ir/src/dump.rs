@@ -102,6 +102,13 @@ fn value(v: &Value) -> String {
         Value::Size(Size::Fill) => "fill".into(),
         Value::Size(Size::Fit) => "fit".into(),
         Value::Size(Size::Dp(x)) => num(*x),
+        Value::Size(Size::Percent(p)) => format!("{}%", num(*p)),
+        Value::Size(Size::Fr(f)) => format!("{}fr", num(*f)),
+        Value::Size(Size::Viewport { vertical, percent }) => {
+            format!("{}{}", num(*percent), if *vertical { "vh" } else { "vw" })
+        }
+        Value::Size(Size::MinContent) => "min-content".into(),
+        Value::Size(Size::MaxContent) => "max-content".into(),
         Value::Number(x) => num(*x),
         Value::Bool(b) => b.to_string(),
         Value::Keyword(k) => (*k).into(),

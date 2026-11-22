@@ -100,7 +100,7 @@ screen Home title="Overview" background=background(#F7FAF7)
         stack {align=center background=none height=36 radius=md(16) width=44} @Home/1/1:NavItem/0 <NavItem>
           icon "Icons/bike.svg" {color=muted(#667370) size=22} @Home/1/1:NavItem/0/0 <NavItem>
         text "My Rentals" {color=muted(#667370) style=caption} @Home/1/1:NavItem/1 <NavItem>
-      stack {align=center background=primary(#00E6B5) elevation=md(8) height=60 radius=pill(999) width=60} @Home/1/2
+      stack {align=center background=primary(#00E6B5) elevation=md(8) height=60 position=relative radius=pill(999) top=-18 width=60} @Home/1/2
         icon "Icons/plus.svg" {color=text(#143132) size=26} @Home/1/2/0
       column {align=center gap=xs(4) width=fill} @Home/1/3:NavItem <NavItem>
         stack {align=center background=none height=36 radius=md(16) width=44} @Home/1/3:NavItem/0 <NavItem>

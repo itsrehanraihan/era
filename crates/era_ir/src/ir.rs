@@ -250,4 +250,16 @@ pub enum Size {
     Fill,
     Fit,
     Dp(f64),
+    /// `50%` of the parent's content box (M8).
+    Percent(f64),
+    /// `2fr`: shares of the free space along a row/column (M8).
+    Fr(f64),
+    /// `50vw` / `30vh`: a share of the screen (M8).
+    Viewport {
+        vertical: bool,
+        percent: f64,
+    },
+    /// `min-content` / `max-content` (M8).
+    MinContent,
+    MaxContent,
 }

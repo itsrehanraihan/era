@@ -195,3 +195,25 @@ inheritance. Logic steps are limited to `set`, `toggle` and `add`.
   paths from `image` and `icon` arguments. Checking that those files exist
   is done in M3.
 - All codes are listed in `docs/DIAGNOSTICS.md`.
+
+## 9. CSS lexical and value additions (M8 phase 1, D-080)
+
+- **Numbers with units are one token:** `16px`, `50%`, `1fr`, `1.5rem`,
+  `100vw`, `45deg`, `200ms`. Units: px, dp, pt, rem, em, vw, vh, vmin,
+  vmax, fr, deg, rad, turn, s, ms. An unknown unit is E1006. `.5` is a
+  number.
+- **Words may contain hyphens** between letters or digits:
+  `space-between`, `font-size`.
+- **New punctuation:** `(`, `)`, `;` (an item separator, like a newline
+  or `,`) and `/`. `!important` is ignored.
+- **Values:**
+
+  ```ebnf
+  value   = layer { "," layer } [ "then" ... ] ;     (* a comma continues only before a value-like token *)
+  layer   = term { term } ;                           (* `1px solid #ccc`, `16 / 9` *)
+  term    = single | NAME "(" [ layer { "," layer } ] ")" | "/" ;
+  ```
+
+- **Property names match regardless of case, `_` and `-`**
+  (`font-size` = `fontSize` = `font_size`). CSS names are aliases of ERA
+  properties (`docs/CSS_SPEC.md`).

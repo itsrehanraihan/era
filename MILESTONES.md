@@ -14,7 +14,7 @@ all pass.
 | M5 | Kotlin/Compose codegen, Android host project, debug APK | **Done** (owner verified on a phone, 2026-11-21) |
 | M6 | Button events, minimal state, navigation | **Done** (owner verified on a phone, 2026-11-21) |
 | M7 | ERA Studio editor (Rust/egui): code editor + live preview, macOS (scope change D-065) | **Built and tested on Linux; Mac test pending** |
-| M8 | CSS-familiar styling (D-071, `docs/CSS_SPEC.md`), phases P1–P8 | **Spec written; awaiting owner approval of D-072/D-074/D-075/D-076** |
+| M8 | CSS-familiar styling (D-071/D-080, `docs/CSS_SPEC.md`), phases | **Phase 1 done** (names, units, sizing, margin, positioning). Next: P3 borders, P4 paint |
 
 ## M0 deliverables
 
@@ -264,18 +264,34 @@ Known limitations: no find/replace, autocomplete or undo history beyond
 the editor's own, no hot reload, and no `.app` bundle yet. **Not yet run
 on the owner's Mac.**
 
-## M8 plan (CSS-familiar styling)
+## M8 progress (CSS-familiar styling, D-080: the MVP follows HTML/CSS)
 
-The spec is in `docs/CSS_SPEC.md`. Implementation starts with **P1
-Syntax** once the owner approves:
-- D-074: `;` as the one-line separator
-- D-072: the kebab-case paste and snake_case migration details
-- D-075: states, media rules and classes
-- D-076: HTML element aliases
+**Phase 1 (done):**
+- every spelling of property names, plus CSS aliases
+- CSS units (`px`, `%`, `fr`, `vw`/`vh`, `rem`/`em`, `pt`) and CSS keyword
+  spellings
+- every sizing mode
+- `margin` (including `auto`), and the `padding`/`border`/`inset`
+  shorthands
+- `position` relative/absolute/fixed with offsets, `z-index`
+- `opacity`, `visibility`, `display: none`, `overflow`, `aspect-ratio`
+- `flex`, `align-self`, `flex-direction`, `flex-wrap`
+- `;` separators
+
+**Verification:** the showcase gained a `Layout` screen. E-Renty's + button
+is now raised with `position: relative` (fixes Q-09).
+
+**Cheatsheet:** `docs/V2_SYNTAX_CHEATSHEET.md` is the owner's v2 input
+sheet.
+
+**Known limits:**
+- percentage offsets (`top: 10%`) aren't supported yet
+- in a row, `stretch` doesn't equalise heights
+- `fixed` elements inside a `visible:` condition ignore the condition
 
 ## Next smallest task
 
-1. Build and run ERA Studio on the owner's Mac M4 (owner-approved access)
-   and fix anything macOS-specific.
+1. M8 phase 3–4: borders, corners, colour functions, gradients,
+   `box-shadow`, filters (owner: "build everything the HTML/CSS way").
 2. Then, by owner priority: a `.app` bundle with an icon, find/replace,
    and autocomplete for properties and tokens (the IR already knows them).

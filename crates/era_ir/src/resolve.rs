@@ -583,10 +583,7 @@ impl<'a> Resolver<'a> {
                         );
                         continue;
                     }
-                    let vt = prim.property(key).unwrap();
-                    if let Some(v) = self.value(vt, &p.value, key, ctx) {
-                        props.insert(key, v);
-                    }
+                    self.assign(prim, key, &p.value, ctx, &mut props, true);
                 }
                 Item::Node(child) => {
                     child_items += 1;
@@ -631,15 +628,29 @@ impl<'a> Resolver<'a> {
                         else {
                             continue;
                         };
-                        let vt = prim.property(key).unwrap();
-                        if let Some(v) = self.value(vt, &p.value, key, ctx)
-                            && apply
-                        {
-                            props.insert(key, v);
-                        }
+                        self.assign(prim, key, &p.value, ctx, &mut props, apply);
                     }
                 }
                 Item::Prop(_) | Item::Variant(_) | Item::State(_) | Item::Action(_) => {} // reported by the structure check
+            }
+        }
+
+        // `display: none` removes the element, as in CSS.
+        if props.get("display") == Some(&Value::Keyword("none")) {
+            return None;
+        }
+        // `flex-direction` turns a column into a row (and back), reversed if asked.
+        let mut kind = prim.kind;
+        if let Some(Value::Keyword(dir)) = props.get("flex_direction").cloned() {
+            if matches!(kind, ElementKind::Column | ElementKind::Row) {
+                kind = if dir.starts_with("row") {
+                    ElementKind::Row
+                } else {
+                    ElementKind::Column
+                };
+            }
+            if dir.ends_with("reverse") {
+                children.reverse();
             }
         }
 
@@ -668,7 +679,7 @@ impl<'a> Resolver<'a> {
         self.apply_defaults(prim.kind, &mut props);
         Some(Element {
             id,
-            kind: prim.kind,
+            kind,
             content,
             props,
             children,
@@ -863,6 +874,9 @@ impl<'a> Resolver<'a> {
             }
             _ => {}
         }
+        if let Some(result) = self.css_value(vt, v, prop, ctx) {
+            return result;
+        }
         let type_err = |r: &mut Self| {
             r.err(
                 ctx.path,
@@ -1039,6 +1053,237 @@ impl<'a> Resolver<'a> {
             },
             Bound::Asset(_) => None,
         }
+    }
+
+    // ----- M8: CSS values -----------------------------------------------------
+
+    /// CSS forms of values (units, keywords, ratios). `None` means "not a CSS
+    /// form, use the ERA rules"; `Some(result)` is final.
+    fn css_value(
+        &mut self,
+        vt: ValueType,
+        v: &AstValue,
+        prop: &str,
+        ctx: &Ctx,
+    ) -> Option<Option<Value>> {
+        let unit_err = |r: &mut Self, unit: &str| {
+            r.err(
+                ctx.path,
+                "E2134",
+                format!("`{prop}` does not take `{unit}` values"),
+                v.span,
+                Some(format!("`{prop}` needs {}", vt.describe())),
+            );
+            Some(None)
+        };
+        match (vt, &v.kind) {
+            (ValueType::Size, ValueKind::Dimension(n, u)) => Some(match u.as_str() {
+                "%" => Some(Value::Size(Size::Percent(*n))),
+                "fr" => Some(Value::Size(Size::Fr(*n))),
+                "vw" | "vh" => Some(Value::Size(Size::Viewport {
+                    vertical: u == "vh",
+                    percent: *n,
+                })),
+                _ => match css_length(*n, u) {
+                    Some(dp) if dp >= 0.0 => Some(Value::Size(Size::Dp(dp))),
+                    Some(_) => return unit_err(self, "negative"),
+                    None => return unit_err(self, u),
+                },
+            }),
+            (ValueType::Size, ValueKind::Ident(w)) => match w.as_str() {
+                "auto" | "fit-content" => Some(Some(Value::Size(Size::Fit))),
+                "stretch" => Some(Some(Value::Size(Size::Fill))),
+                "min-content" => Some(Some(Value::Size(Size::MinContent))),
+                "max-content" => Some(Some(Value::Size(Size::MaxContent))),
+                _ => None,
+            },
+            (ValueType::Dimension(_) | ValueType::Number { .. }, ValueKind::Dimension(n, u)) => {
+                match css_length(*n, u) {
+                    Some(dp) => {
+                        let plain = AstValue {
+                            kind: ValueKind::Number(dp),
+                            span: v.span,
+                        };
+                        Some(self.value(vt, &plain, prop, ctx))
+                    }
+                    None => unit_err(self, u),
+                }
+            }
+            (ValueType::Offset, ValueKind::Number(n)) => Some(Some(Value::Size(Size::Dp(*n)))),
+            (ValueType::Offset, ValueKind::Dimension(n, u)) => {
+                match (u.as_str(), css_length(*n, u)) {
+                    ("%", _) => Some(Some(Value::Size(Size::Percent(*n)))),
+                    (_, Some(dp)) => Some(Some(Value::Size(Size::Dp(dp)))),
+                    _ => unit_err(self, u),
+                }
+            }
+            (ValueType::Offset, _) => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", vt.describe()),
+                    v.span,
+                    None,
+                );
+                Some(None)
+            }
+            (ValueType::Margin, ValueKind::Ident(w)) if w == "auto" => {
+                Some(Some(Value::Keyword("auto")))
+            }
+            (ValueType::Margin, _) => {
+                Some(self.value(ValueType::Dimension(TokenCategory::Spacing), v, prop, ctx))
+            }
+            (ValueType::Ratio, ValueKind::Number(n)) if *n > 0.0 => Some(Some(Value::Number(*n))),
+            (ValueType::Ratio, ValueKind::Terms(t)) => match t.as_slice() {
+                [
+                    AstValue {
+                        kind: ValueKind::Number(a),
+                        ..
+                    },
+                    AstValue {
+                        kind: ValueKind::Slash,
+                        ..
+                    },
+                    AstValue {
+                        kind: ValueKind::Number(b),
+                        ..
+                    },
+                ] if *a > 0.0 && *b > 0.0 => Some(Some(Value::Number(a / b))),
+                _ => None,
+            },
+            (ValueType::Unit, ValueKind::Number(n)) if (0.0..=1.0).contains(n) => {
+                Some(Some(Value::Number(*n)))
+            }
+            (ValueType::Unit, ValueKind::Dimension(n, u))
+                if u == "%" && (0.0..=100.0).contains(n) =>
+            {
+                Some(Some(Value::Number(n / 100.0)))
+            }
+            // `display: none`: `none` is an ERA keyword, but a valid CSS word here.
+            (ValueType::Keyword(opts), ValueKind::None) if opts.contains(&"none") => {
+                Some(Some(Value::Keyword("none")))
+            }
+            (ValueType::Keyword(opts), ValueKind::Ident(w)) => {
+                // CSS spellings of ERA keywords: `flex-start`, `space-between`, `left`.
+                let mapped = match w.as_str() {
+                    "flex-start" | "self-start" | "left" | "top" | "normal" | "baseline" => "start",
+                    "flex-end" | "self-end" | "right" | "bottom" => "end",
+                    "space-between" => "between",
+                    "space-around" => "around",
+                    "space-evenly" => "evenly",
+                    "fill" if opts.contains(&"stretch") => "stretch",
+                    _ => return None,
+                };
+                opts.iter()
+                    .find(|o| **o == mapped)
+                    .map(|o| Some(Value::Keyword(o)))
+            }
+            _ => None,
+        }
+    }
+
+    /// Resolve one property into `props`, expanding CSS shorthands:
+    /// `padding`/`margin`/`inset` with 1–4 values, and `border: 1px solid #ccc`.
+    fn assign(
+        &mut self,
+        prim: &Primitive,
+        key: &'static str,
+        v: &AstValue,
+        ctx: &Ctx,
+        props: &mut BTreeMap<&'static str, Value>,
+        apply: bool,
+    ) {
+        let sides = |names: [&'static str; 4], t: &[AstValue]| -> Vec<(&'static str, AstValue)> {
+            let (top, right, bottom, left) = match t.len() {
+                1 => (0, 0, 0, 0),
+                2 => (0, 1, 0, 1),
+                3 => (0, 1, 2, 1),
+                _ => (0, 1, 2, 3),
+            };
+            vec![
+                (names[0], t[top].clone()),
+                (names[1], t[right].clone()),
+                (names[2], t[bottom].clone()),
+                (names[3], t[left].clone()),
+            ]
+        };
+        let side_names = match key {
+            "padding" => Some([
+                "padding_top",
+                "padding_end",
+                "padding_bottom",
+                "padding_start",
+            ]),
+            "margin" => Some(["margin_top", "margin_end", "margin_bottom", "margin_start"]),
+            "inset" => Some(["top", "right", "bottom", "left"]),
+            _ => None,
+        };
+        let parts: Vec<(&'static str, AstValue)> = match (side_names, &v.kind) {
+            (Some(names), ValueKind::Terms(t)) if t.len() <= 4 => sides(names, t),
+            (Some(_), ValueKind::Terms(_)) => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{key}` takes 1 to 4 values"),
+                    v.span,
+                    None,
+                );
+                return;
+            }
+            (Some(names), _) if key == "inset" => sides(names, std::slice::from_ref(v)),
+            _ if key == "border" => match self.border_parts(v, ctx) {
+                Some(p) => p,
+                None => return,
+            },
+            _ => vec![(key, v.clone())],
+        };
+        for (k, val) in parts {
+            let vt = prim.property(k).unwrap();
+            if let Some(r) = self.value(vt, &val, k, ctx)
+                && apply
+            {
+                props.insert(k, r);
+            }
+        }
+    }
+
+    /// `border: 1px solid #ccc` -> width and colour; `border: none` -> no border.
+    fn border_parts(&mut self, v: &AstValue, ctx: &Ctx) -> Option<Vec<(&'static str, AstValue)>> {
+        let terms: Vec<AstValue> = match &v.kind {
+            ValueKind::Terms(t) => t.clone(),
+            _ => vec![v.clone()],
+        };
+        let mut out = Vec::new();
+        for t in terms {
+            match &t.kind {
+                ValueKind::None => out.push((
+                    "border_width",
+                    AstValue {
+                        kind: ValueKind::Number(0.0),
+                        span: t.span,
+                    },
+                )),
+                ValueKind::Ident(w) if w == "solid" => {}
+                ValueKind::Ident(w) if w == "dashed" || w == "dotted" || w == "double" => {
+                    self.err(
+                        ctx.path,
+                        "E2135",
+                        format!("`{w}` borders are planned (CSS phase P3)"),
+                        t.span,
+                        Some("use `solid` for now".into()),
+                    );
+                    return None;
+                }
+                ValueKind::Number(_) | ValueKind::Dimension(..) => {
+                    out.push(("border_width", t.clone()))
+                }
+                ValueKind::Ident(w) if self.skin.dimension(TokenCategory::Border, w).is_some() => {
+                    out.push(("border_width", t.clone()))
+                }
+                _ => out.push(("border_color", t.clone())),
+            }
+        }
+        Some(out)
     }
 
     // ----- M6: state, actions and templates -------------------------------
@@ -1630,5 +1875,16 @@ fn text_value(parts: Vec<TextPart>) -> Value {
     match logic::plain(&parts) {
         Some(t) => Value::Text(t),
         None => Value::Template(parts),
+    }
+}
+
+/// Absolute CSS lengths in dp: `px` and `dp` are 1:1 (a CSS px is
+/// density-independent), `pt` is 4/3, `rem`/`em` are 16. `None` for other units.
+fn css_length(n: f64, unit: &str) -> Option<f64> {
+    match unit {
+        "px" | "dp" => Some(n),
+        "pt" => Some(n * 4.0 / 3.0),
+        "rem" | "em" => Some(n * 16.0),
+        _ => None,
     }
 }

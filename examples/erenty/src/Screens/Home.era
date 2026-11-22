@@ -143,6 +143,9 @@ screen Home {
             NavItem { glyph: "Icons/home.svg", label: "Overview", state: active }
             NavItem { glyph: "Icons/bike.svg", label: "My Rentals" }
             stack {
+                // Raised above the bar, as in the mockup (CSS relative offset).
+                position: relative
+                top: -18px
                 width: 60
                 height: 60
                 radius: pill

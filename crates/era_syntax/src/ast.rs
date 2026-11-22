@@ -243,6 +243,16 @@ pub enum ValueKind {
     Go(Ident),
     /// `a then b then c`: actions run in order (M6).
     Seq(Vec<Value>),
+    /// A number with a CSS unit: `16px`, `50%`, `1fr` (M8).
+    Dimension(f64, String),
+    /// A CSS function: `rgba(0, 0, 0, .1)`, `linear-gradient(...)`, `repeat(3, 1fr)`.
+    Call(String, Vec<Value>),
+    /// Space-separated terms: `8px 16px`, `1px solid #ccc`, `16 / 9`.
+    Terms(Vec<Value>),
+    /// Comma-separated layers: `0 1px red, 0 2px blue`.
+    Layers(Vec<Value>),
+    /// `/` inside a value (`aspect-ratio: 16 / 9`).
+    Slash,
 }
 
 /// sRGB color with alpha. `#RGB` and `#RRGGBB` get alpha 255.
