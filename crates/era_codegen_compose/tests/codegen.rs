@@ -73,12 +73,14 @@ fn files_and_package() {
     assert_eq!(
         paths,
         [
+            "dev/era/showcase/ui/EraDraw.kt",
             "dev/era/showcase/ui/EraRuntime.kt",
             "dev/era/showcase/ui/EraScreens.kt",
             "dev/era/showcase/ui/EraStores.kt",
             "dev/era/showcase/ui/EraTheme.kt",
             "dev/era/showcase/ui/screens/HomeScreen.kt",
             "dev/era/showcase/ui/screens/LayoutScreen.kt",
+            "dev/era/showcase/ui/screens/LookScreen.kt",
         ]
     );
 }
@@ -511,4 +513,37 @@ fn wrap_scroll_and_shadows_do_not_clip() {
         "{code}"
     );
     assert!(code.contains("clip = false"), "{code}");
+}
+
+// ----- M8 phase 3: borders, corners, outline -------------------------------
+
+#[test]
+fn css_borders_corners_and_outline() {
+    let k = screen_code("column { border: 2px dashed primary; border-radius: 12px }");
+    assert!(
+        k.contains("eraBorder(2.dp, c.primary, RoundedCornerShape(12.dp), EraLine.Dashed)"),
+        "{k}"
+    );
+    let k = screen_code("column { border: 1px solid primary }");
+    assert!(k.contains("border(1.dp, c.primary)"), "{k}");
+    let k =
+        screen_code("column { border-left: 4px solid primary; border-bottom: 1px dotted #FF0000 }");
+    assert!(
+        k.contains("eraSideBorders(top = null, end = null, bottom = EraSide(1.dp, Color(0xFFFF0000), EraLine.Dotted), start = EraSide(4.dp, c.primary, EraLine.Solid))"),
+        "{k}"
+    );
+    let k = screen_code("column { border-radius: 24px 0; background: primary }");
+    assert!(
+        k.contains("RoundedCornerShape(topStart = CornerSize(24.dp), topEnd = CornerSize(0.dp), bottomEnd = CornerSize(24.dp), bottomStart = CornerSize(0.dp))"),
+        "{k}"
+    );
+    let k = screen_code("column { border-radius: 50%; background: primary }");
+    assert!(k.contains("RoundedCornerShape(50)"), "{k}");
+    let k =
+        screen_code("column { outline: 2px solid primary; outline-offset: 4px; overflow: hidden }");
+    let outline = k.find("eraOutline(2.dp, c.primary").expect(&k);
+    assert!(
+        outline < k.find("clip(").unwrap(),
+        "outline is not clipped: {k}"
+    );
 }

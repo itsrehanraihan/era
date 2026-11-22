@@ -25,6 +25,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
@@ -164,10 +165,40 @@ struct Emitter {
 
 fn category(key: &str) -> TokenCategory {
     match key {
-        "radius" => TokenCategory::Radius,
-        "border_width" => TokenCategory::Border,
+        _ if key.starts_with("radius") => TokenCategory::Radius,
+        _ if key.ends_with("_width")
+            && (key.starts_with("border") || key.starts_with("outline")) =>
+        {
+            TokenCategory::Border
+        }
         "elevation" => TokenCategory::Elevation,
         _ => TokenCategory::Spacing,
+    }
+}
+
+const SIDES: [&str; 4] = ["top", "end", "bottom", "start"];
+const CORNERS: [&str; 4] = [
+    "radius_top_start",
+    "radius_top_end",
+    "radius_bottom_end",
+    "radius_bottom_start",
+];
+
+/// A Compose `CornerSize` for one corner radius (`12.dp` or `50%`).
+fn corner_size(key: &str, v: &Value) -> Option<String> {
+    match v {
+        Value::Size(Size::Percent(p)) => Some(format!("CornerSize({})", p.round() as i64)),
+        _ => dim_expr(key, v).map(|d| format!("CornerSize({d})")),
+    }
+}
+
+/// `EraLine.*` for a `border-style`, or `None` for `none`.
+fn line_kind(v: Option<&Value>) -> Option<&'static str> {
+    match v {
+        Some(Value::Keyword("none")) => None,
+        Some(Value::Keyword("dashed")) => Some("EraLine.Dashed"),
+        Some(Value::Keyword("dotted")) => Some("EraLine.Dotted"),
+        _ => Some("EraLine.Solid"),
     }
 }
 
@@ -231,10 +262,115 @@ impl Emitter {
     }
 
     fn shape(e: &Element) -> Option<String> {
-        e.props
-            .get("radius")
-            .and_then(|v| dim_expr("radius", v))
-            .map(|r| format!("RoundedCornerShape({r})"))
+        let uniform = e.props.get("radius");
+        if CORNERS.iter().all(|c| !e.props.contains_key(c)) {
+            return match uniform? {
+                Value::Size(Size::Percent(p)) => {
+                    Some(format!("RoundedCornerShape({})", p.round() as i64))
+                }
+                v => dim_expr("radius", v).map(|r| format!("RoundedCornerShape({r})")),
+            };
+        }
+        let parts: Vec<String> = CORNERS
+            .iter()
+            .zip(["topStart", "topEnd", "bottomEnd", "bottomStart"])
+            .map(|(c, name)| {
+                let size = e
+                    .props
+                    .get(c)
+                    .or(uniform)
+                    .and_then(|v| corner_size(c, v))
+                    .unwrap_or_else(|| "CornerSize(0.dp)".into());
+                format!("{name} = {size}")
+            })
+            .collect();
+        Some(format!("RoundedCornerShape({})", parts.join(", ")))
+    }
+
+    /// CSS borders: Compose's `border` for solid all-round borders,
+    /// `eraBorder` for dashed/dotted, `eraSideBorders` for per-side ones.
+    fn borders(e: &Element, shape: &Option<String>, m: &mut Vec<String>) {
+        let rect = || "androidx.compose.ui.graphics.RectangleShape".to_string();
+        let side_key = |side: &str, part: &str| format!("border_{side}_{part}");
+        let per_side = SIDES.iter().any(|s| {
+            ["width", "color", "style"]
+                .iter()
+                .any(|p| e.props.contains_key(side_key(s, p).as_str()))
+        });
+        let color_of =
+            |v: Option<&Value>| v.and_then(color_expr).unwrap_or_else(|| "c.border".into());
+        if !per_side {
+            let Some(line) = line_kind(e.props.get("border_style")) else {
+                return;
+            };
+            if dim_value(e.props.get("border_width")) <= 0.0 {
+                return;
+            }
+            let w = dim_expr("border_width", &e.props["border_width"]).unwrap();
+            let col = color_of(e.props.get("border_color"));
+            if line == "EraLine.Solid" {
+                m.push(match shape {
+                    Some(sh) => format!("border({w}, {col}, {sh})"),
+                    None => format!("border({w}, {col})"),
+                });
+            } else {
+                let sh = shape.clone().unwrap_or_else(rect);
+                m.push(format!("eraBorder({w}, {col}, {sh}, {line})"));
+            }
+            return;
+        }
+        let args: Vec<String> = SIDES
+            .iter()
+            .map(|side| {
+                let wk = side_key(side, "width");
+                let (wkey, wv) = match e.props.get(wk.as_str()) {
+                    Some(v) => (wk.as_str(), Some(v)),
+                    None => ("border_width", e.props.get("border_width")),
+                };
+                let style = e
+                    .props
+                    .get(side_key(side, "style").as_str())
+                    .or(e.props.get("border_style"));
+                let value = match (wv, line_kind(style)) {
+                    (Some(v), Some(line)) if dim_value(Some(v)) > 0.0 => {
+                        let w = dim_expr(wkey, v).unwrap();
+                        let col = color_of(
+                            e.props
+                                .get(side_key(side, "color").as_str())
+                                .or(e.props.get("border_color")),
+                        );
+                        format!("EraSide({w}, {col}, {line})")
+                    }
+                    _ => "null".into(),
+                };
+                format!("{side} = {value}")
+            })
+            .collect();
+        m.push(format!("eraSideBorders({})", args.join(", ")));
+    }
+
+    /// CSS `outline` (+ `outline-offset`): drawn outside, takes no space.
+    fn outline(e: &Element, shape: &Option<String>, m: &mut Vec<String>) {
+        let Some(line) = line_kind(e.props.get("outline_style")) else {
+            return;
+        };
+        if dim_value(e.props.get("outline_width")) <= 0.0 {
+            return;
+        }
+        let w = dim_expr("outline_width", &e.props["outline_width"]).unwrap();
+        let col = e
+            .props
+            .get("outline_color")
+            .and_then(color_expr)
+            .unwrap_or_else(|| "c.text".into());
+        let offset = match e.props.get("outline_offset") {
+            Some(Value::Size(Size::Dp(x))) => dp(*x),
+            _ => "0.dp".into(),
+        };
+        let sh = shape
+            .clone()
+            .unwrap_or_else(|| "androidx.compose.ui.graphics.RectangleShape".into());
+        m.push(format!("eraOutline({w}, {col}, {sh}, {line}, {offset})"));
     }
 
     /// Size modifiers, honoring the parent's axis rules.
@@ -387,6 +523,8 @@ impl Emitter {
             Some(s) => format!("{base}, {s}"),
             None => base,
         };
+        // Before the clip, so `overflow: hidden` never clips the outline.
+        Self::outline(e, &shape, &mut m);
         if dim_value(e.props.get("elevation")) > 0.0 {
             let el = dim_expr("elevation", &e.props["elevation"]).unwrap();
             // CSS box-shadow never clips content; only `overflow: hidden` does.
@@ -405,15 +543,7 @@ impl Emitter {
         if let Some(bg) = e.props.get("background").and_then(color_expr) {
             m.push(format!("background({})", with_shape(bg)));
         }
-        if dim_value(e.props.get("border_width")) > 0.0 {
-            let w = dim_expr("border_width", &e.props["border_width"]).unwrap();
-            let col = e
-                .props
-                .get("border_color")
-                .and_then(color_expr)
-                .unwrap_or_else(|| "c.border".into());
-            m.push(format!("border({w}, {})", with_shape(col)));
-        }
+        Self::borders(e, &shape, &mut m);
         if let Some(Value::Effects(effects)) = e.props.get("on_press")
             && !effects.is_empty()
         {

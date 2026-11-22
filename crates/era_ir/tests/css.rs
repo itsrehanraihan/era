@@ -84,11 +84,69 @@ fn border_shorthand() {
     let p = root_props("column { border: none }");
     assert!(matches!(&p["border_width"], Value::Dimension(d) if d.dp == 0.0));
     assert_eq!(
-        screen("column { border: 1px dashed red }")
+        screen("column { border: 1px double red }")
             .only("E2135")
             .code,
         "E2135"
     );
+}
+
+// ----- M8 phase 3: borders, corners, outline ------------------------------
+
+#[test]
+fn border_styles_and_sides() {
+    let p = root_props("column { border: 1px dashed primary }");
+    assert_eq!(p["border_style"], Value::Keyword("dashed"));
+    let p = root_props(
+        "column { border-left: 4px solid primary; border-bottom: 1px dotted #ccc; border-top-width: 2px }",
+    );
+    assert!(matches!(&p["border_start_width"], Value::Dimension(d) if d.dp == 4.0));
+    assert_eq!(p["border_bottom_style"], Value::Keyword("dotted"));
+    assert!(matches!(&p["border_top_width"], Value::Dimension(d) if d.dp == 2.0));
+    for name in [
+        "border-right-color",
+        "borderInlineEndColor",
+        "border_right_color",
+    ] {
+        let p = root_props(&format!("column {{ {name}: primary }}"));
+        assert!(p.contains_key("border_end_color"), "{name}");
+    }
+    // 1-4 values per side, CSS order (top, right, bottom, left).
+    let p = root_props("column { border-width: 1px 2px; border-style: solid dashed none }");
+    assert!(matches!(&p["border_end_width"], Value::Dimension(d) if d.dp == 2.0));
+    assert!(matches!(&p["border_start_width"], Value::Dimension(d) if d.dp == 2.0));
+    assert_eq!(p["border_bottom_style"], Value::Keyword("none"));
+    // A later all-sides value replaces earlier per-side ones (cascade).
+    let p = root_props("column { border-top: 3px solid #FF0000; border: 1px solid #0000FF }");
+    assert!(!p.contains_key("border_top_width"));
+}
+
+#[test]
+fn corner_radii() {
+    let p = root_props("column { border-radius: 12px 0 }");
+    assert!(matches!(&p["radius_top_start"], Value::Dimension(d) if d.dp == 12.0));
+    assert!(matches!(&p["radius_top_end"], Value::Dimension(d) if d.dp == 0.0));
+    assert!(matches!(&p["radius_bottom_end"], Value::Dimension(d) if d.dp == 12.0));
+    let p = root_props("column { border-top-left-radius: 8px; borderBottomRightRadius: md }");
+    assert!(p.contains_key("radius_top_start") && p.contains_key("radius_bottom_end"));
+    assert_eq!(
+        root_props("column { border-radius: 50% }")["radius"],
+        Value::Size(Size::Percent(50.0))
+    );
+    assert_eq!(
+        screen("column { border-radius: 10px / 20px }")
+            .only("E2135")
+            .code,
+        "E2135"
+    );
+}
+
+#[test]
+fn outline() {
+    let p = root_props("column { outline: 2px dashed primary; outline-offset: -2px }");
+    assert!(matches!(&p["outline_width"], Value::Dimension(d) if d.dp == 2.0));
+    assert_eq!(p["outline_style"], Value::Keyword("dashed"));
+    assert_eq!(p["outline_offset"], Value::Size(Size::Dp(-2.0)));
 }
 
 #[test]

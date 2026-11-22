@@ -1,0 +1,46 @@
+// CSS looks (M8 phase 3+): borders, corners and outlines, written the web way.
+screen Look {
+    title: "CSS look"
+
+    scroll {
+        column {
+            width: 100%
+            padding: 24px 16px
+            gap: 16px
+
+            text "CSS look" { style: display }
+
+            // border-style: dashed / dotted
+            row {
+                gap: 12px
+                column { flex: 1; height: 64px; border: 2px dashed primary; border-radius: 12px; justify-content: center; align-items: center
+                    text "dashed" }
+                column { flex: 1; height: 64px; border: 3px dotted secondary; border-radius: 12px; justify-content: center; align-items: center
+                    text "dotted" }
+            }
+
+            // Per-side borders
+            column {
+                padding: 12px 16px
+                background: surface
+                border-left: 4px solid primary
+                border-bottom: 1px dashed border
+                text "border-left + border-bottom"
+            }
+
+            // Per-corner radius and percentages
+            row {
+                gap: 12px
+                stack { width: 72px; height: 72px; background: primary; border-radius: 24px 0 }
+                stack { width: 72px; height: 72px; background: secondary; border-radius: 50% }
+                stack { width: 72px; height: 72px; background: success; border-top-left-radius: 36px; border-bottom-right-radius: 8px }
+            }
+
+            // outline + outline-offset (takes no space)
+            row {
+                padding: 8px
+                button "Focused" { outline: 2px solid primary; outline-offset: 4px }
+            }
+        }
+    }
+}

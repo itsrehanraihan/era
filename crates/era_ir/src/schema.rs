@@ -192,6 +192,57 @@ pub const COMMON: &[(&str, ValueType)] = &[
         ValueType::Keyword(&["visible", "hidden", "clip", "scroll", "auto"]),
     ),
     ("border", ValueType::Shorthand),
+    // M8 phase 3: per-side borders, per-corner radius, dashed/dotted, outline.
+    ("border_style", BORDER_STYLE),
+    ("border_top", ValueType::Shorthand),
+    ("border_end", ValueType::Shorthand),
+    ("border_bottom", ValueType::Shorthand),
+    ("border_start", ValueType::Shorthand),
+    ("border_top_width", BORDER_WIDTH),
+    ("border_end_width", BORDER_WIDTH),
+    ("border_bottom_width", BORDER_WIDTH),
+    ("border_start_width", BORDER_WIDTH),
+    ("border_top_color", ValueType::Color),
+    ("border_end_color", ValueType::Color),
+    ("border_bottom_color", ValueType::Color),
+    ("border_start_color", ValueType::Color),
+    ("border_top_style", BORDER_STYLE),
+    ("border_end_style", BORDER_STYLE),
+    ("border_bottom_style", BORDER_STYLE),
+    ("border_start_style", BORDER_STYLE),
+    ("radius_top_start", RADIUS),
+    ("radius_top_end", RADIUS),
+    ("radius_bottom_end", RADIUS),
+    ("radius_bottom_start", RADIUS),
+    ("outline", ValueType::Shorthand),
+    ("outline_width", BORDER_WIDTH),
+    ("outline_color", ValueType::Color),
+    ("outline_style", BORDER_STYLE),
+    ("outline_offset", ValueType::Offset),
+];
+
+const BORDER_STYLE: ValueType = ValueType::Keyword(&["solid", "dashed", "dotted", "none"]);
+const BORDER_WIDTH: ValueType = ValueType::Dimension(TokenCategory::Border);
+const RADIUS: ValueType = ValueType::Dimension(TokenCategory::Radius);
+
+/// Side and corner spellings mapped onto ERA's logical names before lookup:
+/// `border-left-width` -> `border_start_width`,
+/// `border-top-left-radius` -> `radius_top_start` (D-087).
+const PREFIXES: &[(&str, &str)] = &[
+    ("bordertopleftradius", "radiustopstart"),
+    ("bordertoprightradius", "radiustopend"),
+    ("borderbottomrightradius", "radiusbottomend"),
+    ("borderbottomleftradius", "radiusbottomstart"),
+    ("borderstartstartradius", "radiustopstart"),
+    ("borderstartendradius", "radiustopend"),
+    ("borderendendradius", "radiusbottomend"),
+    ("borderendstartradius", "radiusbottomstart"),
+    ("borderinlinestart", "borderstart"),
+    ("borderinlineend", "borderend"),
+    ("borderblockstart", "bordertop"),
+    ("borderblockend", "borderbottom"),
+    ("borderleft", "borderstart"),
+    ("borderright", "borderend"),
 ];
 
 /// Normalised spellings (lowercase, no `_`/`-`) that map to an ERA
@@ -389,6 +440,13 @@ impl Primitive {
         // `color` on a button or input means its text colour.
         if n == "color"
             && let Some(k) = find("textcolor")
+        {
+            return Some(k);
+        }
+        if let Some(k) = PREFIXES
+            .iter()
+            .find(|(from, _)| n.starts_with(from))
+            .and_then(|(from, to)| find(&format!("{to}{}", &n[from.len()..])))
         {
             return Some(k);
         }

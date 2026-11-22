@@ -137,8 +137,10 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Shadow (elevation) ✅ | `elevation` | `elevation: md` | |
 | Opacity ✅ | `opacity` | `opacity: .5` | |
 | Clip ✅ | `clip: true`, `overflow: hidden` | | |
-| Dashed / dotted borders 🧩 | `border-style` | `border: 1px dashed red` | |
-| Per-side borders and corners 🧩 | `border-top`, `border-top-left-radius` | | |
+| Dashed / dotted borders ✅ | `border-style: solid / dashed / dotted / none` | `border: 2px dashed primary` | |
+| Per-side borders ✅ | `border-top/right/bottom/left` (+ `-width`, `-color`, `-style`), `border-width: 1px 2px` (1–4 values) | `border-left: 4px solid primary` | |
+| Per-corner radius ✅ | `border-radius` with 1–4 values or `%`, `border-top-left-radius`, … | `border-radius: 24px 0`, `border-radius: 50%` | |
+| Outline ✅ | `outline`, `outline-offset` (drawn outside, takes no space) | `outline: 2px solid primary; outline-offset: 4px` | |
 | Real CSS box-shadow 🧩 | `box-shadow` | `0 4px 12px rgba(0,0,0,.1)` | |
 | Gradients 🧩 | `background: linear-gradient(…)` | | |
 | Transforms 🧩 | `transform` | `rotate(45deg) scale(1.1)` | |

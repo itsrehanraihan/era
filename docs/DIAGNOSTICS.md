@@ -157,4 +157,4 @@ fail. `W` is a warning.
 | Code | Meaning |
 |---|---|
 | E2134 | A unit that the property doesn't take (`width: 45deg`, `gap: 2fr`) |
-| E2135 | A CSS feature planned for a later phase (e.g. `dashed` borders, P3) |
+| E2135 | A CSS feature that is planned or not supported (e.g. `double` borders, elliptical `border-radius: a / b`) |

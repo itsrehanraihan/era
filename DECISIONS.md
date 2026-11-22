@@ -376,6 +376,22 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   keys and `keystore.properties`. Without signing settings, `--release`
   fails with E3004 and shows the `keytool` command.
 
+## M8 phase 3: borders, corners, outline
+
+- **D-087 Borders the CSS way.** Every element takes `border-style`
+  (`solid`, `dashed`, `dotted`, `none`), per-side borders
+  (`border-top/right/bottom/left` and `-width`/`-color`/`-style`, also
+  `inline`/`block` spellings), `border-width`/`-color`/`-style` with 1–4
+  values, `border-radius` with 1–4 values or `%`, the per-corner radius
+  properties, `outline` and `outline-offset`. Left/right map to ERA's
+  logical start/end, so layouts flip in right-to-left languages. A later
+  all-sides value replaces earlier per-side values (CSS cascade).
+  Rendering: solid all-round borders use Compose `border`; dashed and
+  dotted ones, per-side borders and outlines use small helpers in a new
+  generated file, `EraDraw.kt`. Limits: per-side borders draw square
+  corners; `double`/`groove`/`ridge`/`inset`/`outset` and elliptical
+  radii (`a / b`) are E2135.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
@@ -405,7 +421,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **Q-09 Overlap and offset positioning.** The raised "+" button in the
   bottom bar and the chart tooltip's pointer need offsets. The demo
   approximates both.
-- **Q-10 Dashed lines and italic text.** The chart grid lines are
+- **Q-10 (Partly resolved: dashed lines, D-087; italic is P5)** **Dashed lines and italic text.** The chart grid lines are
   dashed, and the wordmark is italic. The demo uses the logo as an image.
 - **Q-11 (Partly resolved, D-050)** **System bars and safe areas.** The status bar and home indicator
   in the mockups are drawn by the OS. Backends must add safe-area insets.

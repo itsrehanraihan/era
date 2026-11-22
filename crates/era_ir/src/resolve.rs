@@ -221,6 +221,37 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
     (app, r.diags)
 }
 
+/// Per-side properties that an all-sides property replaces (CSS cascade).
+fn overridden_by(key: &str) -> &'static [&'static str] {
+    match key {
+        "border_width" => &[
+            "border_top_width",
+            "border_end_width",
+            "border_bottom_width",
+            "border_start_width",
+        ],
+        "border_color" => &[
+            "border_top_color",
+            "border_end_color",
+            "border_bottom_color",
+            "border_start_color",
+        ],
+        "border_style" => &[
+            "border_top_style",
+            "border_end_style",
+            "border_bottom_style",
+            "border_start_style",
+        ],
+        "radius" => &[
+            "radius_top_start",
+            "radius_top_end",
+            "radius_bottom_end",
+            "radius_bottom_start",
+        ],
+        _ => &[],
+    }
+}
+
 fn hint(name: &str, candidates: &[&str], fallback: &str) -> String {
     match suggest(name, candidates.iter().copied()) {
         Some(s) => format!("did you mean `{s}`?"),
@@ -1117,6 +1148,11 @@ impl<'a> Resolver<'a> {
                 "max-content" => Some(Some(Value::Size(Size::MaxContent))),
                 _ => None,
             },
+            (ValueType::Dimension(TokenCategory::Radius), ValueKind::Dimension(n, u))
+                if u == "%" && *n >= 0.0 =>
+            {
+                Some(Some(Value::Size(Size::Percent(n.min(50.0)))))
+            }
             (ValueType::Dimension(_) | ValueType::Number { .. }, ValueKind::Dimension(n, u)) => {
                 match css_length(*n, u) {
                     Some(dp) => {
@@ -1236,8 +1272,46 @@ impl<'a> Resolver<'a> {
             ]),
             "margin" => Some(["margin_top", "margin_end", "margin_bottom", "margin_start"]),
             "inset" => Some(["top", "right", "bottom", "left"]),
+            "border_width" => Some([
+                "border_top_width",
+                "border_end_width",
+                "border_bottom_width",
+                "border_start_width",
+            ]),
+            "border_color" => Some([
+                "border_top_color",
+                "border_end_color",
+                "border_bottom_color",
+                "border_start_color",
+            ]),
+            "border_style" => Some([
+                "border_top_style",
+                "border_end_style",
+                "border_bottom_style",
+                "border_start_style",
+            ]),
+            // CSS corner order: top-left, top-right, bottom-right, bottom-left.
+            "radius" => Some([
+                "radius_top_start",
+                "radius_top_end",
+                "radius_bottom_end",
+                "radius_bottom_start",
+            ]),
             _ => None,
         };
+        if key == "radius"
+            && let ValueKind::Terms(t) = &v.kind
+            && t.iter().any(|x| matches!(x.kind, ValueKind::Slash))
+        {
+            self.err(
+                ctx.path,
+                "E2135",
+                "elliptical corners (`a / b`) are not supported yet".into(),
+                v.span,
+                Some("use one radius per corner, like `border-radius: 12px 12px 0 0`".into()),
+            );
+            return;
+        }
         let parts: Vec<(&'static str, AstValue)> = match (side_names, &v.kind) {
             (Some(names), ValueKind::Terms(t)) if t.len() <= 4 => sides(names, t),
             (Some(_), ValueKind::Terms(_)) => {
@@ -1251,10 +1325,21 @@ impl<'a> Resolver<'a> {
                 return;
             }
             (Some(names), _) if key == "inset" => sides(names, std::slice::from_ref(v)),
-            _ if key == "border" => match self.border_parts(v, ctx) {
-                Some(p) => p,
-                None => return,
-            },
+            _ if matches!(
+                key,
+                "border"
+                    | "border_top"
+                    | "border_end"
+                    | "border_bottom"
+                    | "border_start"
+                    | "outline"
+            ) =>
+            {
+                match self.border_parts(prim, key, v, ctx) {
+                    Some(p) => p,
+                    None => return,
+                }
+            }
             _ => vec![(key, v.clone())],
         };
         for (k, val) in parts {
@@ -1262,13 +1347,25 @@ impl<'a> Resolver<'a> {
             if let Some(r) = self.value(vt, &val, k, ctx)
                 && apply
             {
+                // CSS cascade: a later all-sides value replaces earlier per-side ones.
+                for side in overridden_by(k) {
+                    props.remove(side);
+                }
                 props.insert(k, r);
             }
         }
     }
 
-    /// `border: 1px solid #ccc` -> width and colour; `border: none` -> no border.
-    fn border_parts(&mut self, v: &AstValue, ctx: &Ctx) -> Option<Vec<(&'static str, AstValue)>> {
+    /// `border: 1px solid #ccc` -> width, style and colour; `border: none`
+    /// -> no border. Also `border-top`, `border-left`, ... and `outline`.
+    fn border_parts(
+        &mut self,
+        prim: &Primitive,
+        prefix: &str,
+        v: &AstValue,
+        ctx: &Ctx,
+    ) -> Option<Vec<(&'static str, AstValue)>> {
+        let key = |part: &str| prim.key(&format!("{prefix}_{part}")).unwrap();
         let terms: Vec<AstValue> = match &v.kind {
             ValueKind::Terms(t) => t.clone(),
             _ => vec![v.clone()],
@@ -1277,30 +1374,37 @@ impl<'a> Resolver<'a> {
         for t in terms {
             match &t.kind {
                 ValueKind::None => out.push((
-                    "border_width",
+                    key("width"),
                     AstValue {
                         kind: ValueKind::Number(0.0),
                         span: t.span,
                     },
                 )),
-                ValueKind::Ident(w) if w == "solid" => {}
-                ValueKind::Ident(w) if w == "dashed" || w == "dotted" || w == "double" => {
+                ValueKind::Ident(w) if matches!(w.as_str(), "solid" | "dashed" | "dotted") => {
+                    out.push((key("style"), t.clone()))
+                }
+                ValueKind::Ident(w)
+                    if matches!(
+                        w.as_str(),
+                        "double" | "groove" | "ridge" | "inset" | "outset" | "hidden"
+                    ) =>
+                {
                     self.err(
                         ctx.path,
                         "E2135",
-                        format!("`{w}` borders are planned (CSS phase P3)"),
+                        format!("`{w}` borders are not supported"),
                         t.span,
-                        Some("use `solid` for now".into()),
+                        Some("use `solid`, `dashed` or `dotted`".into()),
                     );
                     return None;
                 }
                 ValueKind::Number(_) | ValueKind::Dimension(..) => {
-                    out.push(("border_width", t.clone()))
+                    out.push((key("width"), t.clone()))
                 }
                 ValueKind::Ident(w) if self.skin.dimension(TokenCategory::Border, w).is_some() => {
-                    out.push(("border_width", t.clone()))
+                    out.push((key("width"), t.clone()))
                 }
-                _ => out.push(("border_color", t.clone())),
+                _ => out.push((key("color"), t.clone())),
             }
         }
         Some(out)

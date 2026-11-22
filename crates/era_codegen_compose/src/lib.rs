@@ -7,6 +7,7 @@
 //! `eraFontFamily(files)` (see `platforms/`). Output is deterministic.
 
 pub mod android;
+mod draw;
 pub mod kotlin;
 mod runtime;
 mod screens;
@@ -78,6 +79,7 @@ fn generate_inner(app: &App, options: Options) -> Output {
     let mut files = vec![
         (format!("{dir}/EraTheme.kt"), theme::generate(app, &package)),
         (format!("{dir}/EraRuntime.kt"), runtime::generate(&package)),
+        (format!("{dir}/EraDraw.kt"), draw::generate(&package)),
         (
             format!("{dir}/EraScreens.kt"),
             screens::registry(app, &package),

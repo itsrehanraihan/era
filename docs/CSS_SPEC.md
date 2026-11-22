@@ -354,11 +354,26 @@ autocomplete for CSS names, and the Skin panel.
 - **Verified** by IR and codegen tests, a rendered showcase screen
   (`Layout`), and Android APK builds.
 
+**Phase 3 (done, 2026-11-22):** borders, corners and outline (D-087)
+
+- `border-style: solid / dashed / dotted / none` (fixes the dashed part
+  of Q-10)
+- per-side `border-top/right/bottom/left`, `border-inline-*`,
+  `border-block-*` (+ `-width`, `-color`, `-style`)
+- `border-width` / `border-color` / `border-style` with 1–4 values
+- `border-radius` with 1–4 values and `%`; `border-top-left-radius`, …,
+  `border-start-start-radius`, …
+- `outline` and `outline-offset` (drawn outside the element, never
+  clipped, takes no space)
+- **Verified** by IR and codegen tests and the showcase `Look` screen,
+  rendered with the Compose preview.
+- **Limits:** per-side borders draw square corners; `double` and 3-D
+  styles and elliptical radii (`a / b`) are E2135.
+
 **Next phases:**
 
 | Phase | Covers |
 |---|---|
-| P3 | Per-side borders and corners, dashed/dotted borders, outline |
 | P4 | Colour functions, named colours, `var()`, gradients, `box-shadow`, filters (and the Compose 1.9 bump) |
 | P5 | Typography properties and `span` |
 | P6 | CSS grid templates, `calc()`, transforms, percentage offsets |

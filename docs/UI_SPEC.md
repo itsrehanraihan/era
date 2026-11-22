@@ -144,7 +144,12 @@ must contain one `slot`.
 | `width`, `height` | `120px`, `50%`, `2fr`, `30vw`/`vh`, `fill`, `fit`/`auto`, `stretch`, `min-content`, `max-content` |
 | `margin` (1–4), `margin-top/right/bottom/left/x/y/inline/block` | lengths, spacing tokens, `auto` |
 | `padding` (1–4) | lengths, spacing tokens |
-| `border` | `1px solid colour`, `none` |
+| `border` | `1px solid colour`, `2px dashed colour`, `none` |
+| `border-style` (1–4) | `solid`, `dashed`, `dotted`, `none` |
+| `border-top/right/bottom/left` (+ `-width`, `-color`, `-style`) | per side, like `border` |
+| `border-width`, `border-color` (1–4) | per side, CSS order |
+| `border-radius` (1–4), `border-top-left-radius`, … | lengths, tokens, `%` |
+| `outline`, `outline-offset` | like `border`; drawn outside, takes no space |
 | `position` | `static`, `relative`, `absolute`, `fixed` |
 | `top`, `right`, `bottom`, `left`, `inset` (1–4) | lengths (may be negative) |
 | `z-index` | integer |

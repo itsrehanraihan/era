@@ -278,6 +278,12 @@ on the owner's Mac.**
 - `flex`, `align-self`, `flex-direction`, `flex-wrap`
 - `;` separators
 
+**Phase 3 (done, D-087):** `border-style` (dashed, dotted), per-side
+borders, `border-width/-color/-style` with 1–4 values, per-corner and `%`
+radius, `outline` with `outline-offset`. Verified by tests and the
+showcase `Look` screen in the Compose preview. Limit: per-side borders
+draw square corners.
+
 **Verification:** the showcase gained a `Layout` screen. E-Renty's + button
 is now raised with `position: relative` (fixes Q-09).
 
