@@ -157,4 +157,5 @@ fail. `W` is a warning.
 | Code | Meaning |
 |---|---|
 | E2134 | A unit that the property doesn't take (`width: 45deg`, `gap: 2fr`) |
-| E2135 | A CSS feature that is planned or not supported (e.g. `double` borders, elliptical `border-radius: a / b`) |
+| E2135 | A CSS feature that is planned or not supported (e.g. `double` borders, elliptical `border-radius: a / b`, `conic-gradient()`, `url()`) |
+| E2136 | An invalid CSS colour or gradient: wrong `rgb()`/`hsl()` channels, a bad `var()`, an unknown colour function, a gradient on a property other than `background`, or fewer than two gradient colours |

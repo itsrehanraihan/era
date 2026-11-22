@@ -284,6 +284,10 @@ radius, `outline` with `outline-offset`. Verified by tests and the
 showcase `Look` screen in the Compose preview. Limit: per-side borders
 draw square corners.
 
+**Phase 4a (done, D-088):** named colours, `rgb()`/`hsl()`, `var()`,
+linear and radial gradients, background layers. Verified by tests, the
+`Look` screen and an APK build.
+
 **Verification:** the showcase gained a `Layout` screen. E-Renty's + button
 is now raised with `position: relative` (fixes Q-09).
 

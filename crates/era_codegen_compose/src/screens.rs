@@ -11,7 +11,8 @@
 use std::fmt::Write as _;
 
 use era_ir::ir::{
-    App, Content, Effect, Element, ElementKind, Screen, Size, StateRef, StateType, TextPart, Value,
+    App, Content, Effect, Element, ElementKind, GradientKind, Screen, Size, StateRef, StateType,
+    TextPart, Value,
 };
 use era_ir::skin::TokenCategory;
 
@@ -190,6 +191,35 @@ fn corner_size(key: &str, v: &Value) -> Option<String> {
         Value::Size(Size::Percent(p)) => Some(format!("CornerSize({})", p.round() as i64)),
         _ => dim_expr(key, v).map(|d| format!("CornerSize({d})")),
     }
+}
+
+/// A colour or a gradient brush for `background`.
+fn paint_expr(v: &Value) -> Option<String> {
+    let Value::Gradient(g) = v else {
+        return color_expr(v);
+    };
+    let colors: Vec<String> = g
+        .stops
+        .iter()
+        .map(|s| color_expr(&Value::Color(s.color.clone())).unwrap())
+        .collect();
+    let stops: Vec<String> = g
+        .stops
+        .iter()
+        .map(|s| format!("{}f", num(s.position)))
+        .collect();
+    let lists = format!(
+        "listOf({}), listOf({})",
+        colors.join(", "),
+        stops.join(", ")
+    );
+    Some(match &g.kind {
+        GradientKind::Linear(a) => format!("eraLinearGradient({}f, {lists})", num(*a)),
+        GradientKind::LinearToCorner { right, bottom } => {
+            format!("eraCornerGradient({right}, {bottom}, {lists})")
+        }
+        GradientKind::Radial => format!("eraRadialGradient({lists})"),
+    })
 }
 
 /// `EraLine.*` for a `border-style`, or `None` for `none`.
@@ -540,8 +570,16 @@ impl Emitter {
             ));
         }
         // `button`, `input`, `card` and containers draw their own background.
-        if let Some(bg) = e.props.get("background").and_then(color_expr) {
-            m.push(format!("background({})", with_shape(bg)));
+        // CSS layers are listed top first; Compose draws earlier modifiers first.
+        let layers: Vec<&Value> = match e.props.get("background") {
+            Some(Value::Layers(l)) => l.iter().rev().collect(),
+            Some(v) => vec![v],
+            None => vec![],
+        };
+        for layer in layers {
+            if let Some(bg) = paint_expr(layer) {
+                m.push(format!("background({})", with_shape(bg)));
+            }
         }
         Self::borders(e, &shape, &mut m);
         if let Some(Value::Effects(effects)) = e.props.get("on_press")

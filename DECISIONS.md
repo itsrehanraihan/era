@@ -392,6 +392,23 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   corners; `double`/`groove`/`ridge`/`inset`/`outset` and elliptical
   radii (`a / b`) are E2135.
 
+## M8 phase 4a: colours and gradients
+
+- **D-088 CSS colours and gradients.** Colour properties take the 148
+  CSS named colours and `transparent` (a skin token of the same name
+  wins), `rgb()`/`rgba()`/`hsl()`/`hsla()` in comma or space syntax, and
+  `var(--name)`, which reads a skin colour (`--on-primary` is
+  `on_primary`; the lexer accepts `--name` words for this).
+  `background` also takes `linear-gradient()` (angles in deg, turn, rad
+  or grad; `to` a side or a corner, using CSS's size-dependent corner
+  angle), `radial-gradient()` (a circle from the centre to the farthest
+  corner; `ellipse` is drawn as that circle for now), colour stops with
+  `%` positions filled in by the CSS rules, and comma-separated layers,
+  top first. Rendering: `ShaderBrush` helpers in `EraDraw.kt`. Limits:
+  `conic-gradient`, `repeating-*` and `url()` are E2135; a bare colour
+  name cannot be the last layer after a comma, because a word after a
+  comma starts a new item in ERA (use `#hex` or `rgb()` there).
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
@@ -411,7 +428,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   The alternatives are a Rust-native renderer or an HTML mock, but both
   would drift from Android. Compose Multiplatform could also be an iOS
   path later; a SwiftUI backend would be the more "native" iOS option.
-- **Q-07 Gradients.** The E-Renty hero cards and buttons use gradients.
+- **Q-07 (Resolved 2026-11-22, D-088)** **Gradients.** The E-Renty hero cards and buttons use gradients.
   The demo uses solid colors for now. A future skin token type could be
   `gradient`.
 - **Q-08 Mixed styles within one sentence.** "Good morning, **Rehan**."

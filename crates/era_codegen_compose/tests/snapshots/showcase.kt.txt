@@ -5,6 +5,17 @@ package dev.era.showcase.ui
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.LinearGradientShader
+import androidx.compose.ui.graphics.RadialGradientShader
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -17,6 +28,58 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+
+/** CSS `linear-gradient`: the angle (0 = up, 90 = right), or a corner (`to top right`). */
+private data class EraLinear(
+    val angle: Float?,
+    val right: Boolean,
+    val bottom: Boolean,
+    val colors: List<Color>,
+    val stops: List<Float>,
+) : ShaderBrush() {
+    override fun createShader(size: Size): Shader {
+        val deg = angle ?: run {
+            // CSS "magic corners": the line is perpendicular to the other diagonal.
+            val a = atan2(size.height, size.width) * 180f / PI.toFloat()
+            when {
+                right && !bottom -> a
+                right && bottom -> 180f - a
+                !right && bottom -> 180f + a
+                else -> 360f - a
+            }
+        }
+        val rad = deg * PI.toFloat() / 180f
+        val s = sin(rad)
+        val c = cos(rad)
+        val half = (abs(size.width * s) + abs(size.height * c)) / 2f
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        return LinearGradientShader(
+            Offset(cx - s * half, cy + c * half),
+            Offset(cx + s * half, cy - c * half),
+            colors,
+            stops,
+        )
+    }
+}
+
+/** CSS `radial-gradient(circle, ...)` from the centre to the farthest corner. */
+private data class EraRadial(val colors: List<Color>, val stops: List<Float>) : ShaderBrush() {
+    override fun createShader(size: Size): Shader = RadialGradientShader(
+        Offset(size.width / 2f, size.height / 2f),
+        hypot(size.width / 2f, size.height / 2f).coerceAtLeast(0.01f),
+        colors,
+        stops,
+    )
+}
+
+fun eraLinearGradient(angle: Float, colors: List<Color>, stops: List<Float>): Brush =
+    EraLinear(angle, false, false, colors, stops)
+
+fun eraCornerGradient(right: Boolean, bottom: Boolean, colors: List<Color>, stops: List<Float>): Brush =
+    EraLinear(null, right, bottom, colors, stops)
+
+fun eraRadialGradient(colors: List<Color>, stops: List<Float>): Brush = EraRadial(colors, stops)
 
 /** CSS `border-style`. */
 enum class EraLine { Solid, Dashed, Dotted }
@@ -671,8 +734,43 @@ fun LookScreen() {
                         }
                     }
                     // row @Look/0/4
+                    Row(Modifier, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start)) {
+                        // stack @Look/0/4/0
+                        Box(Modifier.height(40.dp).weight(1f).background(Color(0xFFFF6347), RoundedCornerShape(8.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/4/1
+                        Box(Modifier.height(40.dp).weight(1f).background(Color(0xFF1E90FF), RoundedCornerShape(8.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/4/2
+                        Box(Modifier.height(40.dp).weight(1f).background(Color(0xFFA347D1), RoundedCornerShape(8.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/4/3
+                        Box(Modifier.height(40.dp).weight(1f).background(Color(0x59000000), RoundedCornerShape(8.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/4/4
+                        Box(Modifier.height(40.dp).weight(1f).background(c.primary, RoundedCornerShape(8.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                    }
+                    // column @Look/0/5
+                    Column(Modifier.fillMaxWidth(1f).height(120.dp).background(eraLinearGradient(135f, listOf(Color(0xFFFF6B35), Color(0xFFF7C548), Color(0xFF33CC80)), listOf(0f, 0.6f, 1f)), RoundedCornerShape(20.dp)).padding(20.dp), verticalArrangement = Arrangement.Bottom) {
+                        // text @Look/0/5/0
+                        BasicText("linear-gradient(135deg, …)", modifier = Modifier, style = EraType.body.copy(color = Color(0xFFFFFFFF)))
+                    }
+                    // row @Look/0/6
+                    Row(Modifier, horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.Start)) {
+                        // stack @Look/0/6/0
+                        Box(Modifier.height(96.dp).weight(1f).background(eraCornerGradient(true, false, listOf(Color(0xFF663399), Color(0xFFFF1493)), listOf(0f, 1f)), RoundedCornerShape(16.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/6/1
+                        Box(Modifier.width(96.dp).height(96.dp).background(eraRadialGradient(listOf(Color(0xFFFFFFFF), Color(0xFFFFD700), Color(0xFFFF8C00)), listOf(0f, 0.4f, 1f)), RoundedCornerShape(50)), contentAlignment = Alignment.TopStart) {
+                        }
+                    }
+                    // column @Look/0/7
+                    Column(Modifier.fillMaxWidth(1f).height(64.dp).background(Color(0xFF008080), RoundedCornerShape(16.dp)).background(eraLinearGradient(90f, listOf(Color(0x00FFFFFF), Color(0xE6FFFFFF)), listOf(0f, 1f)), RoundedCornerShape(16.dp))) {
+                    }
+                    // row @Look/0/8
                     Row(Modifier.padding(8.dp)) {
-                        // button @Look/0/4/0
+                        // button @Look/0/8/0
                         Box(Modifier.eraOutline(2.dp, c.primary, RoundedCornerShape(EraRadius.md), EraLine.Solid, 4.dp).background(c.primary, RoundedCornerShape(EraRadius.md)).padding(horizontal = EraSpacing.md, vertical = EraSpacing.sm), contentAlignment = Alignment.Center) {
                             BasicText("Focused", style = EraType.body.copy(color = c.onPrimary))
                         }

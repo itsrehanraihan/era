@@ -370,11 +370,23 @@ autocomplete for CSS names, and the Skin panel.
 - **Limits:** per-side borders draw square corners; `double` and 3-D
   styles and elliptical radii (`a / b`) are E2135.
 
+**Phase 4a (done, 2026-11-22):** colours and gradients (D-088)
+
+- the 148 named colours, `transparent`, `rgb()`/`rgba()`/`hsl()`/`hsla()`
+  (comma and space syntax), `var(--token)`
+- `linear-gradient()` with angles or `to` sides/corners, and
+  `radial-gradient()`; `%` stop positions; background layers
+- **Verified** by IR and codegen tests, the showcase `Look` screen in the
+  Compose preview, and an Android APK build.
+- **Limits:** conic and repeating gradients, `url()` images, and elliptical
+  radial gradients come later. A colour name can't be the last layer
+  after a comma (use `#hex`/`rgb()`).
+
 **Next phases:**
 
 | Phase | Covers |
 |---|---|
-| P4 | Colour functions, named colours, `var()`, gradients, `box-shadow`, filters (and the Compose 1.9 bump) |
+| P4b | `box-shadow`, filters, `clip-path`, `mix-blend-mode`, conic gradients, `url()` images |
 | P5 | Typography properties and `span` |
 | P6 | CSS grid templates, `calc()`, transforms, percentage offsets |
 | P7 | HTML element aliases and form controls |

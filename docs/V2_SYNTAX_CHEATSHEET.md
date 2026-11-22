@@ -89,9 +89,11 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Text ✅ | `"…"` | `"Hello"` | |
 | Show state in text ✅ | `{Store.field}` | `"Hi {User.name}"` | |
 | Literal brace ✅ | `{{` `}}` | `"{{x}}"` | |
-| CSS colour functions 🧩 | `rgb()`, `rgba()`, `hsl()`, named colours | `rgba(0, 0, 0, .1)` | |
-| Token variable 🧩 | `var(--name)` | `var(--primary)` | |
-| Gradients 🧩 | `linear-/radial-/conic-gradient()` | `linear-gradient(135deg, red, blue)` | |
+| CSS colour functions ✅ | `rgb()`, `rgba()`, `hsl()`, `hsla()`, comma or space syntax | `rgba(0, 0, 0, .1)`, `rgb(0 0 0 / 10%)` | |
+| Named colours ✅ | all 148 CSS names and `transparent` (skin tokens win on a clash) | `tomato`, `rebeccapurple` | |
+| Token variable ✅ | `var(--name)` reads a skin colour (`--on-primary` = `on_primary`) | `var(--primary)` | |
+| Gradients ✅ (conic 🧩) | `linear-gradient()` (angle, `to` side or corner), `radial-gradient(circle, …)` on `background` | `linear-gradient(135deg, red, blue 80%)` | |
+| Background layers ✅ | comma-separated, top first | `background: linear-gradient(…), #FFFFFF` | |
 | Image url 🧩 | `url("…")` | `url("Images/bg.png")` | |
 | Math 🧩 | `calc()`, `min()`, `max()`, `clamp()` | `calc(100% - 32px)` | |
 | Angles / durations | `deg`, `rad`, `turn` / `s`, `ms` | `45deg` (durations reserved) | |
@@ -142,7 +144,7 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Per-corner radius ✅ | `border-radius` with 1–4 values or `%`, `border-top-left-radius`, … | `border-radius: 24px 0`, `border-radius: 50%` | |
 | Outline ✅ | `outline`, `outline-offset` (drawn outside, takes no space) | `outline: 2px solid primary; outline-offset: 4px` | |
 | Real CSS box-shadow 🧩 | `box-shadow` | `0 4px 12px rgba(0,0,0,.1)` | |
-| Gradients 🧩 | `background: linear-gradient(…)` | | |
+| Gradients ✅ | `background: linear-gradient(…)` | `background: radial-gradient(circle, white, gold)` | |
 | Transforms 🧩 | `transform` | `rotate(45deg) scale(1.1)` | |
 | Filters 🧩 | `filter`, `mix-blend-mode`, `clip-path` | `blur(8px)` | |
 

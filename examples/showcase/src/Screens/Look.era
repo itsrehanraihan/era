@@ -36,6 +36,39 @@ screen Look {
                 stack { width: 72px; height: 72px; background: success; border-top-left-radius: 36px; border-bottom-right-radius: 8px }
             }
 
+            // Colours: names, rgb(), hsl(), var()
+            row {
+                gap: 8px
+                stack { flex: 1; height: 40px; border-radius: 8px; background: tomato }
+                stack { flex: 1; height: 40px; border-radius: 8px; background: rgb(30 144 255) }
+                stack { flex: 1; height: 40px; border-radius: 8px; background: hsl(280, 60%, 55%) }
+                stack { flex: 1; height: 40px; border-radius: 8px; background: rgba(0, 0, 0, .35) }
+                stack { flex: 1; height: 40px; border-radius: 8px; background: var(--primary) }
+            }
+
+            // Gradients
+            column {
+                width: 100%
+                height: 120px
+                border-radius: 20px
+                padding: 20px
+                justify-content: flex-end
+                background: linear-gradient(135deg, #FF6B35, #F7C548 60%, hsl(150, 60%, 50%))
+                text "linear-gradient(135deg, …)" { color: white }
+            }
+            row {
+                gap: 12px
+                stack { flex: 1; height: 96px; border-radius: 16px; background: linear-gradient(to top right, rebeccapurple, deeppink) }
+                stack { width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle, white, gold 40%, darkorange) }
+            }
+            // Layers: a translucent gradient over a colour
+            column {
+                width: 100%
+                height: 64px
+                border-radius: 16px
+                background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, .9)), rgb(0 128 128)
+            }
+
             // outline + outline-offset (takes no space)
             row {
                 padding: 8px

@@ -221,6 +221,48 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
     (app, r.diags)
 }
 
+/// CSS rules for missing stop positions: the first is 0, the last is 1,
+/// runs in between are spread evenly, and positions never go backwards.
+fn fill_stop_positions(raw: Vec<(ColorValue, Option<f64>)>) -> Vec<GradientStop> {
+    let n = raw.len();
+    let mut pos: Vec<Option<f64>> = raw.iter().map(|(_, p)| *p).collect();
+    if pos[0].is_none() {
+        pos[0] = Some(0.0);
+    }
+    if pos[n - 1].is_none() {
+        pos[n - 1] = Some(1.0);
+    }
+    let mut last = 0.0f64;
+    for p in pos.iter_mut().flatten() {
+        *p = p.max(last);
+        last = *p;
+    }
+    let mut i = 0;
+    while i < n {
+        if pos[i].is_some() {
+            i += 1;
+            continue;
+        }
+        let start = i - 1;
+        let mut end = i;
+        while pos[end].is_none() {
+            end += 1;
+        }
+        let (a, b) = (pos[start].unwrap(), pos[end].unwrap());
+        for (k, p) in pos.iter_mut().enumerate().take(end).skip(i) {
+            *p = Some(a + (b - a) * (k - start) as f64 / (end - start) as f64);
+        }
+        i = end;
+    }
+    raw.into_iter()
+        .zip(pos)
+        .map(|((color, _), p)| GradientStop {
+            color,
+            position: p.unwrap(),
+        })
+        .collect()
+}
+
 /// Per-side properties that an all-sides property replaces (CSS cascade).
 fn overridden_by(key: &str) -> &'static [&'static str] {
     match key {
@@ -1128,6 +1170,28 @@ impl<'a> Resolver<'a> {
             Some(None)
         };
         match (vt, &v.kind) {
+            // M8 P4: CSS colours, `var()`, gradients and background layers.
+            (ValueType::Color, ValueKind::Ident(n))
+                if !self.skin.colors.contains_key(n) && crate::css_color::named(n).is_some() =>
+            {
+                Some(Some(Value::Color(ColorValue {
+                    token: None,
+                    rgba: crate::css_color::named(n).unwrap(),
+                })))
+            }
+            (ValueType::Color, ValueKind::Call(name, args)) => {
+                Some(self.color_call(name, args, v, prop, ctx))
+            }
+            (ValueType::Color, ValueKind::Layers(layers)) if prop == "background" => {
+                let mut out = Vec::new();
+                for l in layers {
+                    match self.value(vt, l, prop, ctx) {
+                        Some(x) => out.push(x),
+                        None => return Some(None),
+                    }
+                }
+                Some(Some(Value::Layers(out)))
+            }
             (ValueType::Size, ValueKind::Dimension(n, u)) => Some(match u.as_str() {
                 "%" => Some(Value::Size(Size::Percent(*n))),
                 "fr" => Some(Value::Size(Size::Fr(*n))),
@@ -1236,6 +1300,236 @@ impl<'a> Resolver<'a> {
             }
             _ => None,
         }
+    }
+
+    /// `rgb()`, `hsl()`, `var(--token)` and, on `background`, gradients.
+    fn color_call(
+        &mut self,
+        name: &str,
+        args: &[AstValue],
+        v: &AstValue,
+        prop: &str,
+        ctx: &Ctx,
+    ) -> Option<Value> {
+        let lower = name.to_ascii_lowercase();
+        match crate::css_color::function(&lower, args) {
+            Ok(Some(c)) => {
+                return Some(Value::Color(ColorValue {
+                    token: None,
+                    rgba: c,
+                }));
+            }
+            Err(msg) => {
+                self.err(ctx.path, "E2136", msg, v.span, None);
+                return None;
+            }
+            Ok(None) => {}
+        }
+        match lower.as_str() {
+            "var" => {
+                let token = match args {
+                    [
+                        AstValue {
+                            kind: ValueKind::Ident(n),
+                            ..
+                        },
+                    ] if n.starts_with("--") => n[2..].replace('-', "_"),
+                    _ => {
+                        self.err(
+                            ctx.path,
+                            "E2136",
+                            "`var()` takes one skin colour name, like `var(--primary)`".into(),
+                            v.span,
+                            None,
+                        );
+                        return None;
+                    }
+                };
+                let plain = AstValue {
+                    kind: ValueKind::Ident(token),
+                    span: v.span,
+                };
+                self.value(ValueType::Color, &plain, prop, ctx)
+            }
+            "linear-gradient" | "radial-gradient" if prop != "background" => {
+                self.err(
+                    ctx.path,
+                    "E2136",
+                    format!("`{prop}` takes a colour; only `background` takes gradients"),
+                    v.span,
+                    None,
+                );
+                None
+            }
+            "linear-gradient" | "radial-gradient" => self.gradient(&lower, args, v, ctx),
+            "conic-gradient"
+            | "repeating-linear-gradient"
+            | "repeating-radial-gradient"
+            | "repeating-conic-gradient"
+            | "url"
+            | "image-set" => {
+                self.err(
+                    ctx.path,
+                    "E2135",
+                    format!("`{lower}()` is planned for a later CSS phase"),
+                    v.span,
+                    Some("use `linear-gradient()` or `radial-gradient()`".into()),
+                );
+                None
+            }
+            _ => {
+                self.err(
+                    ctx.path,
+                    "E2136",
+                    format!("unknown colour function `{name}()`"),
+                    v.span,
+                    Some(
+                        "use rgb(), rgba(), hsl(), hsla(), var(), linear-gradient() or radial-gradient()"
+                            .into(),
+                    ),
+                );
+                None
+            }
+        }
+    }
+
+    /// `linear-gradient(45deg | to right, red, blue 80%)` and
+    /// `radial-gradient(circle, red, blue)`.
+    fn gradient(
+        &mut self,
+        name: &str,
+        args: &[AstValue],
+        v: &AstValue,
+        ctx: &Ctx,
+    ) -> Option<Value> {
+        let bad = |r: &mut Self, msg: String| {
+            r.err(ctx.path, "E2136", msg, v.span, None);
+            None
+        };
+        let radial = name == "radial-gradient";
+        let mut rest = args;
+        let mut kind = if radial {
+            GradientKind::Radial
+        } else {
+            GradientKind::Linear(180.0)
+        };
+        if let Some(first) = args.first() {
+            let words: Vec<&AstValue> = match &first.kind {
+                ValueKind::Terms(t) => t.iter().collect(),
+                _ => vec![first],
+            };
+            let idents: Option<Vec<&str>> = words
+                .iter()
+                .map(|w| match &w.kind {
+                    ValueKind::Ident(i) => Some(i.as_str()),
+                    _ => None,
+                })
+                .collect();
+            if radial {
+                if let Some(ids) = &idents
+                    && ids.iter().all(|i| {
+                        matches!(
+                            *i,
+                            "circle" | "ellipse" | "farthest-corner" | "at" | "center"
+                        )
+                    })
+                {
+                    rest = &args[1..];
+                } else if idents.is_some() {
+                    return bad(
+                        self,
+                        "radial gradients support `circle` / `ellipse` from the centre for now"
+                            .into(),
+                    );
+                }
+            } else if let Some(ids) = &idents
+                && ids.first() == Some(&"to")
+            {
+                let (mut x, mut y) = (0i8, 0i8);
+                for i in &ids[1..] {
+                    match *i {
+                        "left" => x = -1,
+                        "right" => x = 1,
+                        "top" => y = -1,
+                        "bottom" => y = 1,
+                        other => return bad(self, format!("unknown gradient direction `{other}`")),
+                    }
+                }
+                kind = match (x, y) {
+                    (0, -1) => GradientKind::Linear(0.0),
+                    (1, 0) => GradientKind::Linear(90.0),
+                    (0, 1) => GradientKind::Linear(180.0),
+                    (-1, 0) => GradientKind::Linear(270.0),
+                    (0, 0) => return bad(self, "`to` needs a side, like `to right`".into()),
+                    (x, y) => GradientKind::LinearToCorner {
+                        right: x > 0,
+                        bottom: y > 0,
+                    },
+                };
+                rest = &args[1..];
+            } else if let ValueKind::Dimension(n, u) = &first.kind
+                && let Some(deg) = match u.as_str() {
+                    "deg" => Some(*n),
+                    "turn" => Some(n * 360.0),
+                    "rad" => Some(n.to_degrees()),
+                    "grad" => Some(n * 0.9),
+                    _ => None,
+                }
+            {
+                kind = GradientKind::Linear(deg.rem_euclid(360.0));
+                rest = &args[1..];
+            }
+        }
+        // Colour stops: `red`, `red 20%`, `red 20% 40%`.
+        let mut raw: Vec<(ColorValue, Option<f64>)> = Vec::new();
+        for stop in rest {
+            let parts: Vec<&AstValue> = match &stop.kind {
+                ValueKind::Terms(t) => t.iter().collect(),
+                _ => vec![stop],
+            };
+            let color = match self.value(ValueType::Color, parts[0], "background", ctx)? {
+                Value::Color(c) => c,
+                Value::Transparent => ColorValue {
+                    token: None,
+                    rgba: Color {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 0,
+                    },
+                },
+                _ => return bad(self, "each gradient stop starts with a colour".into()),
+            };
+            let mut positions = Vec::new();
+            for p in &parts[1..] {
+                match &p.kind {
+                    ValueKind::Dimension(n, u) if u == "%" => positions.push(n / 100.0),
+                    ValueKind::Number(n) if *n == 0.0 => positions.push(0.0),
+                    _ => {
+                        return bad(
+                            self,
+                            "gradient stop positions are percentages, like `red 40%`".into(),
+                        );
+                    }
+                }
+            }
+            match positions.as_slice() {
+                [] => raw.push((color, None)),
+                [a] => raw.push((color, Some(*a))),
+                [a, b] => {
+                    raw.push((color.clone(), Some(*a)));
+                    raw.push((color, Some(*b)));
+                }
+                _ => return bad(self, "a gradient stop has at most two positions".into()),
+            }
+        }
+        if raw.len() < 2 {
+            return bad(self, format!("`{name}()` needs at least two colours"));
+        }
+        Some(Value::Gradient(Gradient {
+            kind,
+            stops: fill_stop_positions(raw),
+        }))
     }
 
     /// Resolve one property into `props`, expanding CSS shorthands:

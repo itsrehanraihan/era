@@ -5,6 +5,7 @@
 //! tree per screen, and diagnostics. No Android (or any platform) types live
 //! here; backends consume [`ir::App`].
 
+pub mod css_color;
 pub mod ir;
 pub mod logic;
 pub mod pipeline;

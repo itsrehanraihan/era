@@ -1,6 +1,6 @@
 //! `EraDraw.kt`: drawing helpers for CSS borders and outlines that Compose
 //! has no modifier for (M8 phase 3, D-087): dashed/dotted lines, per-side
-//! borders and `outline` with `outline-offset`.
+//! borders and `outline` with `outline-offset`; CSS gradients (phase 4).
 
 use crate::GENERATED_HEADER;
 
@@ -11,6 +11,17 @@ pub fn generate(package: &str) -> String {
 const BODY: &str = r#"
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.LinearGradientShader
+import androidx.compose.ui.graphics.RadialGradientShader
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -23,6 +34,58 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+
+/** CSS `linear-gradient`: the angle (0 = up, 90 = right), or a corner (`to top right`). */
+private data class EraLinear(
+    val angle: Float?,
+    val right: Boolean,
+    val bottom: Boolean,
+    val colors: List<Color>,
+    val stops: List<Float>,
+) : ShaderBrush() {
+    override fun createShader(size: Size): Shader {
+        val deg = angle ?: run {
+            // CSS "magic corners": the line is perpendicular to the other diagonal.
+            val a = atan2(size.height, size.width) * 180f / PI.toFloat()
+            when {
+                right && !bottom -> a
+                right && bottom -> 180f - a
+                !right && bottom -> 180f + a
+                else -> 360f - a
+            }
+        }
+        val rad = deg * PI.toFloat() / 180f
+        val s = sin(rad)
+        val c = cos(rad)
+        val half = (abs(size.width * s) + abs(size.height * c)) / 2f
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        return LinearGradientShader(
+            Offset(cx - s * half, cy + c * half),
+            Offset(cx + s * half, cy - c * half),
+            colors,
+            stops,
+        )
+    }
+}
+
+/** CSS `radial-gradient(circle, ...)` from the centre to the farthest corner. */
+private data class EraRadial(val colors: List<Color>, val stops: List<Float>) : ShaderBrush() {
+    override fun createShader(size: Size): Shader = RadialGradientShader(
+        Offset(size.width / 2f, size.height / 2f),
+        hypot(size.width / 2f, size.height / 2f).coerceAtLeast(0.01f),
+        colors,
+        stops,
+    )
+}
+
+fun eraLinearGradient(angle: Float, colors: List<Color>, stops: List<Float>): Brush =
+    EraLinear(angle, false, false, colors, stops)
+
+fun eraCornerGradient(right: Boolean, bottom: Boolean, colors: List<Color>, stops: List<Float>): Brush =
+    EraLinear(null, right, bottom, colors, stops)
+
+fun eraRadialGradient(colors: List<Color>, stops: List<Float>): Brush = EraRadial(colors, stops)
 
 /** CSS `border-style`. */
 enum class EraLine { Solid, Dashed, Dotted }

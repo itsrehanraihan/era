@@ -125,6 +125,24 @@ fn value(v: &Value) -> String {
         Value::Template(parts) => template(parts),
         Value::Effects(e) => effects(e),
         Value::State(r) => format!("{}.{}", r.store, r.field),
+        Value::Gradient(g) => {
+            let kind = match &g.kind {
+                GradientKind::Linear(a) => format!("linear({}deg", num(*a)),
+                GradientKind::LinearToCorner { right, bottom } => format!(
+                    "linear(to {} {}",
+                    if *bottom { "bottom" } else { "top" },
+                    if *right { "right" } else { "left" }
+                ),
+                GradientKind::Radial => "radial(circle".into(),
+            };
+            let stops: Vec<String> = g
+                .stops
+                .iter()
+                .map(|s| format!("{} {}%", color(&s.color), num(s.position * 100.0)))
+                .collect();
+            format!("{kind}, {})", stops.join(", "))
+        }
+        Value::Layers(l) => l.iter().map(value).collect::<Vec<_>>().join(" | "),
     }
 }
 

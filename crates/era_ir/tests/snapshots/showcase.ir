@@ -104,8 +104,20 @@ screen Look title="CSS look" background=background(#FFFFFF)
         stack {background=primary(#FF6B35) height=72 radius_bottom_end=24 radius_bottom_start=0 radius_top_end=0 radius_top_start=24 width=72} @Look/0/3/0
         stack {background=secondary(#2B2D42) height=72 radius=50% width=72} @Look/0/3/1
         stack {background=success(#2E9E5B) height=72 radius_bottom_end=8 radius_top_start=36 width=72} @Look/0/3/2
-      row {padding=8} @Look/0/4
-        button "Focused" {background=primary(#FF6B35) outline_color=primary(#FF6B35) outline_offset=4 outline_style=solid outline_width=2 padding_x=md(16) padding_y=sm(8) radius=md(14) style=body text_color=on_primary(#FFFFFF)} @Look/0/4/0
+      row {gap=8} @Look/0/4
+        stack {background=#FF6347 flex=1 height=40 radius=8} @Look/0/4/0
+        stack {background=#1E90FF flex=1 height=40 radius=8} @Look/0/4/1
+        stack {background=#A347D1 flex=1 height=40 radius=8} @Look/0/4/2
+        stack {background=#00000059 flex=1 height=40 radius=8} @Look/0/4/3
+        stack {background=primary(#FF6B35) flex=1 height=40 radius=8} @Look/0/4/4
+      column {background=linear(135deg, #FF6B35 0%, #F7C548 60%, #33CC80 100%) distribute=end height=120 padding=20 radius=20 width=100%} @Look/0/5
+        text "linear-gradient(135deg, …)" {color=#FFFFFF style=body} @Look/0/5/0
+      row {gap=12} @Look/0/6
+        stack {background=linear(to top right, #663399 0%, #FF1493 100%) flex=1 height=96 radius=16} @Look/0/6/0
+        stack {background=radial(circle, #FFFFFF 0%, #FFD700 40%, #FF8C00 100%) height=96 radius=50% width=96} @Look/0/6/1
+      column {background=linear(90deg, #FFFFFF00 0%, #FFFFFFE6 100%) | #008080 height=64 radius=16 width=100%} @Look/0/7
+      row {padding=8} @Look/0/8
+        button "Focused" {background=primary(#FF6B35) outline_color=primary(#FF6B35) outline_offset=4 outline_style=solid outline_width=2 padding_x=md(16) padding_y=sm(8) radius=md(14) style=body text_color=on_primary(#FFFFFF)} @Look/0/8/0
 stores
   store Counter
     state count: number = 0

@@ -150,6 +150,8 @@ must contain one `slot`.
 | `border-width`, `border-color` (1–4) | per side, CSS order |
 | `border-radius` (1–4), `border-top-left-radius`, … | lengths, tokens, `%` |
 | `outline`, `outline-offset` | like `border`; drawn outside, takes no space |
+| colours (every colour property) | tokens, `#hex`, named CSS colours, `rgb()`, `rgba()`, `hsl()`, `hsla()`, `var(--token)` |
+| `background` | a colour, `linear-gradient()`, `radial-gradient()`, or comma-separated layers |
 | `position` | `static`, `relative`, `absolute`, `fixed` |
 | `top`, `right`, `bottom`, `left`, `inset` (1–4) | lengths (may be negative) |
 | `z-index` | integer |

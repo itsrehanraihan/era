@@ -197,3 +197,103 @@ fn wrong_units_and_values() {
         Some("did you mean `position`?")
     );
 }
+
+// ----- M8 phase 4a: colours and gradients -----------------------------------
+
+fn rgba(v: &Value) -> (u8, u8, u8, u8) {
+    match v {
+        Value::Color(c) => (c.rgba.r, c.rgba.g, c.rgba.b, c.rgba.a),
+        other => panic!("not a colour: {other:?}"),
+    }
+}
+
+#[test]
+fn css_colour_syntaxes() {
+    let p = root_props(
+        "column { background: tomato; border-color: rgb(0 128 255 / 50%); outline-color: rgba(10, 20, 30, .5) }",
+    );
+    assert_eq!(rgba(&p["background"]), (255, 99, 71, 255));
+    assert_eq!(rgba(&p["border_color"]), (0, 128, 255, 128));
+    assert_eq!(rgba(&p["outline_color"]), (10, 20, 30, 128));
+    let p = root_props(
+        "column { background: hsl(120, 100%, 25%); border-color: hsla(0deg 100% 50% / .5) }",
+    );
+    assert_eq!(rgba(&p["background"]), (0, 128, 0, 255));
+    assert_eq!(rgba(&p["border_color"]), (255, 0, 0, 128));
+    // A skin token with the same name wins over the CSS colour; var() reads tokens.
+    let p = root_props("column { background: var(--primary); border-color: transparent }");
+    assert!(matches!(&p["background"], Value::Color(c) if c.token.as_deref() == Some("primary")));
+    assert_eq!(rgba(&p["border_color"]).3, 0);
+    assert_eq!(
+        screen("column { background: rgb(1, 2) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: var(primary) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: notacolour }")
+            .only("E2132")
+            .code,
+        "E2132"
+    );
+}
+
+#[test]
+fn gradients_and_layers() {
+    use era_ir::ir::GradientKind;
+    let p = root_props("column { background: linear-gradient(90deg, red, #00FF00 40%, blue) }");
+    let Value::Gradient(g) = &p["background"] else {
+        panic!()
+    };
+    assert_eq!(g.kind, GradientKind::Linear(90.0));
+    let pos: Vec<f64> = g.stops.iter().map(|s| s.position).collect();
+    assert_eq!(pos, [0.0, 0.4, 1.0]);
+    // Missing positions are spread evenly; `to` corners keep their direction.
+    let p =
+        root_props("column { background: linear-gradient(to top right, red, white, gold, blue) }");
+    let Value::Gradient(g) = &p["background"] else {
+        panic!()
+    };
+    assert_eq!(
+        g.kind,
+        GradientKind::LinearToCorner {
+            right: true,
+            bottom: false
+        }
+    );
+    let pos: Vec<f64> = g.stops.iter().map(|s| (s.position * 3.0).round()).collect();
+    assert_eq!(pos, [0.0, 1.0, 2.0, 3.0]);
+    let p = root_props("column { background: linear-gradient(to left, red, blue) }");
+    assert!(
+        matches!(&p["background"], Value::Gradient(g) if g.kind == GradientKind::Linear(270.0))
+    );
+    let p = root_props("column { background: radial-gradient(circle, white, gold 40%, orange) }");
+    assert!(matches!(&p["background"], Value::Gradient(g) if g.kind == GradientKind::Radial));
+    let p = root_props("column { background: linear-gradient(red, blue), #FFFFFF }");
+    assert!(matches!(&p["background"], Value::Layers(l) if l.len() == 2));
+    // Only `background` takes gradients; one colour is not a gradient.
+    assert_eq!(
+        screen("column { border-color: linear-gradient(red, blue) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: linear-gradient(red) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: conic-gradient(red, blue) }")
+            .only("E2135")
+            .code,
+        "E2135"
+    );
+}

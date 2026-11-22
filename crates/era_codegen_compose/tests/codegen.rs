@@ -547,3 +547,28 @@ fn css_borders_corners_and_outline() {
         "outline is not clipped: {k}"
     );
 }
+
+#[test]
+fn css_gradients_become_brushes() {
+    let k = screen_code(
+        "column { background: linear-gradient(45deg, #FF0000, #0000FF 80%); border-radius: 8px }",
+    );
+    assert!(
+        k.contains("background(eraLinearGradient(45f, listOf(Color(0xFFFF0000), Color(0xFF0000FF)), listOf(0f, 0.8f)), RoundedCornerShape(8.dp))"),
+        "{k}"
+    );
+    let k = screen_code("column { background: linear-gradient(to bottom left, primary, #FFFFFF) }");
+    assert!(
+        k.contains("eraCornerGradient(false, true, listOf(c.primary, Color(0xFFFFFFFF))"),
+        "{k}"
+    );
+    let k = screen_code("column { background: radial-gradient(#FFFFFF, #000000) }");
+    assert!(k.contains("eraRadialGradient(listOf("), "{k}");
+    // Layers: the first CSS layer is drawn last (on top).
+    let k = screen_code("column { background: linear-gradient(#FF0000, #0000FF), #00FF00 }");
+    let under = k.find("background(Color(0xFF00FF00))").expect(&k);
+    assert!(
+        under < k.find("background(eraLinearGradient").unwrap(),
+        "{k}"
+    );
+}

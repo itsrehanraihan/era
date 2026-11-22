@@ -221,6 +221,19 @@ impl Lexer<'_> {
                 '"' => self.string(),
                 '#' => self.color(),
                 '-' if self.peek2().is_some_and(|c| c.is_ascii_digit()) => self.number(),
+                // A CSS custom property name, `--primary`, used in `var(--primary)`.
+                '-' if self.src[self.pos..].starts_with("--")
+                    && self.src[self.pos + 2..].starts_with(is_ident_start) =>
+                {
+                    let start = self.pos;
+                    self.bump();
+                    self.bump();
+                    self.ident();
+                    if let Some(t) = self.tokens.last_mut() {
+                        t.span = Span::new(start, t.span.end);
+                        t.kind = TokenKind::Ident(self.src[start..t.span.end].to_string());
+                    }
+                }
                 c if c.is_ascii_digit() => self.number(),
                 c if is_ident_start(c) => self.ident(),
                 '.' if self.peek2().is_some_and(|c| c.is_ascii_digit()) => self.number(),

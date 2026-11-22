@@ -240,6 +240,33 @@ pub enum Value {
     Effects(Vec<Effect>),
     /// A bool condition (`visible`) or text binding (`bind`) read from state (M6).
     State(StateRef),
+    /// `linear-gradient(...)` / `radial-gradient(...)` on `background` (M8 P4).
+    Gradient(Gradient),
+    /// Several `background` layers, top first, like CSS (M8 P4).
+    Layers(Vec<Value>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Gradient {
+    pub kind: GradientKind,
+    /// At least two stops, positions from 0 to 1, in order.
+    pub stops: Vec<GradientStop>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum GradientKind {
+    /// CSS angle in degrees: 0 points up, 90 points right.
+    Linear(f64),
+    /// `to top right` and friends: the angle depends on the element's size.
+    LinearToCorner { right: bool, bottom: bool },
+    /// A circle from the centre to the farthest corner.
+    Radial,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GradientStop {
+    pub color: ColorValue,
+    pub position: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
