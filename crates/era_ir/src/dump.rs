@@ -143,6 +143,26 @@ fn value(v: &Value) -> String {
             format!("{kind}, {})", stops.join(", "))
         }
         Value::Layers(l) => l.iter().map(value).collect::<Vec<_>>().join(" | "),
+        Value::Shadows(list) => list
+            .iter()
+            .map(|s| {
+                format!(
+                    "{}{} {} {} {} {}",
+                    if s.inset { "inset " } else { "" },
+                    num(s.x),
+                    num(s.y),
+                    num(s.blur),
+                    num(s.spread),
+                    color(&s.color)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Filters(list) => list
+            .iter()
+            .map(|f| format!("{}({})", f.name, num(f.amount)))
+            .collect::<Vec<_>>()
+            .join(" "),
     }
 }
 

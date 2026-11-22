@@ -5,7 +5,17 @@ package dev.era.erenty.ui
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.LinearGradientShader
 import androidx.compose.ui.graphics.RadialGradientShader
 import androidx.compose.ui.graphics.Shader
@@ -80,6 +90,66 @@ fun eraCornerGradient(right: Boolean, bottom: Boolean, colors: List<Color>, stop
     EraLinear(null, right, bottom, colors, stops)
 
 fun eraRadialGradient(colors: List<Color>, stops: List<Float>): Brush = EraRadial(colors, stops)
+
+/** One CSS `box-shadow` layer. */
+data class EraShadow(val x: Dp, val y: Dp, val blur: Dp, val spread: Dp, val color: Color)
+
+/**
+ * CSS `box-shadow` (outer): blurred copies of the shape, never drawn under
+ * the element itself, as in CSS. The first shadow is on top.
+ */
+fun Modifier.eraBoxShadow(shadows: List<EraShadow>, shape: Shape): Modifier = drawWithContent {
+    val box = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithContent)) }
+    clipPath(box, ClipOp.Difference) {
+        for (s in shadows.asReversed()) {
+            val spread = s.spread.toPx()
+            val w = size.width + 2f * spread
+            val h = size.height + 2f * spread
+            if (w <= 0f || h <= 0f) continue
+            val outline = shape.createOutline(Size(w, h), layoutDirection, this)
+            val paint = Paint().apply { color = s.color }
+            eraBlurPaint(paint, s.blur.toPx() / 2f)
+            drawIntoCanvas { canvas ->
+                canvas.save()
+                canvas.translate(s.x.toPx() - spread, s.y.toPx() - spread)
+                canvas.drawOutline(outline, paint)
+                canvas.restore()
+            }
+        }
+    }
+    drawContent()
+}
+
+/** CSS `box-shadow: inset ...`: drawn inside the shape, over the background. */
+fun Modifier.eraInsetShadow(shadows: List<EraShadow>, shape: Shape): Modifier = drawWithContent {
+    val box = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithContent)) }
+    clipPath(box) {
+        for (s in shadows.asReversed()) {
+            val spread = s.spread.toPx()
+            val blur = s.blur.toPx()
+            val hole = Path()
+            val w = size.width - 2f * spread
+            val h = size.height - 2f * spread
+            if (w > 0f && h > 0f) hole.addOutline(shape.createOutline(Size(w, h), layoutDirection, this))
+            hole.translate(Offset(s.x.toPx() + spread, s.y.toPx() + spread))
+            val m = blur + abs(s.x.toPx()) + abs(s.y.toPx()) + abs(spread) + 1f
+            val frame = Path().apply { addRect(Rect(-m, -m, size.width + m, size.height + m)) }
+            val ring = Path().apply { op(frame, hole, PathOperation.Difference) }
+            val paint = Paint().apply { color = s.color }
+            eraBlurPaint(paint, blur / 2f)
+            drawIntoCanvas { it.drawPath(ring, paint) }
+        }
+    }
+    drawContent()
+}
+
+/** CSS colour filters (`grayscale`, `brightness`, ...) as one 4x5 colour matrix. */
+fun Modifier.eraColorFilter(matrix: FloatArray): Modifier = drawWithContent {
+    val paint = Paint().apply { colorFilter = ColorFilter.colorMatrix(ColorMatrix(matrix)) }
+    drawIntoCanvas { it.saveLayer(Rect(Offset.Zero, size), paint) }
+    drawContent()
+    drawIntoCanvas { it.restore() }
+}
 
 /** CSS `border-style`. */
 enum class EraLine { Solid, Dashed, Dotted }
@@ -424,6 +494,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.era.erenty.ui.*
@@ -705,6 +777,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.era.erenty.ui.*
@@ -933,6 +1007,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.era.erenty.ui.*
@@ -981,6 +1057,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.era.erenty.ui.*

@@ -69,6 +69,24 @@ screen Look {
                 background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, .9)), rgb(0 128 128)
             }
 
+            // box-shadow: soft, layered, coloured and inset
+            row {
+                gap: 16px
+                padding: 12px 4px
+                column { flex: 1; height: 80px; border-radius: 16px; background: white; box-shadow: 0 8px 24px rgba(0, 0, 0, .18) }
+                column { flex: 1; height: 80px; border-radius: 16px; background: white; box-shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 12px 28px -6px rgba(255, 107, 53, .6) }
+                column { flex: 1; height: 80px; border-radius: 16px; background: #EEF1F5; box-shadow: inset 0 3px 10px rgba(0, 0, 0, .25) }
+            }
+
+            // filter: grayscale, hue-rotate, sepia, blur
+            row {
+                gap: 8px
+                stack { flex: 1; height: 56px; border-radius: 12px; background: linear-gradient(90deg, tomato, gold); filter: grayscale(100%) }
+                stack { flex: 1; height: 56px; border-radius: 12px; background: linear-gradient(90deg, tomato, gold); filter: hue-rotate(180deg) }
+                stack { flex: 1; height: 56px; border-radius: 12px; background: linear-gradient(90deg, tomato, gold); filter: sepia(1) brightness(.9) }
+                stack { flex: 1; height: 56px; border-radius: 12px; background: linear-gradient(90deg, tomato, gold); filter: blur(4px) }
+            }
+
             // outline + outline-offset (takes no space)
             row {
                 padding: 8px

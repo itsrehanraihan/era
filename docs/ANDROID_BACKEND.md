@@ -159,6 +159,13 @@ the Gradle 8.14.3 wrapper, and an `app/` module whose sources are in
   (the `image` crate). The manifest gets `android:icon` and
   `android:roundIcon`.
 
+## CSS drawing helpers (M8 P3–P4)
+
+`EraDraw.kt` (generated) holds the drawing Compose has no modifier for:
+dashed/dotted and per-side borders, `outline`, gradient brushes,
+`box-shadow` and colour-matrix filters. Shadows call `eraBlurPaint`, which
+each host implements in `EraAssets.kt` (Android: `BlurMaskFilter`).
+
 ## Export (`era export android`, M9)
 
 `era export android` writes the same project as a standalone folder the

@@ -48,3 +48,10 @@ private fun weightFromName(path: String): FontWeight {
         else -> FontWeight(400)
     }
 }
+
+/** Gaussian blur for CSS shadows (`box-shadow`), `sigma` in pixels (CSS blur / 2). */
+fun eraBlurPaint(paint: androidx.compose.ui.graphics.Paint, sigma: Float) {
+    if (sigma <= 0f) return
+    paint.asFrameworkPaint().maskFilter =
+        org.jetbrains.skia.MaskFilter.makeBlur(org.jetbrains.skia.FilterBlurMode.NORMAL, sigma)
+}

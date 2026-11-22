@@ -31,7 +31,7 @@ an export adds the wrapper scripts, `.gitignore`, a `README.md` and a
 | `app/proguard-rules.pro` | Extra R8 rules (none needed for ERA code) |
 | `app/AndroidManifest.xml` | Launcher activity, app label, platform theme. No AppCompat or Material |
 | `app/MainActivity.kt` | Edge-to-edge window, light/dark from the system, runs the app from the start screen |
-| `app/EraAssets.kt` | Android `eraImage` (from `assets/`), `eraIcon` (VectorDrawable) and `eraFontFamily` (from `assets/`) |
+| `app/EraAssets.kt` | Android `eraImage` (from `assets/`), `eraIcon` (VectorDrawable) `eraFontFamily` (from `assets/`) and `eraBlurPaint` (shadow blur, `BlurMaskFilter`) |
 
 You can open any screen directly for testing:
 

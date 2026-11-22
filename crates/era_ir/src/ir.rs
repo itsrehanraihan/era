@@ -244,6 +244,29 @@ pub enum Value {
     Gradient(Gradient),
     /// Several `background` layers, top first, like CSS (M8 P4).
     Layers(Vec<Value>),
+    /// `box-shadow` layers, top first (M8 P4b).
+    Shadows(Vec<BoxShadow>),
+    /// `filter` functions, applied in order (M8 P4b).
+    Filters(Vec<Filter>),
+}
+
+/// One `box-shadow` layer. Lengths are dp.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoxShadow {
+    pub x: f64,
+    pub y: f64,
+    pub blur: f64,
+    pub spread: f64,
+    pub color: ColorValue,
+    pub inset: bool,
+}
+
+/// One `filter` function. `amount` is a fraction (1 = 100%), degrees for
+/// `hue-rotate`, or dp for `blur`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Filter {
+    pub name: &'static str,
+    pub amount: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]

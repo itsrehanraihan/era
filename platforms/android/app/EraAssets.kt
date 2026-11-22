@@ -49,3 +49,15 @@ private fun weightFromName(path: String): FontWeight {
         else -> FontWeight(400)
     }
 }
+
+/**
+ * Gaussian blur for CSS shadows (`box-shadow`), `sigma` in pixels (CSS blur / 2).
+ * Android turns a blur radius into sigma as `radius * 0.57735 + 0.5`.
+ * Hardware-accelerated blur needs Android 9; older versions draw a sharp shadow.
+ */
+fun eraBlurPaint(paint: androidx.compose.ui.graphics.Paint, sigma: Float) {
+    if (sigma <= 0f) return
+    val radius = ((sigma - 0.5f) / 0.57735f).coerceAtLeast(0.5f)
+    paint.asFrameworkPaint().maskFilter =
+        android.graphics.BlurMaskFilter(radius, android.graphics.BlurMaskFilter.Blur.NORMAL)
+}

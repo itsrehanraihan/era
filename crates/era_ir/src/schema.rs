@@ -39,6 +39,10 @@ pub enum ValueType {
     Shorthand,
     /// `bind`: text state an input reads and writes (M6).
     Binding,
+    /// `box-shadow` layers (M8 P4b).
+    Shadow,
+    /// `filter` functions (M8 P4b).
+    Filter,
 }
 
 impl ValueType {
@@ -69,6 +73,11 @@ impl ValueType {
             ValueType::Ratio => "a ratio like `16 / 9` or `1.5`".into(),
             ValueType::Unit => "a number from 0 to 1".into(),
             ValueType::Shorthand => "CSS shorthand values".into(),
+            ValueType::Shadow => {
+                "shadows like `0 4px 12px rgba(0, 0, 0, .15)`, several separated by commas, or `none`"
+                    .into()
+            }
+            ValueType::Filter => "filter functions like `blur(4px) grayscale(1)`, or `none`".into(),
         }
     }
 }
@@ -219,6 +228,9 @@ pub const COMMON: &[(&str, ValueType)] = &[
     ("outline_color", ValueType::Color),
     ("outline_style", BORDER_STYLE),
     ("outline_offset", ValueType::Offset),
+    // M8 phase 4b: shadows and filters.
+    ("box_shadow", ValueType::Shadow),
+    ("filter", ValueType::Filter),
 ];
 
 const BORDER_STYLE: ValueType = ValueType::Keyword(&["solid", "dashed", "dotted", "none"]);

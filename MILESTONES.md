@@ -288,6 +288,12 @@ draw square corners.
 linear and radial gradients, background layers. Verified by tests, the
 `Look` screen and an APK build.
 
+**Phase 4b (done, D-089):** real `box-shadow` (layered, coloured, inset)
+and `filter` (blur and colour filters), with no Compose version change.
+Verified by tests, the `Look` screen and all 6 Gradle smoke tests.
+
+![CSS look](docs/images/css-look.png)
+
 **Verification:** the showcase gained a `Layout` screen. E-Renty's + button
 is now raised with `position: relative` (fixes Q-09).
 

@@ -116,8 +116,17 @@ screen Look title="CSS look" background=background(#FFFFFF)
         stack {background=linear(to top right, #663399 0%, #FF1493 100%) flex=1 height=96 radius=16} @Look/0/6/0
         stack {background=radial(circle, #FFFFFF 0%, #FFD700 40%, #FF8C00 100%) height=96 radius=50% width=96} @Look/0/6/1
       column {background=linear(90deg, #FFFFFF00 0%, #FFFFFFE6 100%) | #008080 height=64 radius=16 width=100%} @Look/0/7
-      row {padding=8} @Look/0/8
-        button "Focused" {background=primary(#FF6B35) outline_color=primary(#FF6B35) outline_offset=4 outline_style=solid outline_width=2 padding_x=md(16) padding_y=sm(8) radius=md(14) style=body text_color=on_primary(#FFFFFF)} @Look/0/8/0
+      row {gap=16 padding_bottom=12 padding_end=4 padding_start=4 padding_top=12} @Look/0/8
+        column {background=#FFFFFF box_shadow=0 8 24 0 #0000002E elevation=0 flex=1 height=80 radius=16} @Look/0/8/0
+        column {background=#FFFFFF box_shadow=0 1 2 0 #00000033, 0 12 28 -6 #FF6B3599 elevation=0 flex=1 height=80 radius=16} @Look/0/8/1
+        column {background=#EEF1F5 box_shadow=inset 0 3 10 0 #00000040 elevation=0 flex=1 height=80 radius=16} @Look/0/8/2
+      row {gap=8} @Look/0/9
+        stack {background=linear(90deg, #FF6347 0%, #FFD700 100%) filter=grayscale(1) flex=1 height=56 radius=12} @Look/0/9/0
+        stack {background=linear(90deg, #FF6347 0%, #FFD700 100%) filter=hue-rotate(180) flex=1 height=56 radius=12} @Look/0/9/1
+        stack {background=linear(90deg, #FF6347 0%, #FFD700 100%) filter=sepia(1) brightness(0.9) flex=1 height=56 radius=12} @Look/0/9/2
+        stack {background=linear(90deg, #FF6347 0%, #FFD700 100%) filter=blur(4) flex=1 height=56 radius=12} @Look/0/9/3
+      row {padding=8} @Look/0/10
+        button "Focused" {background=primary(#FF6B35) outline_color=primary(#FF6B35) outline_offset=4 outline_style=solid outline_width=2 padding_x=md(16) padding_y=sm(8) radius=md(14) style=body text_color=on_primary(#FFFFFF)} @Look/0/10/0
 stores
   store Counter
     state count: number = 0

@@ -572,3 +572,30 @@ fn css_gradients_become_brushes() {
         "{k}"
     );
 }
+
+#[test]
+fn css_shadows_and_filters() {
+    let k = screen_code(
+        "column { border-radius: 16px; background: #FFFFFF; box-shadow: 0 8px 24px rgba(0, 0, 0, .2), inset 0 -1px 0 #000000 }",
+    );
+    let outer = k
+        .find("eraBoxShadow(listOf(EraShadow(0.dp, 8.dp, 24.dp, 0.dp, Color(0x33000000))), RoundedCornerShape(16.dp))")
+        .expect(&k);
+    let bg = k.find("background(Color(0xFFFFFFFF)").unwrap();
+    let inset = k
+        .find("eraInsetShadow(listOf(EraShadow(0.dp, (-1).dp, 0.dp, 0.dp, Color(0xFF000000))), RoundedCornerShape(16.dp))")
+        .expect(&k);
+    assert!(
+        outer < bg && bg < inset,
+        "outer shadow, background, inset shadow: {k}"
+    );
+    let k = screen_code("column { filter: blur(4px) grayscale(100%) }");
+    assert!(
+        k.contains("blur(4.dp, BlurredEdgeTreatment.Unbounded)"),
+        "{k}"
+    );
+    assert!(
+        k.contains("eraColorFilter(floatArrayOf(0.2126f, 0.7152f, 0.0722f, 0f, 0f,"),
+        "{k}"
+    );
+}

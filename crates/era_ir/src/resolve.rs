@@ -1170,6 +1170,8 @@ impl<'a> Resolver<'a> {
             Some(None)
         };
         match (vt, &v.kind) {
+            (ValueType::Shadow, _) => Some(self.box_shadow(v, prop, ctx)),
+            (ValueType::Filter, _) => Some(self.filters(v, prop, ctx)),
             // M8 P4: CSS colours, `var()`, gradients and background layers.
             (ValueType::Color, ValueKind::Ident(n))
                 if !self.skin.colors.contains_key(n) && crate::css_color::named(n).is_some() =>
@@ -1300,6 +1302,179 @@ impl<'a> Resolver<'a> {
             }
             _ => None,
         }
+    }
+
+    /// `box-shadow: 0 4px 12px rgba(0,0,0,.15), inset 0 1px 0 white`.
+    fn box_shadow(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        if matches!(v.kind, ValueKind::None) {
+            return Some(Value::Shadows(Vec::new()));
+        }
+        let layers: Vec<&AstValue> = match &v.kind {
+            ValueKind::Layers(l) => l.iter().collect(),
+            _ => vec![v],
+        };
+        let mut out = Vec::new();
+        for layer in layers {
+            let terms: Vec<&AstValue> = match &layer.kind {
+                ValueKind::Terms(t) => t.iter().collect(),
+                _ => vec![layer],
+            };
+            let (mut lengths, mut color, mut inset) = (Vec::new(), None, false);
+            for t in terms {
+                match &t.kind {
+                    ValueKind::Ident(w) if w == "inset" => inset = true,
+                    ValueKind::Number(n) => lengths.push(*n),
+                    ValueKind::Dimension(n, u) => match css_length(*n, u) {
+                        Some(dp) if u != "%" => lengths.push(dp),
+                        _ => {
+                            self.err(
+                                ctx.path,
+                                "E2134",
+                                format!("`{prop}` does not take `{u}` values"),
+                                t.span,
+                                None,
+                            );
+                            return None;
+                        }
+                    },
+                    _ => match self.value(ValueType::Color, t, prop, ctx)? {
+                        Value::Color(c) => color = Some(c),
+                        _ => {
+                            color = Some(ColorValue {
+                                token: None,
+                                rgba: Color {
+                                    r: 0,
+                                    g: 0,
+                                    b: 0,
+                                    a: 0,
+                                },
+                            })
+                        }
+                    },
+                }
+            }
+            if !(2..=4).contains(&lengths.len()) || lengths.get(2).is_some_and(|b| *b < 0.0) {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", ValueType::Shadow.describe()),
+                    layer.span,
+                    Some("x and y offsets, then an optional blur (not negative) and spread".into()),
+                );
+                return None;
+            }
+            out.push(BoxShadow {
+                x: lengths[0],
+                y: lengths[1],
+                blur: lengths.get(2).copied().unwrap_or(0.0),
+                spread: lengths.get(3).copied().unwrap_or(0.0),
+                // CSS uses the text colour when none is given.
+                color: color.unwrap_or_else(|| self.color_token("text")),
+                inset,
+            });
+        }
+        Some(Value::Shadows(out))
+    }
+
+    /// `filter: blur(4px) grayscale(100%) brightness(1.2) hue-rotate(90deg)`.
+    fn filters(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        if matches!(v.kind, ValueKind::None) {
+            return Some(Value::Filters(Vec::new()));
+        }
+        let terms: Vec<&AstValue> = match &v.kind {
+            ValueKind::Terms(t) => t.iter().collect(),
+            _ => vec![v],
+        };
+        let mut out = Vec::new();
+        for t in terms {
+            let ValueKind::Call(name, args) = &t.kind else {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", ValueType::Filter.describe()),
+                    t.span,
+                    None,
+                );
+                return None;
+            };
+            let lower = name.to_ascii_lowercase();
+            let canonical: &'static str = match lower.as_str() {
+                "blur" => "blur",
+                "brightness" => "brightness",
+                "contrast" => "contrast",
+                "grayscale" => "grayscale",
+                "saturate" => "saturate",
+                "sepia" => "sepia",
+                "invert" => "invert",
+                "opacity" => "opacity",
+                "hue-rotate" => "hue-rotate",
+                "drop-shadow" | "url" => {
+                    self.err(
+                        ctx.path,
+                        "E2135",
+                        format!("`{lower}()` filters are planned for a later CSS phase"),
+                        t.span,
+                        Some("use `box-shadow` for shadows".into()),
+                    );
+                    return None;
+                }
+                _ => {
+                    self.err(
+                        ctx.path,
+                        "E2133",
+                        format!("unknown filter `{name}()`"),
+                        t.span,
+                        Some("filters: blur, brightness, contrast, grayscale, hue-rotate, invert, opacity, saturate, sepia".into()),
+                    );
+                    return None;
+                }
+            };
+            let amount = match (canonical, args.first().map(|a| &a.kind)) {
+                ("blur", None) => 0.0,
+                (_, None) => 1.0,
+                ("blur", Some(ValueKind::Number(n))) => *n,
+                ("blur", Some(ValueKind::Dimension(n, u))) if u != "%" => {
+                    css_length(*n, u).unwrap_or(-1.0)
+                }
+                ("hue-rotate", Some(ValueKind::Number(n))) => *n,
+                ("hue-rotate", Some(ValueKind::Dimension(n, u))) => match u.as_str() {
+                    "deg" => *n,
+                    "turn" => n * 360.0,
+                    "rad" => n.to_degrees(),
+                    _ => -1e9,
+                },
+                (c, Some(ValueKind::Number(n))) if c != "blur" && c != "hue-rotate" => *n,
+                (c, Some(ValueKind::Dimension(n, u)))
+                    if u == "%" && c != "blur" && c != "hue-rotate" =>
+                {
+                    n / 100.0
+                }
+                _ => -1e9,
+            };
+            let bounded = matches!(canonical, "grayscale" | "sepia" | "invert" | "opacity");
+            if amount < 0.0 && canonical != "hue-rotate" || amount <= -1e9 || args.len() > 1 {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!(
+                        "`{canonical}()` takes one {}",
+                        match canonical {
+                            "blur" => "length, like `blur(4px)`",
+                            "hue-rotate" => "angle, like `hue-rotate(90deg)`",
+                            _ => "number or percentage, like `grayscale(100%)`",
+                        }
+                    ),
+                    t.span,
+                    None,
+                );
+                return None;
+            }
+            out.push(Filter {
+                name: canonical,
+                amount: if bounded { amount.min(1.0) } else { amount },
+            });
+        }
+        Some(Value::Filters(out))
     }
 
     /// `rgb()`, `hsl()`, `var(--token)` and, on `background`, gradients.
@@ -1644,6 +1819,16 @@ impl<'a> Resolver<'a> {
                 // CSS cascade: a later all-sides value replaces earlier per-side ones.
                 for side in overridden_by(k) {
                     props.remove(side);
+                }
+                // `box-shadow` replaces the skin elevation shadow (also for `none`).
+                if k == "box_shadow" {
+                    props.insert(
+                        "elevation",
+                        Value::Dimension(Dimension {
+                            token: None,
+                            dp: 0.0,
+                        }),
+                    );
                 }
                 props.insert(k, r);
             }

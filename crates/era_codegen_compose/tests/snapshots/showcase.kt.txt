@@ -5,7 +5,17 @@ package dev.era.showcase.ui
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.LinearGradientShader
 import androidx.compose.ui.graphics.RadialGradientShader
 import androidx.compose.ui.graphics.Shader
@@ -80,6 +90,66 @@ fun eraCornerGradient(right: Boolean, bottom: Boolean, colors: List<Color>, stop
     EraLinear(null, right, bottom, colors, stops)
 
 fun eraRadialGradient(colors: List<Color>, stops: List<Float>): Brush = EraRadial(colors, stops)
+
+/** One CSS `box-shadow` layer. */
+data class EraShadow(val x: Dp, val y: Dp, val blur: Dp, val spread: Dp, val color: Color)
+
+/**
+ * CSS `box-shadow` (outer): blurred copies of the shape, never drawn under
+ * the element itself, as in CSS. The first shadow is on top.
+ */
+fun Modifier.eraBoxShadow(shadows: List<EraShadow>, shape: Shape): Modifier = drawWithContent {
+    val box = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithContent)) }
+    clipPath(box, ClipOp.Difference) {
+        for (s in shadows.asReversed()) {
+            val spread = s.spread.toPx()
+            val w = size.width + 2f * spread
+            val h = size.height + 2f * spread
+            if (w <= 0f || h <= 0f) continue
+            val outline = shape.createOutline(Size(w, h), layoutDirection, this)
+            val paint = Paint().apply { color = s.color }
+            eraBlurPaint(paint, s.blur.toPx() / 2f)
+            drawIntoCanvas { canvas ->
+                canvas.save()
+                canvas.translate(s.x.toPx() - spread, s.y.toPx() - spread)
+                canvas.drawOutline(outline, paint)
+                canvas.restore()
+            }
+        }
+    }
+    drawContent()
+}
+
+/** CSS `box-shadow: inset ...`: drawn inside the shape, over the background. */
+fun Modifier.eraInsetShadow(shadows: List<EraShadow>, shape: Shape): Modifier = drawWithContent {
+    val box = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithContent)) }
+    clipPath(box) {
+        for (s in shadows.asReversed()) {
+            val spread = s.spread.toPx()
+            val blur = s.blur.toPx()
+            val hole = Path()
+            val w = size.width - 2f * spread
+            val h = size.height - 2f * spread
+            if (w > 0f && h > 0f) hole.addOutline(shape.createOutline(Size(w, h), layoutDirection, this))
+            hole.translate(Offset(s.x.toPx() + spread, s.y.toPx() + spread))
+            val m = blur + abs(s.x.toPx()) + abs(s.y.toPx()) + abs(spread) + 1f
+            val frame = Path().apply { addRect(Rect(-m, -m, size.width + m, size.height + m)) }
+            val ring = Path().apply { op(frame, hole, PathOperation.Difference) }
+            val paint = Paint().apply { color = s.color }
+            eraBlurPaint(paint, blur / 2f)
+            drawIntoCanvas { it.drawPath(ring, paint) }
+        }
+    }
+    drawContent()
+}
+
+/** CSS colour filters (`grayscale`, `brightness`, ...) as one 4x5 colour matrix. */
+fun Modifier.eraColorFilter(matrix: FloatArray): Modifier = drawWithContent {
+    val paint = Paint().apply { colorFilter = ColorFilter.colorMatrix(ColorMatrix(matrix)) }
+    drawIntoCanvas { it.saveLayer(Rect(Offset.Zero, size), paint) }
+    drawContent()
+    drawIntoCanvas { it.restore() }
+}
 
 /** CSS `border-style`. */
 enum class EraLine { Solid, Dashed, Dotted }
@@ -386,6 +456,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.era.showcase.ui.*
@@ -566,6 +638,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.era.showcase.ui.*
@@ -686,6 +760,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.era.showcase.ui.*
@@ -769,8 +845,35 @@ fun LookScreen() {
                     Column(Modifier.fillMaxWidth(1f).height(64.dp).background(Color(0xFF008080), RoundedCornerShape(16.dp)).background(eraLinearGradient(90f, listOf(Color(0x00FFFFFF), Color(0xE6FFFFFF)), listOf(0f, 1f)), RoundedCornerShape(16.dp))) {
                     }
                     // row @Look/0/8
+                    Row(Modifier.padding(horizontal = 4.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.Start)) {
+                        // column @Look/0/8/0
+                        Column(Modifier.height(80.dp).weight(1f).eraBoxShadow(listOf(EraShadow(0.dp, 8.dp, 24.dp, 0.dp, Color(0x2E000000))), RoundedCornerShape(16.dp)).background(Color(0xFFFFFFFF), RoundedCornerShape(16.dp))) {
+                        }
+                        // column @Look/0/8/1
+                        Column(Modifier.height(80.dp).weight(1f).eraBoxShadow(listOf(EraShadow(0.dp, 1.dp, 2.dp, 0.dp, Color(0x33000000)), EraShadow(0.dp, 12.dp, 28.dp, (-6).dp, Color(0x99FF6B35))), RoundedCornerShape(16.dp)).background(Color(0xFFFFFFFF), RoundedCornerShape(16.dp))) {
+                        }
+                        // column @Look/0/8/2
+                        Column(Modifier.height(80.dp).weight(1f).background(Color(0xFFEEF1F5), RoundedCornerShape(16.dp)).eraInsetShadow(listOf(EraShadow(0.dp, 3.dp, 10.dp, 0.dp, Color(0x40000000))), RoundedCornerShape(16.dp))) {
+                        }
+                    }
+                    // row @Look/0/9
+                    Row(Modifier, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start)) {
+                        // stack @Look/0/9/0
+                        Box(Modifier.height(56.dp).weight(1f).eraColorFilter(floatArrayOf(0.2126f, 0.7152f, 0.0722f, 0f, 0f, 0.2126f, 0.7152f, 0.0722f, 0f, 0f, 0.2126f, 0.7152f, 0.0722f, 0f, 0f, 0f, 0f, 0f, 1f, 0f)).background(eraLinearGradient(90f, listOf(Color(0xFFFF6347), Color(0xFFFFD700)), listOf(0f, 1f)), RoundedCornerShape(12.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/9/1
+                        Box(Modifier.height(56.dp).weight(1f).eraColorFilter(floatArrayOf(-0.574f, 1.43f, 0.144f, 0f, 0f, 0.426f, 0.43f, 0.144f, 0f, 0f, 0.426f, 1.43f, -0.856f, 0f, 0f, 0f, 0f, 0f, 1f, 0f)).background(eraLinearGradient(90f, listOf(Color(0xFFFF6347), Color(0xFFFFD700)), listOf(0f, 1f)), RoundedCornerShape(12.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/9/2
+                        Box(Modifier.height(56.dp).weight(1f).eraColorFilter(floatArrayOf(0.3537f, 0.6921f, 0.1701f, 0f, 0f, 0.3141f, 0.6174f, 0.1512f, 0f, 0f, 0.2448f, 0.4806f, 0.1179f, 0f, 0f, 0f, 0f, 0f, 1f, 0f)).background(eraLinearGradient(90f, listOf(Color(0xFFFF6347), Color(0xFFFFD700)), listOf(0f, 1f)), RoundedCornerShape(12.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                        // stack @Look/0/9/3
+                        Box(Modifier.height(56.dp).weight(1f).blur(4.dp, BlurredEdgeTreatment.Unbounded).background(eraLinearGradient(90f, listOf(Color(0xFFFF6347), Color(0xFFFFD700)), listOf(0f, 1f)), RoundedCornerShape(12.dp)), contentAlignment = Alignment.TopStart) {
+                        }
+                    }
+                    // row @Look/0/10
                     Row(Modifier.padding(8.dp)) {
-                        // button @Look/0/8/0
+                        // button @Look/0/10/0
                         Box(Modifier.eraOutline(2.dp, c.primary, RoundedCornerShape(EraRadius.md), EraLine.Solid, 4.dp).background(c.primary, RoundedCornerShape(EraRadius.md)).padding(horizontal = EraSpacing.md, vertical = EraSpacing.sm), contentAlignment = Alignment.Center) {
                             BasicText("Focused", style = EraType.body.copy(color = c.onPrimary))
                         }

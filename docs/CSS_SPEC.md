@@ -382,11 +382,24 @@ autocomplete for CSS names, and the Skin panel.
   radial gradients come later. A colour name can't be the last layer
   after a comma (use `#hex`/`rgb()`).
 
+**Phase 4b (done, 2026-11-22):** shadows and filters (D-089)
+
+- `box-shadow`: offsets, blur, spread, colour, `inset`, several layers,
+  `none` (replaces the skin `elevation`)
+- `filter`: `blur()`, `brightness()`, `contrast()`, `grayscale()`,
+  `saturate()`, `sepia()`, `invert()`, `opacity()`, `hue-rotate()`
+- **Verified** by IR and codegen tests, the `Look` screen
+  (`docs/images/css-look.png`), and debug, release (R8) and exported
+  Android builds.
+- **Limits:** blurred shadows need Android 9+; `filter: blur()` needs
+  Android 12+. `drop-shadow()`, `mix-blend-mode`, `clip-path`, conic
+  gradients and `url()` images are still to come (P4c).
+
 **Next phases:**
 
 | Phase | Covers |
 |---|---|
-| P4b | `box-shadow`, filters, `clip-path`, `mix-blend-mode`, conic gradients, `url()` images |
+| P4c | `clip-path`, `mix-blend-mode`, `drop-shadow()`, conic gradients, `url()` images |
 | P5 | Typography properties and `span` |
 | P6 | CSS grid templates, `calc()`, transforms, percentage offsets |
 | P7 | HTML element aliases and form controls |

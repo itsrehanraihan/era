@@ -43,6 +43,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.CompositionLocalProvider
 ";
@@ -190,6 +192,19 @@ fn corner_size(key: &str, v: &Value) -> Option<String> {
     match v {
         Value::Size(Size::Percent(p)) => Some(format!("CornerSize({})", p.round() as i64)),
         _ => dim_expr(key, v).map(|d| format!("CornerSize({d})")),
+    }
+}
+
+/// A Kotlin `Float` literal, rounded to 6 decimals so generated code is
+/// short and stable: `-0.574f`, `255f`.
+fn float_lit(v: f64) -> String {
+    let r = (v * 1e6).round() / 1e6;
+    if r == 0.0 {
+        "0f".into()
+    } else if r.fract() == 0.0 {
+        format!("{}f", r as i64)
+    } else {
+        format!("{r}f")
     }
 }
 
@@ -379,6 +394,67 @@ impl Emitter {
         m.push(format!("eraSideBorders({})", args.join(", ")));
     }
 
+    /// CSS `box-shadow`: outer shadows behind the element, inset shadows
+    /// over its background.
+    fn box_shadows(e: &Element, shape: &Option<String>, inset: bool, m: &mut Vec<String>) {
+        let Some(Value::Shadows(list)) = e.props.get("box_shadow") else {
+            return;
+        };
+        let items: Vec<String> = list
+            .iter()
+            .filter(|s| s.inset == inset)
+            .map(|s| {
+                format!(
+                    "EraShadow({}, {}, {}, {}, {})",
+                    dp(s.x),
+                    dp(s.y),
+                    dp(s.blur),
+                    dp(s.spread),
+                    color_expr(&Value::Color(s.color.clone())).unwrap()
+                )
+            })
+            .collect();
+        if items.is_empty() {
+            return;
+        }
+        let sh = shape
+            .clone()
+            .unwrap_or_else(|| "androidx.compose.ui.graphics.RectangleShape".into());
+        let f = if inset {
+            "eraInsetShadow"
+        } else {
+            "eraBoxShadow"
+        };
+        m.push(format!("{f}(listOf({}), {sh})", items.join(", ")));
+    }
+
+    /// CSS `filter`: `blur()` uses Compose `blur`; colour filters become one
+    /// colour matrix.
+    fn filters(e: &Element, m: &mut Vec<String>) {
+        let Some(Value::Filters(list)) = e.props.get("filter") else {
+            return;
+        };
+        let blur: f64 = list
+            .iter()
+            .filter(|f| f.name == "blur")
+            .map(|f| f.amount)
+            .sum();
+        if blur > 0.0 {
+            m.push(format!(
+                "blur({}, BlurredEdgeTreatment.Unbounded)",
+                dp(blur)
+            ));
+        }
+        let colour: Vec<(&str, f64)> = list.iter().map(|f| (f.name, f.amount)).collect();
+        if let Some(matrix) = crate::draw::color_matrix(&colour) {
+            let values: Vec<String> = matrix.iter().map(|v| float_lit(*v)).collect();
+            m.push(format!(
+                "eraColorFilter(floatArrayOf({}))",
+                values.join(", ")
+            ));
+        }
+    }
+
     /// CSS `outline` (+ `outline-offset`): drawn outside, takes no space.
     fn outline(e: &Element, shape: &Option<String>, m: &mut Vec<String>) {
         let Some(line) = line_kind(e.props.get("outline_style")) else {
@@ -553,8 +629,11 @@ impl Emitter {
             Some(s) => format!("{base}, {s}"),
             None => base,
         };
+        // CSS `filter` applies to the whole element, shadows included.
+        Self::filters(e, &mut m);
         // Before the clip, so `overflow: hidden` never clips the outline.
         Self::outline(e, &shape, &mut m);
+        Self::box_shadows(e, &shape, false, &mut m);
         if dim_value(e.props.get("elevation")) > 0.0 {
             let el = dim_expr("elevation", &e.props["elevation"]).unwrap();
             // CSS box-shadow never clips content; only `overflow: hidden` does.
@@ -581,6 +660,7 @@ impl Emitter {
                 m.push(format!("background({})", with_shape(bg)));
             }
         }
+        Self::box_shadows(e, &shape, true, &mut m);
         Self::borders(e, &shape, &mut m);
         if let Some(Value::Effects(effects)) = e.props.get("on_press")
             && !effects.is_empty()

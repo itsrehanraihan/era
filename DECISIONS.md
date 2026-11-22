@@ -409,6 +409,25 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   name cannot be the last layer after a comma, because a word after a
   comma starts a new item in ERA (use `#hex` or `rgb()` there).
 
+## M8 phase 4b: shadows and filters
+
+- **D-089 `box-shadow` and `filter` without a Compose upgrade.** Real CSS
+  box shadows (x, y, blur, spread, colour, `inset`, several layers,
+  `none`; no colour = the text colour, like `currentColor`) are drawn by
+  `eraBoxShadow`/`eraInsetShadow` in `EraDraw.kt`: blurred copies of the
+  element's shape, never drawn under the element itself, as in CSS. The
+  blur comes from a small per-host hook, `eraBlurPaint` in
+  `EraAssets.kt` (Android `BlurMaskFilter`, Skia `MaskFilter` in the
+  preview). That is the technique Compose 1.9's `dropShadow` uses, so
+  ERA keeps its pinned versions (D-052): moving to Compose 1.9 would
+  need SDK platform 36 and a new desktop toolchain. Any `box-shadow`
+  replaces the skin `elevation` shadow. `filter` supports `blur()`
+  (Compose `blur`, Android 12+) and the colour filters `brightness`,
+  `contrast`, `grayscale`, `saturate`, `sepia`, `invert`, `opacity` and
+  `hue-rotate`, combined at build time into one colour matrix (Filter
+  Effects spec). Limits: blurred shadows need Android 9+ (older versions
+  draw a sharp shadow); `drop-shadow()` and `url()` filters are E2135.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is

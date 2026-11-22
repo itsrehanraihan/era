@@ -297,3 +297,72 @@ fn gradients_and_layers() {
         "E2135"
     );
 }
+
+// ----- M8 phase 4b: box-shadow and filter -----------------------------------
+
+#[test]
+fn box_shadows() {
+    let p = root_props(
+        "card { box-shadow: 0 4px 12px rgba(0, 0, 0, .2), inset 0 1px 0 0 white, 2px 2px }",
+    );
+    let Value::Shadows(s) = &p["box_shadow"] else {
+        panic!()
+    };
+    assert_eq!(s.len(), 3);
+    assert_eq!(
+        (s[0].x, s[0].y, s[0].blur, s[0].spread, s[0].inset),
+        (0.0, 4.0, 12.0, 0.0, false)
+    );
+    assert!(s[1].inset);
+    // No colour: the text colour, like CSS `currentColor`.
+    assert_eq!(s[2].color.token.as_deref(), Some("text"));
+    // box-shadow replaces the card's skin elevation; `none` removes it.
+    assert!(matches!(&p["elevation"], Value::Dimension(d) if d.dp == 0.0));
+    let p = root_props("card { box-shadow: none }");
+    assert!(matches!(&p["box_shadow"], Value::Shadows(s) if s.is_empty()));
+    assert!(matches!(&p["elevation"], Value::Dimension(d) if d.dp == 0.0));
+    assert_eq!(
+        screen("column { box-shadow: 4px }").only("E2133").code,
+        "E2133"
+    );
+    assert_eq!(
+        screen("column { box-shadow: 0 0 -2px red }")
+            .only("E2133")
+            .code,
+        "E2133"
+    );
+}
+
+#[test]
+fn filters() {
+    let p = root_props(
+        "column { filter: blur(4px) grayscale(50%) hue-rotate(.5turn) brightness(1.2) }",
+    );
+    let Value::Filters(f) = &p["filter"] else {
+        panic!()
+    };
+    let got: Vec<(&str, f64)> = f.iter().map(|f| (f.name, f.amount)).collect();
+    assert_eq!(
+        got,
+        [
+            ("blur", 4.0),
+            ("grayscale", 0.5),
+            ("hue-rotate", 180.0),
+            ("brightness", 1.2)
+        ]
+    );
+    assert_eq!(
+        screen("column { filter: glow(2) }").only("E2133").code,
+        "E2133"
+    );
+    assert_eq!(
+        screen("column { filter: drop-shadow(0 0 4px red) }")
+            .only("E2135")
+            .code,
+        "E2135"
+    );
+    assert_eq!(
+        screen("column { filter: blur(-2px) }").only("E2133").code,
+        "E2133"
+    );
+}
