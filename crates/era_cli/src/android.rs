@@ -1,11 +1,15 @@
-//! `era build android`: generate an Android project into
-//! `<project>/build/android/` and build a debug APK with Gradle.
+//! Android output. One project plan in the standard Android Studio layout
+//! (`app/` module, version catalog), used by:
+//! - `era build android`: writes `build/android/` and runs Gradle;
+//! - `era export android`: writes a standalone project the team owns,
+//!   with the Gradle wrapper, `.gitignore` and a README (D-084).
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use era_codegen_compose::android as android_gen;
+use era_codegen_compose::{Options, generate_with};
 use era_diagnostics::Diagnostic;
 use era_ir::ir::App;
 use era_project::Manifest;
@@ -13,36 +17,61 @@ use era_project::Manifest;
 use crate::preview::{gradle_command, remove_stale, write_if_changed};
 use crate::{EXIT_ERRORS, EXIT_USAGE};
 
-const ROOT_FILES: &[(&str, &str)] = &[
+macro_rules! template {
+    ($path:literal) => {
+        include_str!(concat!("../../../platforms/android/", $path))
+    };
+}
+
+/// `(project path, template)`; placeholders are `{{NAME}}`.
+const TEMPLATES: &[(&str, &str)] = &[
+    ("settings.gradle.kts", template!("settings.gradle.kts")),
+    ("build.gradle.kts", template!("build.gradle.kts")),
+    ("gradle.properties", template!("gradle.properties")),
     (
-        "settings.gradle.kts",
-        include_str!("../../../platforms/android/settings.gradle.kts"),
+        "gradle/libs.versions.toml",
+        template!("gradle/libs.versions.toml"),
     ),
+    ("app/build.gradle.kts", template!("app/build.gradle.kts")),
     (
-        "build.gradle.kts",
-        include_str!("../../../platforms/android/build.gradle.kts"),
-    ),
-    (
-        "gradle.properties",
-        include_str!("../../../platforms/android/gradle.properties"),
-    ),
-    (
-        "src/main/AndroidManifest.xml",
-        include_str!("../../../platforms/android/AndroidManifest.xml"),
+        "app/src/main/AndroidManifest.xml",
+        template!("app/AndroidManifest.xml"),
     ),
 ];
 const HOST_KOTLIN: &[(&str, &str)] = &[
-    (
-        "MainActivity.kt",
-        include_str!("../../../platforms/android/MainActivity.kt"),
-    ),
-    (
-        "EraAssets.kt",
-        include_str!("../../../platforms/android/EraAssets.kt"),
-    ),
+    ("MainActivity.kt", template!("app/MainActivity.kt")),
+    ("EraAssets.kt", template!("app/EraAssets.kt")),
 ];
+/// Export only: the Gradle wrapper (Gradle 8.14.3), so `./gradlew` works anywhere.
+const WRAPPER_TEXT: &[(&str, &str)] = &[
+    ("gradlew", template!("gradlew")),
+    ("gradlew.bat", template!("gradlew.bat")),
+    (
+        "gradle/wrapper/gradle-wrapper.properties",
+        template!("gradle/wrapper/gradle-wrapper.properties"),
+    ),
+    (".gitignore", template!("gitignore.txt")),
+];
+const WRAPPER_JAR: &[u8] =
+    include_bytes!("../../../platforms/android/gradle/wrapper/gradle-wrapper.jar");
+/// Marks a folder written by `era export`, so `--force` never deletes anything else.
+pub const EXPORT_MARKER: &str = ".era-export";
 
-pub const APK_NAME: &str = "era-android-debug.apk";
+pub const APK_PATH: &str = "app/build/outputs/apk/debug/app-debug.apk";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Build,
+    Export,
+}
+
+/// Everything to write for one Android project.
+pub struct Plan {
+    pub text: Vec<(String, String)>,
+    pub bytes: Vec<(String, &'static [u8])>,
+    /// `(source file, project path)` copies of images and fonts.
+    pub copies: Vec<(PathBuf, String)>,
+}
 
 fn fill(template: &str, vars: &[(&str, String)]) -> String {
     let mut s = template.to_string();
@@ -52,42 +81,18 @@ fn fill(template: &str, vars: &[(&str, String)]) -> String {
     s
 }
 
-/// Copy a file only when its bytes differ.
-fn copy_if_changed(from: &Path, to: &Path) -> std::io::Result<()> {
-    let new = std::fs::read(from)?;
-    if std::fs::read(to).ok().as_deref() == Some(new.as_slice()) {
-        return Ok(());
-    }
-    if let Some(p) = to.parent() {
-        std::fs::create_dir_all(p)?;
-    }
-    std::fs::write(to, new)
-}
-
-/// The Android SDK from `ANDROID_HOME` or `ANDROID_SDK_ROOT`.
-pub fn find_sdk() -> Option<PathBuf> {
-    ["ANDROID_HOME", "ANDROID_SDK_ROOT"]
-        .iter()
-        .filter_map(std::env::var_os)
-        .map(PathBuf::from)
-        .find(|p| p.join("platforms").is_dir())
-}
-
-/// Write the Android project. Icon conversion problems are diagnostics.
-pub fn write_project(
+pub fn plan(
     root: &Path,
     manifest: &Manifest,
     app: &App,
-    sdk: &Path,
-) -> Result<PathBuf, Vec<Diagnostic>> {
-    let io = |e: std::io::Error| {
-        vec![Diagnostic::error(
-            "E3002",
-            format!("cannot write the Android project: {e}"),
-        )]
-    };
-    let out = root.join("build/android");
-    let generated = era_codegen_compose::generate(app);
+    mode: Mode,
+) -> Result<Plan, Vec<Diagnostic>> {
+    let generated = generate_with(
+        app,
+        Options {
+            export: mode == Mode::Export,
+        },
+    );
     let pkg = generated.package.clone();
     let assets = root.join("Assets");
     let android = android_gen::generate(app, &pkg, |p| {
@@ -107,6 +112,7 @@ pub fn write_project(
     let vars = [
         ("APP_ID", app.id.clone()),
         ("PACKAGE", pkg.clone()),
+        ("PROJECT_NAME", manifest.name.clone()),
         ("MIN_SDK", manifest.android.min_sdk.to_string()),
         (
             "VERSION_CODE",
@@ -114,36 +120,155 @@ pub fn write_project(
         ),
         ("VERSION_NAME", app.version.clone()),
     ];
-    let main = out.join("src/main");
-    let mut keep = BTreeSet::new();
-    for (name, text) in ROOT_FILES {
-        let p = out.join(name);
-        write_if_changed(&p, &fill(text, &vars)).map_err(io)?;
-        keep.insert(p);
+    let mut text = Vec::new();
+    for (path, t) in TEMPLATES {
+        text.push((path.to_string(), fill(t, &vars)));
     }
-    let kotlin = main.join("kotlin");
-    for (name, text) in HOST_KOTLIN {
-        let p = kotlin.join(pkg.replace('.', "/")).join(name);
-        write_if_changed(&p, &fill(text, &vars)).map_err(io)?;
-        keep.insert(p);
+    let kotlin = format!("app/src/main/kotlin/{}", pkg.replace('.', "/"));
+    for (name, t) in HOST_KOTLIN {
+        text.push((format!("{kotlin}/{name}"), fill(t, &vars)));
     }
-    for (rel, text) in &generated.files {
-        let p = kotlin.join(rel);
-        write_if_changed(&p, text).map_err(io)?;
-        keep.insert(p);
+    for (rel, t) in &generated.files {
+        text.push((format!("app/src/main/kotlin/{rel}"), t.clone()));
     }
-    for (rel, text) in &android.files {
-        let p = out.join(rel);
-        write_if_changed(&p, text).map_err(io)?;
-        keep.insert(p);
+    for (rel, t) in &android.files {
+        let t = match mode {
+            Mode::Export => era_codegen_compose::export_text(t),
+            Mode::Build => t.clone(),
+        };
+        text.push((format!("app/{rel}"), t));
     }
-    for (from, to) in &android.copies {
-        let p = out.join(to);
-        copy_if_changed(&assets.join(from), &p).map_err(io)?;
-        keep.insert(p);
-    }
-    remove_stale(&main, &keep);
+    let copies = android
+        .copies
+        .iter()
+        .map(|(from, to)| (assets.join(from), format!("app/{to}")))
+        .collect();
 
+    let mut bytes = Vec::new();
+    if mode == Mode::Export {
+        for (path, t) in WRAPPER_TEXT {
+            text.push((path.to_string(), t.to_string()));
+        }
+        bytes.push(("gradle/wrapper/gradle-wrapper.jar".to_string(), WRAPPER_JAR));
+        text.push(("README.md".into(), readme(app, manifest, &pkg)));
+        text.push((
+            EXPORT_MARKER.into(),
+            format!(
+                "Exported by era {} from `{}`.\n",
+                env!("CARGO_PKG_VERSION"),
+                manifest.name
+            ),
+        ));
+    }
+    text.sort();
+    Ok(Plan {
+        text,
+        bytes,
+        copies,
+    })
+}
+
+fn readme(app: &App, manifest: &Manifest, pkg: &str) -> String {
+    format!(
+        "# {name} (Android)
+
+Exported from the ERA project `{project}` with `era export android`.
+This is a standard Android Studio project (Kotlin and Jetpack Compose).
+Your team owns this code: build it, edit it and ship it like any Android app.
+
+## Build
+
+```bash
+./gradlew assembleDebug
+```
+
+The APK is written to `{apk}`.
+
+You can also open this folder in Android Studio (**File → Open**).
+
+## Layout
+
+| Path | Contents |
+|---|---|
+| `app/src/main/kotlin/{pkg_dir}/screens/` | One composable per screen |
+| `app/src/main/kotlin/{pkg_dir}/EraTheme.kt` | Colours, spacing, radii and text styles (your skin) |
+| `app/src/main/kotlin/{pkg_dir}/EraStores.kt` | App state and actions (if the app has stores) |
+| `app/src/main/kotlin/{pkg_dir}/EraRuntime.kt` | Navigation and small helpers |
+| `app/src/main/kotlin/{pkg_dir}/MainActivity.kt` | Entry point |
+| `app/src/main/res/`, `app/src/main/assets/` | Icons, images and fonts |
+| `gradle/libs.versions.toml` | Library and plugin versions |
+
+## Re-exporting
+
+`era export android --force` replaces this folder with a fresh export,
+which overwrites any edits made here. Commit your changes first, or keep
+editing the ERA sources and re-export.
+
+Application id: `{id}`, version {version}.
+",
+        name = app.name,
+        project = manifest.name,
+        apk = APK_PATH,
+        pkg_dir = pkg.replace('.', "/"),
+        id = app.id,
+        version = app.version,
+    )
+}
+
+/// Copy a file only when its bytes differ.
+fn copy_if_changed(from: &Path, to: &Path) -> std::io::Result<()> {
+    let new = std::fs::read(from)?;
+    if std::fs::read(to).ok().as_deref() == Some(new.as_slice()) {
+        return Ok(());
+    }
+    if let Some(p) = to.parent() {
+        std::fs::create_dir_all(p)?;
+    }
+    std::fs::write(to, new)
+}
+
+/// Write a plan into `out`. Returns every path written.
+pub fn write_plan(out: &Path, plan: &Plan) -> std::io::Result<BTreeSet<PathBuf>> {
+    let mut written = BTreeSet::new();
+    for (rel, t) in &plan.text {
+        let p = out.join(rel);
+        write_if_changed(&p, t)?;
+        written.insert(p);
+    }
+    for (rel, b) in &plan.bytes {
+        let p = out.join(rel);
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&p, b)?;
+        written.insert(p);
+    }
+    for (from, rel) in &plan.copies {
+        let p = out.join(rel);
+        copy_if_changed(from, &p)?;
+        written.insert(p);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let gradlew = out.join("gradlew");
+        if gradlew.is_file() {
+            std::fs::set_permissions(&gradlew, std::fs::Permissions::from_mode(0o755))?;
+        }
+    }
+    Ok(written)
+}
+
+/// The Android SDK from `ANDROID_HOME` or `ANDROID_SDK_ROOT`.
+pub fn find_sdk() -> Option<PathBuf> {
+    ["ANDROID_HOME", "ANDROID_SDK_ROOT"]
+        .iter()
+        .filter_map(std::env::var_os)
+        .map(PathBuf::from)
+        .find(|p| p.join("platforms").is_dir())
+}
+
+fn local_properties(out: &Path, sdk: &Path) -> std::io::Result<()> {
     let sdk_dir = sdk
         .display()
         .to_string()
@@ -151,12 +276,20 @@ pub fn write_project(
         .replace(':', "\\:");
     write_if_changed(
         &out.join("local.properties"),
-        &format!("# Written by `era build android`.\nsdk.dir={sdk_dir}\n"),
+        &format!("sdk.dir={sdk_dir}\n"),
     )
-    .map_err(io)?;
-    Ok(out)
 }
 
+fn print_diags(diags: &[Diagnostic], what: &str) -> ExitCode {
+    for d in diags {
+        eprint!("{}", d.render(None));
+        eprintln!();
+    }
+    eprintln!("error: {what} failed: {} error(s)", diags.len());
+    ExitCode::from(EXIT_ERRORS)
+}
+
+/// `era build android`.
 pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
     let Some(sdk) = find_sdk() else {
         eprintln!("error: Android SDK not found");
@@ -165,17 +298,20 @@ pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
         );
         return ExitCode::from(EXIT_USAGE);
     };
-    let out = match write_project(root, manifest, app, &sdk) {
-        Ok(o) => o,
-        Err(diags) => {
-            for d in &diags {
-                eprint!("{}", d.render(None));
-                eprintln!();
-            }
-            eprintln!("error: build failed: {} error(s)", diags.len());
-            return ExitCode::from(EXIT_ERRORS);
-        }
+    let plan = match plan(root, manifest, app, Mode::Build) {
+        Ok(p) => p,
+        Err(d) => return print_diags(&d, "build"),
     };
+    let out = root.join("build/android");
+    let written =
+        match write_plan(&out, &plan).and_then(|w| local_properties(&out, &sdk).map(|_| w)) {
+            Ok(w) => w,
+            Err(e) => {
+                eprintln!("error: cannot write the Android project: {e}");
+                return ExitCode::from(EXIT_USAGE);
+            }
+        };
+    remove_stale(&out.join("app/src/main"), &written);
     println!("Generated Android project in {}", out.display());
     println!(
         "Building debug APK with Gradle (the first run downloads the Android build tools and can take several minutes)..."
@@ -183,7 +319,12 @@ pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
 
     let gradle = gradle_command();
     let status = Command::new(&gradle)
-        .args(["--console=plain", "-q", "--no-watch-fs", "assembleDebug"])
+        .args([
+            "--console=plain",
+            "-q",
+            "--no-watch-fs",
+            ":app:assembleDebug",
+        ])
         .current_dir(&out)
         .status();
     match status {
@@ -209,7 +350,7 @@ pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
             ExitCode::from(EXIT_ERRORS)
         }
         Ok(_) => {
-            let apk = out.join("build/outputs/apk/debug").join(APK_NAME);
+            let apk = out.join(APK_PATH);
             let size = std::fs::metadata(&apk).map(|m| m.len()).unwrap_or(0);
             println!(
                 "Built {} ({:.1} MB)",
@@ -226,4 +367,65 @@ pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
             ExitCode::SUCCESS
         }
     }
+}
+
+/// `era export android`.
+pub fn export(
+    root: &Path,
+    manifest: &Manifest,
+    app: &App,
+    out: Option<&Path>,
+    force: bool,
+) -> ExitCode {
+    let out = out
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| root.join("export/android"));
+    let non_empty = std::fs::read_dir(&out)
+        .map(|mut d| d.next().is_some())
+        .unwrap_or(false);
+    if non_empty {
+        let ours = out.join(EXPORT_MARKER).is_file();
+        if !force || !ours {
+            eprintln!(
+                "error[E3003]: `{}` already exists and is not empty",
+                out.display()
+            );
+            if ours {
+                eprintln!(
+                    "   = help: pass --force to replace it with a fresh export (edits made there will be lost)"
+                );
+            } else {
+                eprintln!(
+                    "   = help: choose an empty folder with --out; ERA only replaces folders it exported itself"
+                );
+            }
+            return ExitCode::from(EXIT_USAGE);
+        }
+        if let Err(e) = std::fs::remove_dir_all(&out) {
+            eprintln!("error: cannot clear `{}`: {e}", out.display());
+            return ExitCode::from(EXIT_USAGE);
+        }
+    }
+    let plan = match plan(root, manifest, app, Mode::Export) {
+        Ok(p) => p,
+        Err(d) => return print_diags(&d, "export"),
+    };
+    if let Err(e) = write_plan(&out, &plan) {
+        eprintln!("error: cannot write the exported project: {e}");
+        return ExitCode::from(EXIT_USAGE);
+    }
+    if let Some(sdk) = find_sdk() {
+        // Not committed (.gitignore); Android Studio would create it anyway.
+        let _ = local_properties(&out, &sdk);
+    }
+    let files = plan.text.len() + plan.bytes.len() + plan.copies.len();
+    println!(
+        "Exported Android Studio project to {} ({files} files)",
+        out.display()
+    );
+    println!("\nNext:");
+    println!("  cd \"{}\"", out.display());
+    println!("  ./gradlew assembleDebug");
+    println!("or open the folder in Android Studio.");
+    ExitCode::SUCCESS
 }

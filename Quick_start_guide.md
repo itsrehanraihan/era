@@ -384,13 +384,13 @@ era build android
 ```
 
 ```text
-Built …/my_app/build/android/build/outputs/apk/debug/era-android-debug.apk (…)
+Built …/my_app/build/android/app/build/outputs/apk/debug/app-debug.apk (…)
 ```
 
 Install it on a phone with USB debugging enabled, or on an emulator:
 
 ```bash
-adb install -r build/android/build/outputs/apk/debug/era-android-debug.apk
+adb install -r build/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 The app opens on your `start` screen, and taps, `go` and `back` work.
@@ -405,6 +405,26 @@ The first build downloads the Android build tools, which takes a few
 minutes. SVG icons are converted to Android vector drawables. If an icon
 uses something unsupported, such as a transform or a gradient, ERA
 explains what to change.
+
+### Hand the code to your team: `era export android`
+
+When you want a normal Android Studio project your team owns, export it:
+
+```bash
+era export android
+```
+
+```text
+Exported Android Studio project to …/my_app/export/android (… files)
+```
+
+The folder has the Gradle wrapper, a `README.md`, and plain Kotlin and
+Jetpack Compose code with no ERA tooling needed. Build it with
+`./gradlew assembleDebug` inside the folder, or open it in Android
+Studio. Use `--out <dir>` for another folder. To export again, add
+`--force`. ERA only replaces folders it exported itself, and
+re-exporting overwrites hand edits, so commit the export to its own
+repository.
 
 ## 13. Explore the E-Renty demo
 

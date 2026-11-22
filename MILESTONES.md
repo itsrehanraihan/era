@@ -195,7 +195,7 @@ on-device appearance has not been seen (Q-06). This needs the owner's
 device:
 
 ```bash
-adb install -r examples/erenty/build/android/build/outputs/apk/debug/era-android-debug.apk
+adb install -r examples/erenty/build/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ```bash
@@ -289,8 +289,32 @@ sheet.
 - in a row, `stretch` doesn't equalise heights
 - `fixed` elements inside a `visible:` condition ignore the condition
 
+## M9 deliverables (production Android: `era export android`, D-082–D-084)
+
+- `platforms/android/` now has the standard Android Studio layout: an
+  `app/` module, a version catalog and the Gradle 8.14.3 wrapper.
+  `era build android` uses the same layout.
+- `era export android [path] [--out dir] [--force]` writes a standalone
+  project (default `export/android`): wrapper, `.gitignore`, a
+  `README.md` with build steps, `local.properties` when the SDK is found,
+  and Kotlin with export headers and no internal IR ids.
+- Overwrite safety: a non-empty folder is refused (E3003). `--force`
+  replaces only a folder with an earlier export's `.era-export` marker.
+- `era export ios` explains that SwiftUI output is planned (D-082).
+- **Verified:** the exported E-Renty project builds a debug APK with its
+  own `./gradlew assembleDebug` (smoke test
+  `exported_project_builds_with_its_own_gradle_wrapper`). All 5 Gradle
+  smoke tests and 227 workspace tests pass.
+
+Known limits:
+- Debug builds only. Release signing, app icon and app identity come
+  next, when the owner chooses them (Q-12).
+- An export is a snapshot. Re-exporting replaces hand edits.
+
 ## Next smallest task
 
+0. M9 follow-up (owner's choice): release builds (`assembleRelease`
+   with a signing config), launcher icon, app identity.
 1. M8 phase 3–4: borders, corners, colour functions, gradients,
    `box-shadow`, filters (owner: "build everything the HTML/CSS way").
 2. Then, by owner priority: a `.app` bundle with an icon, find/replace,

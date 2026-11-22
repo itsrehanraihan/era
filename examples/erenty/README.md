@@ -26,6 +26,13 @@ Build the Android app (needs the Android SDK):
 era build android examples/erenty
 ```
 
+Export it as a standalone Android Studio project (written to
+`examples/erenty/export/android/`, which is git-ignored):
+
+```bash
+era export android examples/erenty
+```
+
 The renders are written to `examples/erenty/build/preview/png/`. See
 `docs/images/erenty-preview.png` for the current result.
 

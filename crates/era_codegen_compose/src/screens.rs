@@ -73,11 +73,12 @@ pub fn registry(app: &App, package: &str) -> String {
     o
 }
 
-pub fn screen(s: &Screen, package: &str) -> String {
+pub fn screen(s: &Screen, package: &str, export: bool) -> String {
     let mut e = Emitter {
         out: String::new(),
         depth: 2,
         fixed: Vec::new(),
+        ids: !export,
     };
     let root_ctx = Ctx {
         parent: Parent::Box,
@@ -157,6 +158,8 @@ struct Emitter {
     depth: usize,
     /// `position: fixed` elements, emitted at the end of the screen.
     fixed: Vec<Element>,
+    /// Include IR ids in element comments (not in exported code).
+    ids: bool,
 }
 
 fn category(key: &str) -> TokenCategory {
@@ -615,10 +618,14 @@ impl Emitter {
     fn element(&mut self, e: &Element, ctx: Ctx) {
         match e.props.get("visible") {
             Some(Value::Bool(false)) => {
+                let id = if self.ids {
+                    format!(" @{}", e.id)
+                } else {
+                    String::new()
+                };
                 self.line(&format!(
-                    "// {} @{} is hidden (visible: false)",
-                    e.kind.name(),
-                    e.id
+                    "// {}{id} is hidden (visible: false)",
+                    e.kind.name()
                 ));
             }
             Some(Value::State(r)) => {
@@ -635,7 +642,17 @@ impl Emitter {
         } else {
             format!(" <{}>", e.origin.join(">"))
         };
-        self.line(&format!("// {} @{}{origin}", e.kind.name(), e.id));
+        let id = if self.ids {
+            format!(" @{}", e.id)
+        } else {
+            String::new()
+        };
+        let origin = if !self.ids && !e.origin.is_empty() {
+            format!(" (from {})", e.origin.join(" > "))
+        } else {
+            origin
+        };
+        self.line(&format!("// {}{id}{origin}", e.kind.name()));
         match e.kind {
             ElementKind::Column | ElementKind::Card => self.linear(e, ctx, false),
             ElementKind::Row => self.linear(e, ctx, true),

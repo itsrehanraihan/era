@@ -68,6 +68,8 @@ because it is part of the visual design. Identity and packaging live in
 | `era new <name>` | M1 ✅ | Create a minimal project: `era.toml`, `src/app.era`, `.gitignore` |
 | `era check [path] [--ir]` | M1–M3 ✅ | Validate the manifest, project layout, syntax, structure, skins, properties, references and assets, then build the UI IR. `--ir` prints the resolved tree |
 | `era preview [path] [--png [dir]]` | M4 ✅ | Generate Compose code and run the desktop preview: a window, or PNGs of every screen. Needs JDK 17+ and Gradle 8.x (see ANDROID_BACKEND.md) |
-| `era build android [path]` | M5 ✅ | Generate Kotlin/Compose and the Android project, run `gradle assembleDebug`, and print the APK path and `adb` commands. Needs JDK 17+, Gradle 8.x and `ANDROID_HOME` |
+| `era build android [path]` | M5 ✅ | Generate Kotlin/Compose and the Android project in `build/android/`, run `gradle :app:assembleDebug`, and print the APK path (`build/android/app/build/outputs/apk/debug/app-debug.apk`) and `adb` commands. Needs JDK 17+, Gradle 8.x and `ANDROID_HOME` |
+| `era export android [path] [--out dir] [--force]` | M9 ✅ | Write a standalone Android Studio project (default `export/android/`) with the Gradle wrapper, a version catalog, an `app/` module and clean, editable Kotlin. A non-empty folder is refused (E3003); `--force` replaces only an earlier ERA export. Needs no Gradle; building it needs JDK 17+ and the Android SDK (D-084) |
+| `era export ios` | later | Prints that SwiftUI output is planned (D-082) |
 
 Exit codes: `0` success, `1` project has errors, `2` usage or environment error.

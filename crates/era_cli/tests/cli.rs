@@ -454,7 +454,7 @@ fn build_android_writes_the_project() {
     assert!(stderr(&out).contains("`/nonexistent/gradle` was not found"));
 
     let android = repo_root().join("examples/erenty/build/android");
-    let build = std::fs::read_to_string(android.join("build.gradle.kts")).unwrap();
+    let build = std::fs::read_to_string(android.join("app/build.gradle.kts")).unwrap();
     for want in [
         "applicationId = \"dev.era.erenty\"",
         "minSdk = 24",
@@ -463,23 +463,30 @@ fn build_android_writes_the_project() {
     ] {
         assert!(build.contains(want), "{want}");
     }
-    let manifest = std::fs::read_to_string(android.join("src/main/AndroidManifest.xml")).unwrap();
+    let manifest =
+        std::fs::read_to_string(android.join("app/src/main/AndroidManifest.xml")).unwrap();
     assert!(manifest.contains("android:name=\"dev.era.erenty.ui.MainActivity\""));
-    let strings = std::fs::read_to_string(android.join("src/main/res/values/strings.xml")).unwrap();
+    let strings =
+        std::fs::read_to_string(android.join("app/src/main/res/values/strings.xml")).unwrap();
     assert!(strings.contains("<string name=\"app_name\">E-Renty</string>"));
-    let drawables = std::fs::read_dir(android.join("src/main/res/drawable"))
+    let drawables = std::fs::read_dir(android.join("app/src/main/res/drawable"))
         .unwrap()
         .count();
     assert_eq!(drawables, 12);
-    assert!(android.join("src/main/assets/Images/logo.png").is_file());
     assert!(
         android
-            .join("src/main/assets/Fonts/Inter-Medium.ttf")
+            .join("app/src/main/assets/Images/logo.png")
             .is_file()
     );
-    let ids =
-        std::fs::read_to_string(android.join("src/main/kotlin/dev/era/erenty/ui/EraIconIds.kt"))
-            .unwrap();
+    assert!(
+        android
+            .join("app/src/main/assets/Fonts/Inter-Medium.ttf")
+            .is_file()
+    );
+    let ids = std::fs::read_to_string(
+        android.join("app/src/main/kotlin/dev/era/erenty/ui/EraIconIds.kt"),
+    )
+    .unwrap();
     assert!(
         ids.contains("\"Icons/home.svg\" to R.drawable.era_icon_icons_home,"),
         "{ids}"
@@ -530,7 +537,7 @@ fn build_android_apk_smoke_test() {
     let project = new_project(tmp.path(), "smoke");
     let out = era_in(&project, &["build", "android"]);
     assert!(out.status.success(), "{}\n{}", stdout(&out), stderr(&out));
-    let apk = project.join("build/android/build/outputs/apk/debug/era-android-debug.apk");
+    let apk = project.join("build/android/app/build/outputs/apk/debug/app-debug.apk");
     let bytes = std::fs::read(&apk).unwrap();
     assert_eq!(&bytes[..2], b"PK", "an APK is a zip file");
     assert!(stdout(&out).contains("adb install -r"));
@@ -581,5 +588,206 @@ fn preview_tap_flow_smoke_test() {
 fn build_erenty_apk_smoke_test() {
     let out = era_in(&repo_root(), &["build", "android", "examples/erenty"]);
     assert!(out.status.success(), "{}\n{}", stdout(&out), stderr(&out));
-    assert!(stdout(&out).contains("era-android-debug.apk"));
+    assert!(stdout(&out).contains("app-debug.apk"));
+}
+
+// ----- M9: era export android ----------------------------------------------
+
+fn walk(dir: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    for e in std::fs::read_dir(dir).unwrap().flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(walk(&p))
+        } else {
+            out.push(p)
+        }
+    }
+    out
+}
+
+#[test]
+fn export_android_writes_a_standalone_project() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out_dir = tmp.path().join("erenty-android");
+    let out = era_in(
+        &repo_root(),
+        &[
+            "export",
+            "android",
+            "examples/erenty",
+            "--out",
+            out_dir.to_str().unwrap(),
+        ],
+    );
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert!(stdout(&out).contains("Exported Android Studio project"));
+
+    for f in [
+        "settings.gradle.kts",
+        "build.gradle.kts",
+        "gradle.properties",
+        "gradle/libs.versions.toml",
+        "gradle/wrapper/gradle-wrapper.properties",
+        "gradlew",
+        "gradlew.bat",
+        ".gitignore",
+        "README.md",
+        ".era-export",
+        "app/build.gradle.kts",
+        "app/src/main/AndroidManifest.xml",
+        "app/src/main/kotlin/dev/era/erenty/ui/MainActivity.kt",
+        "app/src/main/kotlin/dev/era/erenty/ui/screens/HomeScreen.kt",
+        "app/src/main/assets/Images/bike.png",
+        "app/src/main/res/drawable/era_icon_icons_home.xml",
+    ] {
+        assert!(out_dir.join(f).is_file(), "missing {f}");
+    }
+    let jar = std::fs::read(out_dir.join("gradle/wrapper/gradle-wrapper.jar")).unwrap();
+    assert!(jar.len() > 40_000 && &jar[..2] == b"PK");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(out_dir.join("gradlew"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert!(mode & 0o111 != 0, "gradlew must be executable");
+    }
+    let settings = std::fs::read_to_string(out_dir.join("settings.gradle.kts")).unwrap();
+    assert!(
+        settings.contains("rootProject.name = \"erenty\"")
+            && settings.contains("include(\":app\")")
+    );
+    let wrapper =
+        std::fs::read_to_string(out_dir.join("gradle/wrapper/gradle-wrapper.properties")).unwrap();
+    assert!(wrapper.contains("gradle-8.14.3-bin.zip"));
+    let readme = std::fs::read_to_string(out_dir.join("README.md")).unwrap();
+    assert!(readme.contains("# E-Renty (Android)") && readme.contains("./gradlew assembleDebug"));
+
+    // Exported code is the team's: no "do not edit", no internal IR ids.
+    let home = std::fs::read_to_string(
+        out_dir.join("app/src/main/kotlin/dev/era/erenty/ui/screens/HomeScreen.kt"),
+    )
+    .unwrap();
+    assert!(
+        home.starts_with(
+            "// Generated by ERA (era export). This is ordinary Kotlin: edit it freely."
+        ),
+        "{home}"
+    );
+    assert!(!home.contains("@Home"), "no IR ids in exported code");
+    assert!(
+        home.contains("(from HeroCard)"),
+        "component origins stay as plain comments"
+    );
+    for entry in walk(&out_dir) {
+        if entry
+            .extension()
+            .is_some_and(|e| e == "kt" || e == "kts" || e == "xml" || e == "toml")
+        {
+            let t = std::fs::read_to_string(&entry).unwrap();
+            assert!(!t.contains("Do not edit"), "{}", entry.display());
+            assert!(
+                !t.contains("{{"),
+                "unfilled placeholder in {}",
+                entry.display()
+            );
+        }
+    }
+}
+
+#[test]
+fn export_never_overwrites_by_accident() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    // A folder with someone else's files is refused, even with --force.
+    let theirs = tmp.path().join("theirs");
+    std::fs::create_dir_all(&theirs).unwrap();
+    std::fs::write(theirs.join("notes.txt"), "keep me").unwrap();
+    let out = era_in(
+        &project,
+        &[
+            "export",
+            "android",
+            "--out",
+            theirs.to_str().unwrap(),
+            "--force",
+        ],
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        stderr(&out).contains("ERA only replaces folders it exported itself"),
+        "{}",
+        stderr(&out)
+    );
+    assert_eq!(
+        std::fs::read_to_string(theirs.join("notes.txt")).unwrap(),
+        "keep me"
+    );
+
+    // Default location; exporting again needs --force, which replaces it.
+    assert!(era_in(&project, &["export", "android"]).status.success());
+    let exported = project.join("export/android");
+    std::fs::write(exported.join("stale.txt"), "old").unwrap();
+    let again = era_in(&project, &["export", "android"]);
+    assert_eq!(again.status.code(), Some(2));
+    assert!(stderr(&again).contains("pass --force"));
+    assert!(
+        era_in(&project, &["export", "android", "--force"])
+            .status
+            .success()
+    );
+    assert!(!exported.join("stale.txt").exists());
+    assert!(exported.join("app/build.gradle.kts").is_file());
+}
+
+#[test]
+fn export_usage_and_ios_message() {
+    let tmp = tempfile::tempdir().unwrap();
+    assert!(stderr(&era_in(tmp.path(), &["export", "ios"])).contains("SwiftUI"));
+    assert_eq!(
+        era_in(tmp.path(), &["export", "android", "--bogus"])
+            .status
+            .code(),
+        Some(2)
+    );
+    assert_eq!(era_in(tmp.path(), &["export"]).status.code(), Some(2));
+}
+
+/// The exported project builds on its own with `./gradlew`, which downloads
+/// the Gradle 8.14.3 distribution on first run. Needs ANDROID_HOME:
+/// `cargo test -p era_cli -- --ignored`.
+#[test]
+#[ignore]
+fn exported_project_builds_with_its_own_gradle_wrapper() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out_dir = tmp.path().join("app-export");
+    let out = era_in(
+        &repo_root(),
+        &[
+            "export",
+            "android",
+            "examples/erenty",
+            "--out",
+            out_dir.to_str().unwrap(),
+        ],
+    );
+    assert!(out.status.success(), "{}", stderr(&out));
+    let build = Command::new(out_dir.join("gradlew"))
+        .args(["--console=plain", "-q", "--no-watch-fs", "assembleDebug"])
+        .current_dir(&out_dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}\n{}",
+        stdout(&build),
+        stderr(&build)
+    );
+    assert!(
+        out_dir
+            .join("app/build/outputs/apk/debug/app-debug.apk")
+            .is_file()
+    );
 }

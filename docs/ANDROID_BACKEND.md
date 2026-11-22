@@ -109,7 +109,12 @@ with the generated files added. Gradle then runs it.
 
 `platforms/android/` is copied into `<project>/build/android/`, together
 with the generated Compose files and the Android resources. Gradle then
-runs `assembleDebug`.
+runs `:app:assembleDebug`. The project has the standard Android Studio
+layout (M9, D-084): a root `settings.gradle.kts`, `gradle/libs.versions.toml`,
+the Gradle 8.14.3 wrapper, and an `app/` module whose sources are in
+`app/src/main/kotlin/`, `app/src/main/res/` and `app/src/main/assets/`.
+`era build android` uses the system `gradle`; an export uses its own
+`./gradlew`.
 
 | Pin (D-052) | Version |
 |---|---|
@@ -130,11 +135,20 @@ runs `assembleDebug`.
   extra (D-054). The system back gesture pops ERA navigation (D-061). The app
   label comes from `app "..."`. The version code is
   `MAJOR*10000 + MINOR*100 + PATCH`.
-- **Output:** `build/android/build/outputs/apk/debug/era-android-debug.apk`,
+- **Output:** `build/android/app/build/outputs/apk/debug/app-debug.apk`,
   signed with the debug key (D-055).
 - **Verification here:** APK contents and signature (`aapt2`,
   `apksigner`). There is no emulator (no KVM), and a JVM screenshot tool
   (Paparazzi) was tried and was incompatible with these versions (Q-06).
+
+## Export (`era export android`, M9)
+
+`era export android` writes the same project as a standalone folder the
+team owns (D-084): default `export/android/`, plus the wrapper scripts,
+`.gitignore`, `README.md`, `local.properties` (when the SDK is found)
+and a `.era-export` marker. Kotlin files carry the export header instead
+of "do not edit", and comments leave out internal IR ids. Build it with
+`./gradlew assembleDebug` or open it in Android Studio.
 
 ## Toolchain status (dev container, 2026-11-21)
 

@@ -128,6 +128,7 @@ fail. `W` is a warning.
 |---|---|
 | E3001 | An SVG icon uses a feature the VectorDrawable converter doesn't support (transform, gradient, text, mask, unknown color...) |
 | E3002 | The Android project cannot be written to disk |
+| E3003 | `era export android`: the output folder is not empty. `--force` replaces it, but only when it holds an earlier ERA export (a `.era-export` marker); other folders are never deleted |
 
 ## Stores and interactions (M6)
 
