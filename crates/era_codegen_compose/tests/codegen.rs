@@ -73,6 +73,7 @@ fn files_and_package() {
     assert_eq!(
         paths,
         [
+            "dev/era/showcase/ui/EraData.kt",
             "dev/era/showcase/ui/EraDraw.kt",
             "dev/era/showcase/ui/EraRuntime.kt",
             "dev/era/showcase/ui/EraScreens.kt",
@@ -81,6 +82,7 @@ fn files_and_package() {
             "dev/era/showcase/ui/screens/HomeScreen.kt",
             "dev/era/showcase/ui/screens/LayoutScreen.kt",
             "dev/era/showcase/ui/screens/LookScreen.kt",
+            "dev/era/showcase/ui/screens/MenuScreen.kt",
         ]
     );
 }
@@ -613,4 +615,22 @@ fn persist_state_is_saved_on_the_device() {
         "{stores}"
     );
     assert!(stores.contains("class EraSaved<T>"), "{stores}");
+}
+
+#[test]
+fn for_loops_and_data_lists() {
+    let out = example("showcase");
+    let data = file(&out, "EraData.kt");
+    assert!(
+        data.contains("data class ProductsItem(val name: String, val photo: String, val popular: Boolean, val price: Double)"),
+        "{data}"
+    );
+    assert!(
+        data.contains("ProductsItem(name = \"Green tea\", photo = \"Images/hero.png\", popular = false, price = 2.75),"),
+        "{data}"
+    );
+    let menu = file(&out, "MenuScreen.kt");
+    assert!(menu.contains("for (p in EraData.Products) {"), "{menu}");
+    assert!(menu.contains("painter = eraImage(p.photo)"), "{menu}");
+    assert!(menu.contains("if (p.popular) {"), "{menu}");
 }

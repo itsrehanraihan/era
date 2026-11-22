@@ -1,0 +1,5 @@
+[
+  { "name": "Mango smoothie", "price": 4.5, "photo": "Images/hero.png", "popular": true },
+  { "name": "Green tea", "price": 2.75, "photo": "Images/hero.png" },
+  { "name": "Cold brew", "price": 3.9, "photo": "Images/hero.png", "popular": true }
+]

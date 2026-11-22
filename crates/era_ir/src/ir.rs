@@ -29,6 +29,20 @@ pub struct App {
     pub stores: Vec<Store>,
     /// Launcher icon from `app { icon: ... }` (D-085).
     pub icon: Option<AppIcon>,
+    /// Mock data lists from `Data/*.json` (D-091), sorted by name.
+    pub data: Vec<DataList>,
+}
+
+/// `Data/products.json` -> `Products`: rows of typed fields (D-091).
+#[derive(Debug, Clone, PartialEq)]
+pub struct DataList {
+    pub name: String,
+    /// Project-relative file, `Data/products.json`.
+    pub file: String,
+    /// Field names and types, sorted by name.
+    pub fields: Vec<(String, StateType)>,
+    /// One value per field, in `fields` order. Missing values are "", 0 or false.
+    pub rows: Vec<Vec<Literal>>,
 }
 
 /// `icon: "Images/app_icon.png"` and `icon-background: #FFFFFF` on `app`.
@@ -162,6 +176,8 @@ pub enum ElementKind {
     Input,
     Divider,
     Spacer,
+    /// `for p in Products { ... }`: children repeat for each item (D-091).
+    For,
 }
 
 impl ElementKind {
@@ -180,6 +196,7 @@ impl ElementKind {
             ElementKind::Input => "input",
             ElementKind::Divider => "divider",
             ElementKind::Spacer => "spacer",
+            ElementKind::For => "for",
         }
     }
 }
@@ -205,6 +222,16 @@ pub enum Content {
     /// Text that shows state, e.g. `"Code: {Session.code}"` (M6).
     Template(Vec<TextPart>),
     Asset(AssetRef),
+    /// `for` loops: the item name and the data list (D-091).
+    Repeat {
+        var: String,
+        list: String,
+    },
+    /// `image p.photo`: an asset path read from a data item (D-091).
+    ItemAsset {
+        field: StateRef,
+        kind: AssetKind,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

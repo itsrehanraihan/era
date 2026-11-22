@@ -333,6 +333,17 @@ sheet.
 Known limits:
 - An export is a snapshot. Re-exporting replaces hand edits.
 
+## Data, steps 1–2 (owner-approved, D-090, D-091)
+
+- `persist state` keeps store values on the device (SharedPreferences);
+  the showcase counter survives restarts.
+- `Data/*.json` mock data lists and `for p in Products { ... }`, with
+  `p.field` in text, images, icons and `visible`. The showcase `Menu`
+  screen lists `Data/products.json`.
+- Verified by parser, IR and codegen tests, the preview render, all 6
+  Gradle smoke tests and a showcase APK build.
+- Not yet: real network APIs, forms, sorting/filtering lists.
+
 ## Next smallest task
 
 1. M8 phase 3–4: borders, corners, colour functions, gradients,

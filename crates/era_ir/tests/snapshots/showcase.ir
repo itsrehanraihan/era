@@ -1,4 +1,5 @@
 app "ERA Showcase" id=dev.era.showcase version=0.1.0 start=Home
+data Products (Data/products.json) 3 rows [name:text photo:text popular:bool price:number]
 skin Studio
   colors background=#FFFFFF border=#E8E8E8 danger=#E5484D muted=#737373 on_primary=#FFFFFF primary=#FF6B35 secondary=#2B2D42 success=#2E9E5B surface=#F7F7F7 text=#171717 warning=#F2A93B
   spacing lg=24 md=16 sm=8 xl=32 xs=4
@@ -127,6 +128,17 @@ screen Look title="CSS look" background=background(#FFFFFF)
         stack {background=linear(90deg, #FF6347 0%, #FFD700 100%) filter=blur(4) flex=1 height=56 radius=12} @Look/0/9/3
       row {padding=8} @Look/0/10
         button "Focused" {background=primary(#FF6B35) outline_color=primary(#FF6B35) outline_offset=4 outline_style=solid outline_width=2 padding_x=md(16) padding_y=sm(8) radius=md(14) style=body text_color=on_primary(#FFFFFF)} @Look/0/10/0
+screen Menu title="Menu" background=background(#FFFFFF)
+  scroll {direction=vertical height=fill width=fill} @Menu
+    column {gap=12 padding_bottom=24 padding_end=16 padding_start=16 padding_top=24 width=100%} @Menu/0
+      text "Menu" {color=text(#171717) style=display} @Menu/0/0
+      for p in Products @Menu/0/1
+        row {align=center background=#FFFFFF box_shadow=0 4 14 0 #00000014 elevation=0 gap=12 padding=12 radius=16 width=100%} @Menu/0/1/0
+          image p.photo {fit=cover height=56 radius=12 width=56} @Menu/0/1/0/0
+          column {flex=1 gap=2} @Menu/0/1/0/1
+            text "{p.name}" {color=text(#171717) style=heading} @Menu/0/1/0/1/0
+            text "Popular" {color=primary(#FF6B35) style=body visible=p.popular} @Menu/0/1/0/1/1
+          text "${p.price}" {color=secondary(#2B2D42) style=body} @Menu/0/1/0/2
 stores
   store Counter
     persist state count: number = 0

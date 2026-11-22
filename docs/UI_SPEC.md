@@ -203,6 +203,22 @@ like the web's `localStorage` (D-090). On Android it is stored in the
 app's private SharedPreferences; the desktop preview keeps it in memory,
 so every preview starts fresh.
 
+**Data lists (D-091).** `Data/products.json` becomes the list
+`Products`; `for p in Products { ... }` repeats its elements for each
+item, in place, inside any container:
+
+```era
+for p in Products {
+    row {
+        image p.photo { width: 56px; height: 56px; border-radius: 12px }
+        text "{p.name}"
+        text "Popular" { visible: p.popular }
+    }
+}
+```
+
+The data is bundled into the app (`EraData.kt`); nothing is fetched.
+
 Component props may have the type `action`, for example
 `prop tap: action?` with `button label { on_press: tap }`. A text prop
 can receive interpolated text or state (`label: "Hi {Session.name}"`).

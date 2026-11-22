@@ -14,9 +14,16 @@ pub struct StoreInfo {
     pub actions: Vec<String>,
 }
 
+/// An enclosing `for`: item name, list name, and the list's fields.
+pub type LoopScope = (String, String, Vec<(String, StateType)>);
+
 #[derive(Default)]
+
 pub struct Stores {
     pub map: BTreeMap<String, StoreInfo>,
+    /// Enclosing `for` loops, innermost last: item name, list name and the
+    /// list's fields (D-091).
+    pub loops: Vec<LoopScope>,
 }
 
 fn hint(name: &str, candidates: &[&str], what: &str) -> Option<String> {
@@ -282,6 +289,25 @@ impl Stores {
                 None,
             ));
         };
+        if let Some((var, list, fields)) = self.loops.iter().rev().find(|l| l.0 == store.name) {
+            return match fields.iter().find(|(n, _)| *n == field.name) {
+                Some((_, ty)) => Ok(StateRef {
+                    store: var.clone(),
+                    field: field.name.clone(),
+                    ty: *ty,
+                }),
+                None => {
+                    let names: Vec<&str> = fields.iter().map(|(n, _)| n.as_str()).collect();
+                    Err(err(
+                        path,
+                        "E2182",
+                        format!("items of `{list}` have no field `{}`", field.name),
+                        field.span,
+                        hint(&field.name, &names, "fields"),
+                    ))
+                }
+            };
+        }
         let info = self.store(store, path)?;
         match info.fields.get(&field.name) {
             Some(ty) => Ok(StateRef {

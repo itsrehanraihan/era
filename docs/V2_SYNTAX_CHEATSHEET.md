@@ -183,6 +183,9 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Show / hide by state ✅ | `visible: Store.flag` | `visible: Session.verified` | |
 | Two-way input ✅ | `bind: Store.text` | `bind: Login.email` | |
 | Saved state ✅ | `persist state` (like `localStorage`) | `persist state count: number = 0` | |
+| Mock data list ✅ | `Data/products.json` (array of flat objects) becomes `Products` | `[{"name": "Tea", "price": 3}]` | |
+| Repeat for each item ✅ | `for … in` | `for p in Products { text "{p.name}" }` | |
+| Item fields ✅ | `p.field` in text, `image`/`icon`, `visible` | `image p.photo`, `visible: p.popular` | |
 | State ✅ | `state name: type = value` | `state count: number = 0` | |
 | Action ✅ | `action name { … }` | `action reset { set count = 0 }` | |
 | Steps ✅ | `set`, `toggle`, `add` | `add count 1` | |

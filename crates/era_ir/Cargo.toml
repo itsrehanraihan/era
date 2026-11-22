@@ -9,6 +9,8 @@ publish.workspace = true
 era_diagnostics = { path = "../era_diagnostics" }
 era_project = { path = "../era_project" }
 era_syntax = { path = "../era_syntax" }
+# Read mock data lists from `Data/*.json` (D-091). The standard JSON crate.
+serde_json = "1"
 
 [dev-dependencies]
 tempfile = "3.27"

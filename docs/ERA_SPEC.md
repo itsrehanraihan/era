@@ -21,6 +21,7 @@ The full convention:
 my_app/
 ├── era.toml
 ├── Skins/            *.ers  design tokens (auto-loaded)
+├── Data/             *.json mock data lists (D-091): products.json -> Products
 ├── Assets/
 │   ├── Images/       png, jpg, webp
 │   ├── Icons/        svg (subset; see open questions)

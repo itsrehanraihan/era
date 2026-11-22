@@ -20,7 +20,7 @@ fn double(x: f64) -> String {
     }
 }
 
-fn literal(l: &Literal) -> String {
+pub(crate) fn literal(l: &Literal) -> String {
     match l {
         Literal::Text(t) => string(t),
         Literal::Number(n) => double(*n),

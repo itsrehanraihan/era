@@ -309,6 +309,12 @@ impl Checker {
                     &format!("at the top of a {}", decl.kind.keyword()),
                     Some("place `when` inside the element it changes".into()),
                 ),
+                Item::For(_) => self.not_allowed(
+                    unit,
+                    item,
+                    &format!("at the top of a {}", decl.kind.keyword()),
+                    Some("place `for` inside a `column`, `row` or `grid`".into()),
+                ),
                 Item::Variant(_) => self.not_allowed(
                     unit,
                     item,
@@ -412,6 +418,7 @@ impl Checker {
             match item {
                 Item::Slot(s) => out.push(*s),
                 Item::Node(n) => self.collect_slots(n.block.as_ref(), out),
+                Item::For(f) => self.collect_slots(Some(&f.block), out),
                 _ => {}
             }
         }
@@ -485,6 +492,8 @@ impl Checker {
                     )),
                 ),
                 Item::Node(n) => self.nested_block(unit, n.block.as_ref(), ctx, false),
+                Item::For(_) if in_when => self.not_allowed(unit, item, "in a `when` block", None),
+                Item::For(f) => self.nested_block(unit, Some(&f.block), ctx, false),
                 Item::Slot(_) if in_when => self.not_allowed(unit, item, "in a `when` block", None),
                 Item::Slot(_) if matches!(ctx, Nested::Layout | Nested::Component) => {}
                 Item::Slot(_) => self.not_allowed(

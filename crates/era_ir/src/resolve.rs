@@ -92,6 +92,8 @@ struct Resolver<'a> {
     screens: Vec<String>,
     /// `icon` and `icon-background` from `app`, resolved once the skin is known.
     app_icon: (Option<AstValue>, Option<AstValue>),
+    /// Mock data lists from `Data/*.json` (D-091), by name.
+    data: BTreeMap<String, DataList>,
 }
 
 /// Build the UI IR. Returns `None` for the app if any error was reported.
@@ -155,7 +157,26 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
         stores: Stores::default(),
         screens: screen_order.iter().map(|s| s.to_string()).collect(),
         app_icon: (None, None),
+        data: BTreeMap::new(),
     };
+    let (lists, data_diags) = crate::data::load(project.root.as_path());
+    for d in data_diags {
+        r.push(d);
+    }
+    for l in lists {
+        if store_decls.iter().any(|(_, d)| d.name.name == l.name) {
+            r.push(
+                Diagnostic::error(
+                    "E2181",
+                    format!("data list `{}` has the same name as a store", l.name),
+                )
+                .in_file(l.file.clone())
+                .with_help("rename the JSON file or the store"),
+            );
+            continue;
+        }
+        r.data.insert(l.name.clone(), l);
+    }
     let (stores, store_table, store_diags) = logic::build_stores(&store_decls);
     diags.extend(store_diags);
     r.stores = store_table;
@@ -215,6 +236,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
             assets: assets.into_iter().collect(),
             stores,
             icon,
+            data: r.data.values().cloned().collect(),
         }),
         _ => None,
     };
@@ -695,6 +717,23 @@ impl<'a> Resolver<'a> {
                         children.push(e);
                     }
                 }
+                Item::For(f) => {
+                    child_items += 1;
+                    if prim.children == Children::None {
+                        self.err(
+                            ctx.path,
+                            "E2122",
+                            format!("`{}` cannot contain elements", prim.name),
+                            f.var.span,
+                            None,
+                        );
+                        continue;
+                    }
+                    let child_id = format!("{id}/{}", children.len());
+                    if let Some(e) = self.for_loop(f, ctx, child_id) {
+                        children.push(e);
+                    }
+                }
                 Item::Slot(span) => {
                     child_items += 1;
                     if prim.children == Children::None {
@@ -875,6 +914,10 @@ impl<'a> Resolver<'a> {
                     Some(r) => Ok(Some(Content::Asset(r))),
                     None => Err(()),
                 },
+                ValueKind::Path(parts) => match self.item_asset(parts, kind, a.span, ctx) {
+                    Some(c) => Ok(Some(c)),
+                    None => Err(()),
+                },
                 ValueKind::Ident(n) => {
                     let want = if kind == AssetKind::Icon {
                         PropType::Icon
@@ -899,6 +942,135 @@ impl<'a> Resolver<'a> {
                 }
             },
         }
+    }
+
+    /// `for p in Products { ... }` (D-091): the block's elements, resolved
+    /// once with `p` bound to the list's fields, repeat for every item.
+    fn for_loop(&mut self, f: &era_syntax::ForLoop, ctx: &mut Ctx, id: String) -> Option<Element> {
+        let Some(list) = self.data.get(&f.list.name).cloned() else {
+            let names: Vec<&str> = self.data.keys().map(String::as_str).collect();
+            let help = match suggest(&f.list.name, names.iter().copied()) {
+                Some(s) => format!("did you mean `{s}`?"),
+                None => format!(
+                    "add `Data/{}.json`, a JSON array of objects",
+                    f.list.name.to_ascii_lowercase()
+                ),
+            };
+            self.err(
+                ctx.path,
+                "E2181",
+                format!("unknown data list `{}`", f.list.name),
+                f.list.span,
+                Some(help),
+            );
+            return None;
+        };
+        let var = &f.var.name;
+        if is_pascal(var) || self.stores.map.contains_key(var) {
+            self.err(
+                ctx.path,
+                "E2181",
+                format!("`{var}` cannot name a list item"),
+                f.var.span,
+                Some("use a lowercase name, like `for p in Products`".into()),
+            );
+            return None;
+        }
+        self.stores
+            .loops
+            .push((var.clone(), list.name.clone(), list.fields.clone()));
+        let mut children = Vec::new();
+        for item in &f.block.items {
+            let child_id = format!("{id}/{}", children.len());
+            match item {
+                Item::Node(n) => {
+                    if let Some(e) = self.element(n, ctx, child_id, false) {
+                        children.push(e);
+                    }
+                }
+                Item::For(inner) => {
+                    if let Some(e) = self.for_loop(inner, ctx, child_id) {
+                        children.push(e);
+                    }
+                }
+                other => self.err(
+                    ctx.path,
+                    "E2181",
+                    format!("{} cannot be used directly inside `for`", other.describe()),
+                    other.span(),
+                    Some("a `for` block holds the elements to repeat, like `card { ... }`".into()),
+                ),
+            }
+        }
+        self.stores.loops.pop();
+        Some(Element {
+            id,
+            kind: ElementKind::For,
+            content: Some(Content::Repeat {
+                var: var.clone(),
+                list: list.name.clone(),
+            }),
+            props: BTreeMap::new(),
+            children,
+            origin: ctx.origin.clone(),
+        })
+    }
+
+    /// `image p.photo`: every item's path must be an existing asset (D-091).
+    fn item_asset(
+        &mut self,
+        parts: &[era_syntax::Ident],
+        kind: AssetKind,
+        span: Span,
+        ctx: &Ctx,
+    ) -> Option<Content> {
+        let r = self.state_path(parts, ctx)?;
+        let Some((_, list, fields)) = self
+            .stores
+            .loops
+            .iter()
+            .rev()
+            .find(|l| l.0 == r.store)
+            .cloned()
+        else {
+            self.err(
+                ctx.path,
+                "E2115",
+                "an image or icon needs an asset path in quotes, or a data item field like `p.photo`".into(),
+                span,
+                None,
+            );
+            return None;
+        };
+        if r.ty != StateType::Text {
+            self.err(
+                ctx.path,
+                "E2182",
+                format!(
+                    "`{}.{}` is {}, but an asset path is text",
+                    r.store,
+                    r.field,
+                    r.ty.name()
+                ),
+                span,
+                None,
+            );
+            return None;
+        }
+        let col = fields.iter().position(|(n, _)| *n == r.field).unwrap();
+        let rows: Vec<String> = self.data[&list]
+            .rows
+            .iter()
+            .filter_map(|row| match &row[col] {
+                Literal::Text(t) => Some(t.clone()),
+                _ => None,
+            })
+            .collect();
+        let mut ok = true;
+        for path in rows {
+            ok &= self.asset(&path, kind, span, ctx.path).is_some();
+        }
+        ok.then_some(Content::ItemAsset { field: r, kind })
     }
 
     /// Look up a prop used by name; checks it exists and has an allowed type.

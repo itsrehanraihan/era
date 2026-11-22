@@ -640,7 +640,10 @@ impl Emitter {
             m.push(format!("shadow({}, clip = false)", with_shape(el)));
         }
         let overflow_clip = matches!(keyword(e, "overflow"), Some("hidden" | "clip"));
-        if overflow_clip || matches!(e.props.get("clip"), Some(Value::Bool(true))) {
+        // Like a CSS `img`, a rounded image is clipped to its corners.
+        let rounded_image = e.kind == ElementKind::Image && shape.is_some();
+        if overflow_clip || rounded_image || matches!(e.props.get("clip"), Some(Value::Bool(true)))
+        {
             m.push(format!(
                 "clip({})",
                 shape
@@ -902,6 +905,17 @@ impl Emitter {
         };
         self.line(&format!("// {}{id}{origin}", e.kind.name()));
         match e.kind {
+            // `for p in Products { ... }` (D-091): repeat the children in place.
+            ElementKind::For => {
+                let Some(Content::Repeat { var, list }) = &e.content else {
+                    return;
+                };
+                self.block(&format!("for ({} in EraData.{list})", ident(var)), |s| {
+                    for c in &e.children {
+                        s.element(c, ctx);
+                    }
+                });
+            }
             ElementKind::Column | ElementKind::Card => self.linear(e, ctx, false),
             ElementKind::Row => self.linear(e, ctx, true),
             ElementKind::Stack => {
@@ -1032,8 +1046,11 @@ impl Emitter {
                 }
             }
             ElementKind::Image | ElementKind::Icon => {
-                let Some(Content::Asset(a)) = &e.content else {
-                    return;
+                let path = match &e.content {
+                    Some(Content::Asset(a)) => string(&a.path),
+                    // `image p.photo` inside `for` (D-091).
+                    Some(Content::ItemAsset { field, .. }) => state_expr(field),
+                    _ => return,
                 };
                 let icon = e.kind == ElementKind::Icon;
                 let has_size = e.props.contains_key("width") || e.props.contains_key("height");
@@ -1050,7 +1067,7 @@ impl Emitter {
                     format!(
                         "painter = {}({})",
                         if icon { "eraIcon" } else { "eraImage" },
-                        string(&a.path)
+                        path
                     ),
                     "contentDescription = null".into(),
                     format!("modifier = {m}"),

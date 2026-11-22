@@ -21,6 +21,21 @@ pub fn dump(app: &App) -> String {
             .unwrap_or("white".into());
         let _ = writeln!(o, "icon {:?} background={bg}", icon.path);
     }
+    for d in &app.data {
+        let fields: Vec<String> = d
+            .fields
+            .iter()
+            .map(|(n, t)| format!("{n}:{}", t.name()))
+            .collect();
+        let _ = writeln!(
+            o,
+            "data {} ({}) {} rows [{}]",
+            d.name,
+            d.file,
+            d.rows.len(),
+            fields.join(" ")
+        );
+    }
     skin(&mut o, &app.skin);
     for s in &app.screens {
         let title = s
@@ -212,6 +227,8 @@ fn element(o: &mut String, e: &Element, depth: usize) {
         Some(Content::Text(t)) => format!(" {t:?}"),
         Some(Content::Template(p)) => format!(" {}", template(p)),
         Some(Content::Asset(a)) => format!(" {:?}", a.path),
+        Some(Content::Repeat { var, list }) => format!(" {var} in {list}"),
+        Some(Content::ItemAsset { field, .. }) => format!(" {}.{}", field.store, field.field),
         None => String::new(),
     };
     let props: Vec<String> = e

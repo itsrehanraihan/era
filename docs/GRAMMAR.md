@@ -175,10 +175,27 @@ single       = "go" PASCAL_IDENT                     (* navigate *)
   `{{` and `}}` are literal braces.
 - Node arguments may also be a path: `text Session.code`.
 
+## 7a. Data lists and `for` (D-091)
+
+```ebnf
+for_loop     = "for" IDENT "in" PASCAL_IDENT block ;   (* an item, where elements are allowed *)
+```
+
+- `for`, `in` are contextual words; `for x in Y {` is recognised only in
+  that exact shape, so a node named `for` still parses elsewhere.
+- `Y` is a data list: `Data/y.json` (a JSON array of flat objects) gives
+  `Y` (`menu_items.json` gives `MenuItems`). Field types come from the
+  JSON values (text, number, true/false); missing values are `""`, 0 or
+  false.
+- The block holds elements (and nested `for`s), not properties.
+- Inside, `x.field` works wherever `Store.field` does: text arguments,
+  `{x.field}` in strings, `visible:`, and as the argument of `image` and
+  `icon` (each item's path is checked to exist).
+
 ## 7b. Explicitly not in the grammar (MVP)
 
 There are no general expressions or operators (no `count + 1` or `not x`
-in UI files), and no loops, functions, generics, imports, modules or
+in UI files), no loops other than `for` over a data list (§7a), functions, generics, imports, modules or
 inheritance. Logic steps are limited to `set`, `toggle` and `add`.
 
 ## 8. Implementation notes (M2)

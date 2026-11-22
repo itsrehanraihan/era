@@ -319,6 +319,39 @@ Then, in the screen:
 - `visible: Store.flag` shows an element only while a bool state is true.
 - `bind` connects an `input` to text state.
 
+### Keep values after the app closes
+
+Add `persist` in front of `state`, and the value is saved on the phone:
+
+```era
+store Cart {
+    persist state count: number = 0
+}
+```
+
+### Show a list from JSON
+
+Put a JSON file in `Data/`. Each file becomes a list named after it:
+
+```json
+[
+  { "name": "Mango smoothie", "price": 4.5, "photo": "Images/mango.png" },
+  { "name": "Green tea", "price": 2.75, "photo": "Images/tea.png" }
+]
+```
+
+`Data/products.json` is the list `Products`. Repeat a card for each item:
+
+```era
+for p in Products {
+    card {
+        image p.photo
+        text "{p.name}"
+        text "${p.price}"
+    }
+}
+```
+
 ## 10. See what ERA understood
 
 ```bash

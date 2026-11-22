@@ -399,6 +399,13 @@ impl Parser<'_> {
                 self.bump();
                 Some(Item::Slot(tok.span))
             }
+            TokenKind::Ident(ref w)
+                if w == "for"
+                    && matches!(self.peek_kind_at(1), TokenKind::Ident(_))
+                    && *self.peek_kind_at(2) == TokenKind::Ident("in".into()) =>
+            {
+                self.for_loop().map(Item::For)
+            }
             TokenKind::Ident(_) => self.node().map(Item::Node),
             ref k if decl_kind(k).is_some() => {
                 let kw = decl_kind(k).unwrap().keyword();
@@ -426,6 +433,29 @@ impl Parser<'_> {
                 None
             }
         }
+    }
+
+    /// `for p in Products { ... }` (D-091). `for` and `in` are contextual words.
+    fn for_loop(&mut self) -> Option<ForLoop> {
+        let start = self.bump().span;
+        let var = self.expect_name("an item name")?;
+        self.bump(); // `in`
+        let list = self.expect_name("a data list name, like `Products`")?;
+        let Some(open) = self.eat(&TokenKind::LBrace) else {
+            self.error_here(
+                "E1111",
+                format!("expected `{{` after `for {} in {}`", var.name, list.name),
+                Some("write `for p in Products { card { text \"{p.name}\" } }`".into()),
+            );
+            return None;
+        };
+        let block = self.block_body(open);
+        Some(ForLoop {
+            span: start.to(block.span),
+            var,
+            list,
+            block,
+        })
     }
 
     fn node(&mut self) -> Option<Node> {

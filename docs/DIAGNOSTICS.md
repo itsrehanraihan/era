@@ -140,6 +140,7 @@ fail. `W` is a warning.
 |---|---|
 | E1109 | Something other than `state`, `persist state` or `action` inside a `store`, or `persist` not followed by `state` |
 | E1110 | Unknown action step (use `set`, `toggle`, `add`) |
+| E1111 | `for p in List` is not followed by a `{ ... }` block |
 | E2160 | Bad `{...}` interpolation in text (unclosed, or not `Store.field`) |
 | E2161 | Unknown store (with a suggestion) |
 | E2162 | Unknown state, or an action used where state is needed |
@@ -151,6 +152,9 @@ fail. `W` is a warning.
 | E2171 | Initial value doesn't match the state type |
 | E2172 | An action step names unknown state |
 | E2173 | An action step has the wrong type (`toggle` non-bool, `add` non-number, `set` mismatch) |
+| E2180 | A `Data/*.json` file is not valid: not JSON, not an array of objects, a nested value, a bad field name, or a field with different types in different items |
+| E2181 | A `for` loop problem: unknown data list, an item name that is not lowercase or clashes with a store, something other than elements inside `for`, or a data list named like a store |
+| E2182 | An unknown field of a data item (`p.nme`), or a field of the wrong type (an image path that is not text) |
 
 ## CSS values (M8)
 

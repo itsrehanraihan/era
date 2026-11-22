@@ -437,9 +437,16 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   change through the host hooks `eraLoad`/`eraSave` in `EraAssets.kt`
   (Android: private SharedPreferences, key `Store.field`; preview: in
   memory). No network is involved.
-- **D-091 (owner) Mock data lists: `for p in Products { ... }`.** Step 2
-  is JSON files in `Data/` shown as lists (the owner chose `for … in`).
-  Specified and implemented in the next commit.
+- **D-091 (owner) Mock data lists: `for p in Products { ... }`.** Step 2:
+  every `Data/<name>.json` (a JSON array of flat objects) becomes a list
+  named in PascalCase, bundled into the app as Kotlin data classes
+  (`EraData.kt`). `for p in Products { ... }` (the owner chose `for …
+  in`) repeats elements in place; `p.field` works like `Store.field`, and
+  in `image`/`icon` every item's path is checked and packaged. Field
+  types come from the JSON; mixed types, nested values and bad names are
+  E2180. New dependency: `serde_json` in `era_ir`. Later steps (real
+  APIs, forms) need network access and a separate owner decision. Also:
+  a rounded `image` is now clipped to its corners, like a CSS `img`.
 
 ## Open questions
 

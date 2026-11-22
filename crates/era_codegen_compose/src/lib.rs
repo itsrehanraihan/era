@@ -7,6 +7,7 @@
 //! `eraFontFamily(files)` (see `platforms/`). Output is deterministic.
 
 pub mod android;
+mod data;
 mod draw;
 pub mod kotlin;
 mod runtime;
@@ -85,6 +86,9 @@ fn generate_inner(app: &App, options: Options) -> Output {
             screens::registry(app, &package),
         ),
     ];
+    if let Some(data) = data::generate(app, &package) {
+        files.push((format!("{dir}/EraData.kt"), data));
+    }
     if let Some(stores) = stores::generate(app, &package) {
         files.push((format!("{dir}/EraStores.kt"), stores));
     }

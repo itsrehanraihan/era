@@ -84,6 +84,19 @@ pub enum Item {
     State(StateDecl),
     /// `action name { steps }` (stores only).
     Action(ActionDecl),
+    /// `for p in Products { ... }`: repeat elements for each data item (D-091).
+    For(ForLoop),
+}
+
+/// `for p in Products { card { text "{p.name}" } }`
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForLoop {
+    /// The item name used inside the block (`p`).
+    pub var: Ident,
+    /// The data list (`Products`, from `Data/products.json`).
+    pub list: Ident,
+    pub block: Block,
+    pub span: Span,
 }
 
 impl Item {
@@ -97,6 +110,7 @@ impl Item {
             Item::Slot(s) => *s,
             Item::State(s) => s.span,
             Item::Action(a) => a.span,
+            Item::For(f) => f.span,
         }
     }
 
@@ -111,6 +125,7 @@ impl Item {
             Item::Slot(_) => "`slot`".into(),
             Item::State(_) => "`state`".into(),
             Item::Action(_) => "`action`".into(),
+            Item::For(_) => "`for`".into(),
         }
     }
 }
