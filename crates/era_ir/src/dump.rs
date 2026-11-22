@@ -44,7 +44,8 @@ pub fn dump(app: &App) -> String {
         for f in &st.fields {
             let _ = writeln!(
                 o,
-                "    state {}: {} = {}",
+                "    {}state {}: {} = {}",
+                if f.persist { "persist " } else { "" },
                 f.name,
                 f.ty.name(),
                 literal(&f.initial)

@@ -1,6 +1,7 @@
-// Showcase state: a counter, a name typed into an input, and a toggle.
+// Showcase state: a counter (saved on the device), a name typed into an
+// input, and a toggle.
 store Counter {
-    state count: number = 0
+    persist state count: number = 0
     state name: text = ""
     state details: bool = true
 

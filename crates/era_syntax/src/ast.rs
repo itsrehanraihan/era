@@ -122,6 +122,8 @@ pub struct StateDecl {
     /// `text`, `number` or `bool` (checked in the IR stage).
     pub ty: Ident,
     pub initial: Option<Value>,
+    /// `persist state ...`: saved on the device, restored on the next launch.
+    pub persist: bool,
     pub span: Span,
 }
 

@@ -198,6 +198,11 @@ screen Verify {
 | `visible` | every element | `true`, `false`, bool state (`Session.verified`) or a bool prop. A hidden element takes no space |
 | `bind` | `input` | Text state that the field reads and writes |
 
+`persist state count: number = 0` keeps a value after the app closes,
+like the web's `localStorage` (D-090). On Android it is stored in the
+app's private SharedPreferences; the desktop preview keeps it in memory,
+so every preview starts fresh.
+
 Component props may have the type `action`, for example
 `prop tap: action?` with `button label { on_press: tap }`. A text prop
 can receive interpolated text or state (`label: "Hi {Session.name}"`).

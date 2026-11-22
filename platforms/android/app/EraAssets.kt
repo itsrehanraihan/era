@@ -61,3 +61,12 @@ fun eraBlurPaint(paint: androidx.compose.ui.graphics.Paint, sigma: Float) {
     paint.asFrameworkPaint().maskFilter =
         android.graphics.BlurMaskFilter(radius, android.graphics.BlurMaskFilter.Blur.NORMAL)
 }
+
+/** `persist state` storage (D-090): the app's private SharedPreferences. */
+private val eraPrefs by lazy { EraAppContext.getSharedPreferences("era_state", Context.MODE_PRIVATE) }
+
+fun eraLoad(key: String): String? = eraPrefs.getString(key, null)
+
+fun eraSave(key: String, value: String) {
+    eraPrefs.edit().putString(key, value).apply()
+}

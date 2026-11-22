@@ -972,3 +972,22 @@ fn copy_dir(from: &Path, to: &Path) {
         }
     }
 }
+
+#[test]
+fn persist_needs_state() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    std::fs::create_dir_all(project.join("src/Logic")).unwrap();
+    std::fs::write(
+        project.join("src/Logic/cart.er"),
+        "store Cart {\n    persist count: number\n}\n",
+    )
+    .unwrap();
+    let out = era_in(&project, &["check"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        stderr(&out).contains("expected `state` after `persist`"),
+        "{}",
+        stderr(&out)
+    );
+}

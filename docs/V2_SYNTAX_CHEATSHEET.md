@@ -182,6 +182,7 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Chain ✅ | `then` | `Cart.add then go Cart` | |
 | Show / hide by state ✅ | `visible: Store.flag` | `visible: Session.verified` | |
 | Two-way input ✅ | `bind: Store.text` | `bind: Login.email` | |
+| Saved state ✅ | `persist state` (like `localStorage`) | `persist state count: number = 0` | |
 | State ✅ | `state name: type = value` | `state count: number = 0` | |
 | Action ✅ | `action name { … }` | `action reset { set count = 0 }` | |
 | Steps ✅ | `set`, `toggle`, `add` | `add count 1` | |

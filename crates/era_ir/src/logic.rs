@@ -116,6 +116,7 @@ pub fn build_stores(decls: &[(&str, &Decl)]) -> (Vec<Store>, Stores, Vec<Diagnos
                 name: s.name.name.clone(),
                 ty,
                 initial,
+                persist: s.persist,
             });
         }
 

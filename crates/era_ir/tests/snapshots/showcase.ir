@@ -129,7 +129,7 @@ screen Look title="CSS look" background=background(#FFFFFF)
         button "Focused" {background=primary(#FF6B35) outline_color=primary(#FF6B35) outline_offset=4 outline_style=solid outline_width=2 padding_x=md(16) padding_y=sm(8) radius=md(14) style=body text_color=on_primary(#FFFFFF)} @Look/0/10/0
 stores
   store Counter
-    state count: number = 0
+    persist state count: number = 0
     state name: text = ""
     state details: bool = true
     action increment [add count 1]

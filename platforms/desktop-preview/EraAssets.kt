@@ -55,3 +55,12 @@ fun eraBlurPaint(paint: androidx.compose.ui.graphics.Paint, sigma: Float) {
     paint.asFrameworkPaint().maskFilter =
         org.jetbrains.skia.MaskFilter.makeBlur(org.jetbrains.skia.FilterBlurMode.NORMAL, sigma)
 }
+
+/** `persist state` in the preview: kept in memory, so every preview starts fresh. */
+private val eraSaved = mutableMapOf<String, String>()
+
+fun eraLoad(key: String): String? = eraSaved[key]
+
+fun eraSave(key: String, value: String) {
+    eraSaved[key] = value
+}

@@ -599,3 +599,18 @@ fn css_shadows_and_filters() {
         "{k}"
     );
 }
+
+#[test]
+fn persist_state_is_saved_on_the_device() {
+    let out = example("showcase");
+    let stores = file(&out, "EraStores.kt");
+    assert!(
+        stores.contains("var count: Double by eraSavedNumber(\"Counter.count\", 0.0)"),
+        "{stores}"
+    );
+    assert!(
+        stores.contains("var name: String by mutableStateOf(\"\")"),
+        "{stores}"
+    );
+    assert!(stores.contains("class EraSaved<T>"), "{stores}");
+}

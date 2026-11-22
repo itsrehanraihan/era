@@ -53,6 +53,8 @@ pub struct StateField {
     pub name: String,
     pub ty: StateType,
     pub initial: Literal,
+    /// `persist state`: saved on the device (D-090).
+    pub persist: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

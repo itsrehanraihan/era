@@ -677,6 +677,26 @@ impl Parser<'_> {
                         span: Span::new(open.span.start, self.prev_end()),
                     };
                 }
+                TokenKind::Ident(w) if w == "persist" => {
+                    let start = self.bump().span;
+                    if !matches!(self.peek_kind(), TokenKind::Ident(w) if w == "state") {
+                        self.error_here(
+                            "E1109",
+                            "expected `state` after `persist`".into(),
+                            Some("write `persist state name: type = value`".into()),
+                        );
+                        self.recover_item();
+                        continue;
+                    }
+                    match self.state_decl() {
+                        Some(mut s) => {
+                            s.persist = true;
+                            s.span = start.to(s.span);
+                            items.push(Item::State(s));
+                        }
+                        None => self.recover_item(),
+                    }
+                }
                 TokenKind::Ident(w) if w == "state" => match self.state_decl() {
                     Some(s) => items.push(Item::State(s)),
                     None => self.recover_item(),
@@ -689,7 +709,7 @@ impl Parser<'_> {
                     let found = self.peek_kind().describe();
                     self.error_here(
                         "E1109",
-                        format!("expected `state` or `action` in a store, found {found}"),
+                        format!("expected `state`, `persist state` or `action` in a store, found {found}"),
                         Some(
                             "a store holds `state name: type = value` and `action name { ... }`"
                                 .into(),
@@ -722,6 +742,7 @@ impl Parser<'_> {
             name,
             ty,
             initial,
+            persist: false,
             span: start.to(end),
         })
     }

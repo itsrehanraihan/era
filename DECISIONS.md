@@ -428,6 +428,19 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   Effects spec). Limits: blurred shadows need Android 9+ (older versions
   draw a sharp shadow); `drop-shadow()` and `url()` filters are E2135.
 
+## Accepted 2026-11-22: data, step 1 (owner)
+
+- **D-090 (owner) Saved state: `persist state`.** "1 and 2 agreed":
+  ERA stays a frontend tool and connects to backends later. Step 1 is
+  `persist state name: type = value` in a store (the owner chose the
+  keyword form). The value is restored at launch and saved on every
+  change through the host hooks `eraLoad`/`eraSave` in `EraAssets.kt`
+  (Android: private SharedPreferences, key `Store.field`; preview: in
+  memory). No network is involved.
+- **D-091 (owner) Mock data lists: `for p in Products { ... }`.** Step 2
+  is JSON files in `Data/` shown as lists (the owner chose `for … in`).
+  Specified and implemented in the next commit.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is

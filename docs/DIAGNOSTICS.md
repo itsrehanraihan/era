@@ -138,7 +138,7 @@ fail. `W` is a warning.
 
 | Code | Meaning |
 |---|---|
-| E1109 | Something other than `state`/`action` inside a `store` |
+| E1109 | Something other than `state`, `persist state` or `action` inside a `store`, or `persist` not followed by `state` |
 | E1110 | Unknown action step (use `set`, `toggle`, `add`) |
 | E2160 | Bad `{...}` interpolation in text (unclosed, or not `Store.field`) |
 | E2161 | Unknown store (with a suggestion) |

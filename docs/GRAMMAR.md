@@ -148,7 +148,7 @@ Logic files (`.er`) contain only `store` declarations:
 
 ```ebnf
 store_decl   = "store" PASCAL_IDENT "{" { SEP } { store_item { SEP } } "}" ;
-store_item   = state_decl | action_decl ;
+store_item   = [ "persist" ] state_decl | action_decl ;   (* persist: D-090 *)
 state_decl   = "state" IDENT ":" IDENT [ "=" value ] ;   (* text | number | bool *)
 action_decl  = "action" IDENT "{" { SEP } { step { SEP } } "}" ;
 step         = "set" IDENT "=" value
@@ -165,6 +165,8 @@ single       = "go" PASCAL_IDENT                     (* navigate *)
              | STRING | NUMBER | COLOR | "true" | "false" | "none" ;
 ```
 
+- `persist state` keeps the value on the device and restores it on the
+  next launch (D-090). `persist` is a contextual word.
 - `store` is a keyword. `state`, `action`, `set`, `toggle`, `add`, `go`,
   `back` and `then` are **contextual words**, so existing names such as
   `variant state: ...` keep working.

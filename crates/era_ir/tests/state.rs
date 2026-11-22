@@ -318,3 +318,17 @@ fn action_prop_type_mismatch() {
         "prop `label` is text but `on_press` needs an action: `go Screen`, `back` or `Store.action`"
     );
 }
+
+#[test]
+fn persist_state() {
+    let b = build(&[
+        ("src/app.era", "app \"T\" { start: Home }"),
+        (
+            "src/Logic/cart.er",
+            "store Cart {\n    persist state count: number = 2\n    state open: bool\n}",
+        ),
+        ("src/Home.era", "screen Home { column {} }"),
+    ]);
+    let f = &b.app().stores[0].fields;
+    assert!(f[0].persist && !f[1].persist);
+}
