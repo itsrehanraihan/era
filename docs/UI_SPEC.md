@@ -7,7 +7,7 @@ implemented in M3 (`crates/era_ir/src/schema.rs` and `resolve.rs`).
 
 | Keyword | Lives in | Purpose |
 |---|---|---|
-| `app "Display Name"` | `src/app.era` (exactly one) | Entry point: `skin`, `start` screen |
+| `app "Display Name"` | `src/app.era` (exactly one) | Entry point: `skin`, `start` screen, and the launcher `icon` with an optional `icon-background` (D-085) |
 | `screen Name` | `src/Screens/` (or `app.era`) | One full screen: `title` plus one root node |
 | `layout Name` | `src/Layout/` | Reusable screen frame with one `slot`; only usable as a screen's root |
 | `component Name` | `src/Components/` | Reusable piece with `prop`s, `variant`s and an optional `slot` |

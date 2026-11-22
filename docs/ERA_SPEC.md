@@ -55,7 +55,22 @@ edition = "2026"               # language edition, for future syntax changes
 
 [android]                      # optional; defaults shown
 min_sdk = 24
+
+[android.signing]              # optional; needed for `era build android --release`
+keystore = "keys/upload.jks"   # relative to the project folder
+alias    = "upload"
 ```
+
+Passwords are never stored in `era.toml`. `--release` reads
+`ERA_KEYSTORE_PASSWORD` (and `ERA_KEY_PASSWORD` if the key has its own
+password). Create a key once with:
+
+```bash
+keytool -genkeypair -v -keystore keys/upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Keep the keystore and its password safe and out of version control:
+Google Play needs the same key for every update.
 
 The display name shown to users lives in `app "..."` in `src/app.era`,
 because it is part of the visual design. Identity and packaging live in
@@ -68,7 +83,7 @@ because it is part of the visual design. Identity and packaging live in
 | `era new <name>` | M1 ✅ | Create a minimal project: `era.toml`, `src/app.era`, `.gitignore` |
 | `era check [path] [--ir]` | M1–M3 ✅ | Validate the manifest, project layout, syntax, structure, skins, properties, references and assets, then build the UI IR. `--ir` prints the resolved tree |
 | `era preview [path] [--png [dir]]` | M4 ✅ | Generate Compose code and run the desktop preview: a window, or PNGs of every screen. Needs JDK 17+ and Gradle 8.x (see ANDROID_BACKEND.md) |
-| `era build android [path]` | M5 ✅ | Generate Kotlin/Compose and the Android project in `build/android/`, run `gradle :app:assembleDebug`, and print the APK path (`build/android/app/build/outputs/apk/debug/app-debug.apk`) and `adb` commands. Needs JDK 17+, Gradle 8.x and `ANDROID_HOME` |
+| `era build android [path] [--release]` | M5 ✅, `--release` M9 ✅ | Generate Kotlin/Compose and the Android project in `build/android/`, run `gradle :app:assembleDebug`, and print the APK path (`build/android/app/build/outputs/apk/debug/app-debug.apk`) and `adb` commands. `--release` builds a signed, R8-optimised APK and an App Bundle (`app/build/outputs/apk/release/app-release.apk`, `app/build/outputs/bundle/release/app-release.aab`) using `[android.signing]` (D-086). Needs JDK 17+, Gradle 8.x and `ANDROID_HOME` |
 | `era export android [path] [--out dir] [--force]` | M9 ✅ | Write a standalone Android Studio project (default `export/android/`) with the Gradle wrapper, a version catalog, an `app/` module and clean, editable Kotlin. A non-empty folder is refused (E3003); `--force` replaces only an earlier ERA export. Needs no Gradle; building it needs JDK 17+ and the Android SDK (D-084) |
 | `era export ios` | later | Prints that SwiftUI output is planned (D-082) |
 

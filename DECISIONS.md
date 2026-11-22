@@ -358,6 +358,24 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   - The debug APK path is now
     `build/android/app/build/outputs/apk/debug/app-debug.apk`.
 
+- **D-085 App launcher icon** (resolves Q-12). `app` takes
+  `icon: "Images/app_icon.png"` (PNG, JPEG or WebP; 512x512 or larger is
+  best) and an optional `icon-background` (a colour or skin colour,
+  default white), like a web app manifest's `icons` and
+  `background_color`. ERA writes legacy `mipmap-*/ic_launcher.png` icons
+  for every density and an adaptive icon for Android 8+, with the image
+  fitted into the middle 72dp of the 108dp layer so launcher masks don't
+  cut it. The icon is not copied into the app's runtime assets.
+- **D-086 Release builds.** `era build android --release` builds a
+  signed, R8-shrunk release APK and an App Bundle (`.aab`, for Google
+  Play). The keystore is named in `era.toml`
+  (`[android.signing] keystore`, `alias`). Passwords are never written to
+  disk by ERA: they come from `ERA_KEYSTORE_PASSWORD` (and
+  `ERA_KEY_PASSWORD` if the key has its own). Exported projects read
+  `keystore.properties` or the same variables. `.gitignore` excludes
+  keys and `keystore.properties`. Without signing settings, `--release`
+  fails with E3004 and shows the `keytool` command.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is
@@ -391,7 +409,7 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   dashed, and the wordmark is italic. The demo uses the logo as an image.
 - **Q-11 (Partly resolved, D-050)** **System bars and safe areas.** The status bar and home indicator
   in the mockups are drawn by the OS. Backends must add safe-area insets.
-- **Q-12 App launcher icon.** The APK uses the system default icon. An
+- **Q-12 (Resolved 2026-11-22, D-085)** **App launcher icon.** The APK uses the system default icon. An
   `app` property such as `icon: "Images/app_icon.png"` could generate
   adaptive icons.
 - **Q-06 (Resolved 2026-11-21: the owner installed the E-Renty APK on an Android phone, and it works, including the M6 flow)** **Emulator testing.** The dev

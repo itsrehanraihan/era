@@ -9,6 +9,7 @@ and `era export android` into a standalone folder (default
 | `{{APP_ID}}` | `[project] id` from `era.toml` (namespace and applicationId) |
 | `{{PACKAGE}}` | The generated Kotlin package, `<app id>.ui` |
 | `{{PROJECT_NAME}}` | `[project] name` (Gradle root project name) |
+| `{{ICON_ATTRS}}` | `android:icon`/`android:roundIcon` when `app` has an `icon` (D-085) |
 | `{{MIN_SDK}}` | `[android] min_sdk` (default 24) |
 | `{{VERSION_CODE}}` | `MAJOR*10000 + MINOR*100 + PATCH` |
 | `{{VERSION_NAME}}` | `[project] version` |
@@ -26,7 +27,8 @@ an export adds the wrapper scripts, `.gitignore`, a `README.md` and a
 | `gradle/libs.versions.toml` | Version catalog. Versions are pinned (DECISIONS D-052) |
 | `gradle/wrapper/`, `gradlew`, `gradlew.bat` | Stock Gradle 8.14.3 wrapper (from `gradle wrapper`); written by `era export` only |
 | `gitignore.txt` | Written as `.gitignore` by `era export` |
-| `app/build.gradle.kts` | The Android app module |
+| `app/build.gradle.kts` | The Android app module, with R8 and release signing from `keystore.properties` or `ERA_*` variables (D-086) |
+| `app/proguard-rules.pro` | Extra R8 rules (none needed for ERA code) |
 | `app/AndroidManifest.xml` | Launcher activity, app label, platform theme. No AppCompat or Material |
 | `app/MainActivity.kt` | Edge-to-edge window, light/dark from the system, runs the app from the start screen |
 | `app/EraAssets.kt` | Android `eraImage` (from `assets/`), `eraIcon` (VectorDrawable) and `eraFontFamily` (from `assets/`) |

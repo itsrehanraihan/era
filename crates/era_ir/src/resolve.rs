@@ -90,6 +90,8 @@ struct Resolver<'a> {
     stores: Stores,
     /// Screen names, for `go Screen`.
     screens: Vec<String>,
+    /// `icon` and `icon-background` from `app`, resolved once the skin is known.
+    app_icon: (Option<AstValue>, Option<AstValue>),
 }
 
 /// Build the UI IR. Returns `None` for the app if any error was reported.
@@ -152,6 +154,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
         stack: Vec::new(),
         stores: Stores::default(),
         screens: screen_order.iter().map(|s| s.to_string()).collect(),
+        app_icon: (None, None),
     };
     let (stores, store_table, store_diags) = logic::build_stores(&store_decls);
     diags.extend(store_diags);
@@ -171,6 +174,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
         r.skin = s.clone();
         r.skin.fill_required_from_default();
     }
+    let icon = r.app_icon(app_ref.path);
 
     // Check every component and layout once, on its own.
     let reusable: Vec<DeclRef> = r
@@ -210,6 +214,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
             screens,
             assets: assets.into_iter().collect(),
             stores,
+            icon,
         }),
         _ => None,
     };
@@ -271,6 +276,17 @@ impl<'a> Resolver<'a> {
         let mut start = None;
         for item in &app.decl.body.items {
             let Item::Property(p) = item else { continue };
+            match schema::normalize(&p.name.name).as_str() {
+                "icon" => {
+                    self.app_icon.0 = Some(p.value.clone());
+                    continue;
+                }
+                "iconbackground" | "iconbackgroundcolor" => {
+                    self.app_icon.1 = Some(p.value.clone());
+                    continue;
+                }
+                _ => {}
+            }
             match (p.name.name.as_str(), &p.value.kind) {
                 ("skin", ValueKind::Ident(n)) => {
                     if skins.contains_key(n.as_str()) {
@@ -314,7 +330,11 @@ impl<'a> Resolver<'a> {
                     "E2102",
                     format!("unknown app property `{other}`"),
                     p.name.span,
-                    Some(hint(other, &["skin", "start"], "app properties")),
+                    Some(hint(
+                        other,
+                        &["skin", "start", "icon", "icon-background"],
+                        "app properties",
+                    )),
                 ),
             }
         }
@@ -1477,6 +1497,52 @@ impl<'a> Resolver<'a> {
             Some(help),
         );
         None
+    }
+
+    /// The launcher icon (`icon: "Images/app_icon.png"`, D-085). It is not
+    /// added to the app's assets unless a screen also shows it.
+    fn app_icon(&mut self, file: &str) -> Option<AppIcon> {
+        let (icon, background) = std::mem::take(&mut self.app_icon);
+        let background = background.and_then(|v| match &v.kind {
+            ValueKind::Color(c) => Some(ColorValue {
+                token: None,
+                rgba: *c,
+            }),
+            ValueKind::Ident(n) if self.skin.colors.contains_key(n) => Some(ColorValue {
+                token: Some(n.clone()),
+                rgba: self.skin.colors[n],
+            }),
+            _ => {
+                self.err(
+                    file,
+                    "E2107",
+                    "`icon-background` needs a colour, like `#FFFFFF` or a skin colour".into(),
+                    v.span,
+                    None,
+                );
+                None
+            }
+        });
+        let v = icon?;
+        let ValueKind::String(path) = &v.kind else {
+            self.err(
+                file,
+                "E2107",
+                "`icon` needs an image path, like `icon: \"Images/app_icon.png\"`".into(),
+                v.span,
+                None,
+            );
+            return None;
+        };
+        let already = self.assets.iter().any(|a| &a.path == path);
+        let asset = self.asset(path, AssetKind::Image, v.span, file)?;
+        if !already {
+            self.assets.remove(&asset);
+        }
+        Some(AppIcon {
+            path: asset.path,
+            background,
+        })
     }
 
     fn asset(&mut self, path: &str, kind: AssetKind, span: Span, file: &str) -> Option<AssetRef> {

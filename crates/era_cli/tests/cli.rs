@@ -791,3 +791,184 @@ fn exported_project_builds_with_its_own_gradle_wrapper() {
             .is_file()
     );
 }
+
+// ----- Release builds and the app icon (D-085, D-086) -----------------------
+
+#[test]
+fn app_icon_becomes_android_launcher_icons() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out_dir = tmp.path().join("export");
+    let out = era_in(
+        &repo_root(),
+        &[
+            "export",
+            "android",
+            "examples/erenty",
+            "--out",
+            out_dir.to_str().unwrap(),
+        ],
+    );
+    assert!(out.status.success(), "{}", stderr(&out));
+    let res = out_dir.join("app/src/main/res");
+    for d in ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"] {
+        assert!(res.join(format!("mipmap-{d}/ic_launcher.png")).is_file());
+        assert!(
+            res.join(format!("mipmap-{d}/ic_launcher_foreground.png"))
+                .is_file()
+        );
+    }
+    let adaptive = std::fs::read_to_string(res.join("mipmap-anydpi-v26/ic_launcher.xml")).unwrap();
+    assert!(adaptive.contains("@mipmap/ic_launcher_foreground"));
+    let bg = std::fs::read_to_string(res.join("values/ic_launcher_background.xml")).unwrap();
+    assert!(bg.contains("#FF00E6B5"), "{bg}");
+    let manifest =
+        std::fs::read_to_string(out_dir.join("app/src/main/AndroidManifest.xml")).unwrap();
+    assert!(manifest.contains("android:icon=\"@mipmap/ic_launcher\""));
+    // The icon is not copied into the app's runtime assets.
+    assert!(
+        !out_dir
+            .join("app/src/main/assets/Images/app_icon.png")
+            .exists()
+    );
+    // Release signing is configured but holds no secrets.
+    let gradle = std::fs::read_to_string(out_dir.join("app/build.gradle.kts")).unwrap();
+    assert!(gradle.contains("isMinifyEnabled = true") && gradle.contains("keystore.properties"));
+    let ignore = std::fs::read_to_string(out_dir.join(".gitignore")).unwrap();
+    assert!(ignore.contains("keystore.properties") && ignore.contains("*.jks"));
+}
+
+#[test]
+fn app_icon_errors_are_reported() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let app = project.join("src/app.era");
+    let src = std::fs::read_to_string(&app).unwrap();
+    std::fs::write(
+        &app,
+        src.replacen(
+            "{",
+            "{\n    icon: \"Images/missing.png\"\n    icon-background: 12",
+            1,
+        ),
+    )
+    .unwrap();
+    let out = era_in(&project, &["check"]);
+    assert_eq!(out.status.code(), Some(1));
+    let err = stderr(&out);
+    assert!(err.contains("E2107"), "{err}");
+    assert!(err.contains("missing.png"), "{err}");
+}
+
+#[test]
+fn release_build_needs_a_signing_key() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = new_project(tmp.path(), "demo");
+    let out = era_in(&project, &["build", "android", "--release"]);
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(
+        err.contains("E3004") && err.contains("[android.signing]"),
+        "{err}"
+    );
+    assert!(err.contains("keytool -genkeypair"), "{err}");
+    assert_eq!(
+        era_in(&project, &["build", "android", "--bogus"])
+            .status
+            .code(),
+        Some(2)
+    );
+}
+
+/// A signed, R8-optimised release APK and App Bundle. Needs ANDROID_HOME and
+/// `keytool` (JDK): `cargo test -p era_cli -- --ignored`.
+#[test]
+#[ignore]
+fn release_build_smoke_test() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = tmp.path().join("erenty");
+    copy_dir(&repo_root().join("examples/erenty"), &project);
+    let _ = std::fs::remove_dir_all(project.join("build"));
+    std::fs::create_dir_all(project.join("keys")).unwrap();
+    let keytool = Command::new("keytool")
+        .args([
+            "-genkeypair",
+            "-keystore",
+            "keys/upload.jks",
+            "-alias",
+            "upload",
+            "-keyalg",
+            "RSA",
+            "-keysize",
+            "2048",
+            "-validity",
+            "10000",
+            "-storepass",
+            "era-test-pass",
+            "-dname",
+            "CN=ERA Release Test",
+        ])
+        .current_dir(&project)
+        .output()
+        .unwrap();
+    assert!(keytool.status.success(), "{}", stderr(&keytool));
+    let toml = project.join("era.toml");
+    let mut m = std::fs::read_to_string(&toml).unwrap();
+    m.push_str("\n[android.signing]\nkeystore = \"keys/upload.jks\"\nalias = \"upload\"\n");
+    std::fs::write(&toml, m).unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_era"))
+        .args(["build", "android", "--release"])
+        .current_dir(&project)
+        .env("ERA_KEYSTORE_PASSWORD", "era-test-pass")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}\n{}", stdout(&out), stderr(&out));
+    let android = project.join("build/android/app/build/outputs");
+    let apk = android.join("apk/release/app-release.apk");
+    assert!(apk.is_file());
+    assert!(android.join("bundle/release/app-release.aab").is_file());
+
+    // Signed with the release key, not the debug key.
+    let sdk = PathBuf::from(std::env::var("ANDROID_HOME").unwrap());
+    let tools = std::fs::read_dir(sdk.join("build-tools"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .max()
+        .unwrap();
+    let certs = Command::new(tools.join("apksigner"))
+        .args(["verify", "--print-certs"])
+        .arg(&apk)
+        .output()
+        .unwrap();
+    assert!(certs.status.success(), "{}", stderr(&certs));
+    assert!(
+        stdout(&certs).contains("CN=ERA Release Test"),
+        "{}",
+        stdout(&certs)
+    );
+    let badging = Command::new(tools.join("aapt2"))
+        .args(["dump", "badging"])
+        .arg(&apk)
+        .output()
+        .unwrap();
+    let b = stdout(&badging);
+    assert!(b.contains("application-icon-480:'res/"), "{b}");
+    assert!(!b.contains("application-debuggable"), "{b}");
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for e in std::fs::read_dir(from).unwrap().flatten() {
+        let name = e.file_name();
+        if name == "build" || name == "export" {
+            continue;
+        }
+        let p = e.path();
+        if p.is_dir() {
+            copy_dir(&p, &to.join(&name));
+        } else {
+            std::fs::copy(&p, to.join(&name)).unwrap();
+        }
+    }
+}

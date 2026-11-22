@@ -426,6 +426,53 @@ Studio. Use `--out <dir>` for another folder. To export again, add
 re-exporting overwrites hand edits, so commit the export to its own
 repository.
 
+### Give the app an icon
+
+Add a square image (512x512 or larger) and point `app` at it:
+
+```era
+app "My App" {
+    skin: Studio
+    start: Home
+    icon: "Images/app_icon.png"
+    icon-background: #FFFFFF
+}
+```
+
+ERA makes the launcher icons for every screen density, including the
+round and squircle shapes of modern Android launchers. Keep the
+important part of the image in the middle.
+
+### Build for Google Play: `--release`
+
+Create a signing key once. Keep the file and its password safe: Google
+Play needs the same key for every update, so don't commit it to git.
+
+```bash
+mkdir -p keys
+```
+
+```bash
+keytool -genkeypair -v -keystore keys/upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Tell ERA where it is, in `era.toml`:
+
+```toml
+[android.signing]
+keystore = "keys/upload.jks"
+alias = "upload"
+```
+
+Then build with the password in an environment variable (never in a file):
+
+```bash
+ERA_KEYSTORE_PASSWORD='your password' era build android --release
+```
+
+You get a small, optimised, signed `app-release.apk` and an
+`app-release.aab`, the file you upload to Google Play.
+
 ## 13. Explore the E-Renty demo
 
 The repository includes a full four-screen demo built from real

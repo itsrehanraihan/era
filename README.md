@@ -8,8 +8,9 @@ compiler is written in Rust and generates native Android UI (Kotlin and
 Jetpack Compose), with no WebView.
 
 > **Status: M9.** `era new`, `era check`, `era preview`,
-> `era build android` and `era export android` (a standalone Android
-> Studio project your team owns) work, and **ERA Studio** (`era-studio`) is the
+> `era build android` (debug, or `--release`: signed, R8-optimised APK
+> and App Bundle), `era export android` (a standalone Android Studio
+> project your team owns) work, and **ERA Studio** (`era-studio`) is the
 > desktop editor, with live problems as you type, a real Compose preview
 > and one-click APK builds. Apps support taps, state and navigation, and
 > the APK has been verified on an Android phone.

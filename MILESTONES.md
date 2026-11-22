@@ -203,7 +203,7 @@ adb shell am start -n dev.era.erenty/dev.era.erenty.ui.MainActivity --es era.scr
 ```
 
 Known limitations:
-- No launcher icon (Q-12). Debug builds only (D-055).
+- No launcher icon (Q-12, resolved in M9). Debug builds only (D-055, release builds added in M9).
 - Only the start screen is shown until navigation (M6). Use `era.screen`
   to open the others (D-054).
 - The Android SDK was installed by hand in the dev container
@@ -301,20 +301,24 @@ sheet.
 - Overwrite safety: a non-empty folder is refused (E3003). `--force`
   replaces only a folder with an earlier export's `.era-export` marker.
 - `era export ios` explains that SwiftUI output is planned (D-082).
-- **Verified:** the exported E-Renty project builds a debug APK with its
+- **Verified (export):** the exported E-Renty project builds a debug APK with its
   own `./gradlew assembleDebug` (smoke test
   `exported_project_builds_with_its_own_gradle_wrapper`). All 5 Gradle
   smoke tests and 227 workspace tests pass.
 
+**Release builds and app icon (D-085, D-086):**
+- `era build android --release`: a signed, R8-optimised APK and an App
+  Bundle for Google Play. E-Renty: 1.7 MB release APK (debug: 8.2 MB).
+- `app { icon: "Images/app_icon.png"; icon-background: primary }`:
+  launcher icons for every density, plus an adaptive icon.
+- Verified by `release_build_smoke_test`: `apksigner` shows the release
+  certificate, and `aapt2` shows the icon and a non-debuggable app.
+
 Known limits:
-- Debug builds only. Release signing, app icon and app identity come
-  next, when the owner chooses them (Q-12).
 - An export is a snapshot. Re-exporting replaces hand edits.
 
 ## Next smallest task
 
-0. M9 follow-up (owner's choice): release builds (`assembleRelease`
-   with a signing config), launcher icon, app identity.
 1. M8 phase 3–4: borders, corners, colour functions, gradients,
    `box-shadow`, filters (owner: "build everything the HTML/CSS way").
 2. Then, by owner priority: a `.app` bundle with an icon, find/replace,

@@ -34,6 +34,10 @@ const TEMPLATES: &[(&str, &str)] = &[
     ),
     ("app/build.gradle.kts", template!("app/build.gradle.kts")),
     (
+        "app/proguard-rules.pro",
+        template!("app/proguard-rules.pro"),
+    ),
+    (
         "app/src/main/AndroidManifest.xml",
         template!("app/AndroidManifest.xml"),
     ),
@@ -58,6 +62,38 @@ const WRAPPER_JAR: &[u8] =
 pub const EXPORT_MARKER: &str = ".era-export";
 
 pub const APK_PATH: &str = "app/build/outputs/apk/debug/app-debug.apk";
+pub const RELEASE_APK_PATH: &str = "app/build/outputs/apk/release/app-release.apk";
+pub const RELEASE_AAB_PATH: &str = "app/build/outputs/bundle/release/app-release.aab";
+
+/// Release signing for `era build android --release` (D-086): the keystore
+/// from `[android.signing]` and its password from `ERA_KEYSTORE_PASSWORD`.
+fn release_signing(root: &Path, manifest: &Manifest) -> Result<(PathBuf, String), String> {
+    let keytool = "keytool -genkeypair -v -keystore keys/upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000";
+    let Some(s) = &manifest.android.signing else {
+        return Err(format!(
+            "release builds need a signing key, and era.toml has no [android.signing]
+   = help: create a key once (keep it and its password safe; you need both for every update):
+       {keytool}
+     then add to era.toml:
+       [android.signing]
+       keystore = \"keys/upload.jks\"
+       alias = \"upload\""
+        ));
+    };
+    let keystore = root.join(&s.keystore);
+    if !keystore.is_file() {
+        return Err(format!(
+            "the keystore `{}` from [android.signing] does not exist
+   = help: create it with: {keytool}",
+            s.keystore
+        ));
+    }
+    if std::env::var_os("ERA_KEYSTORE_PASSWORD").is_none() {
+        return Err("set ERA_KEYSTORE_PASSWORD to the keystore password (and ERA_KEY_PASSWORD if the key has its own)
+   = help: passwords are never stored in era.toml".into());
+    }
+    Ok((keystore, s.alias.clone()))
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -68,7 +104,7 @@ pub enum Mode {
 /// Everything to write for one Android project.
 pub struct Plan {
     pub text: Vec<(String, String)>,
-    pub bytes: Vec<(String, &'static [u8])>,
+    pub bytes: Vec<(String, Vec<u8>)>,
     /// `(source file, project path)` copies of images and fonts.
     pub copies: Vec<(PathBuf, String)>,
 }
@@ -119,6 +155,14 @@ pub fn plan(
             android_gen::version_code(&app.version).to_string(),
         ),
         ("VERSION_NAME", app.version.clone()),
+        (
+            "ICON_ATTRS",
+            if app.icon.is_some() {
+                "\n        android:icon=\"@mipmap/ic_launcher\"\n        android:roundIcon=\"@mipmap/ic_launcher\"".into()
+            } else {
+                String::new()
+            },
+        ),
     ];
     let mut text = Vec::new();
     for (path, t) in TEMPLATES {
@@ -145,11 +189,42 @@ pub fn plan(
         .collect();
 
     let mut bytes = Vec::new();
+    if let Some(icon) = &app.icon {
+        let icons = crate::icon::launcher_icons(
+            &assets.join(&icon.path),
+            icon.background.as_ref().map(|c| c.rgba),
+        )
+        .map_err(|e| {
+            vec![
+                Diagnostic::error(
+                    "E3005",
+                    format!("cannot make the app icon from `{}`: {e}", icon.path),
+                )
+                .in_file(format!("Assets/{}", icon.path))
+                .with_help(
+                    "use a square PNG, JPEG or WebP image, ideally 512x512 pixels or larger",
+                ),
+            ]
+        })?;
+        for (rel, b) in icons.png {
+            bytes.push((format!("app/src/main/{rel}"), b));
+        }
+        for (rel, t) in icons.text {
+            let t = match mode {
+                Mode::Export => era_codegen_compose::export_text(&t),
+                Mode::Build => t,
+            };
+            text.push((format!("app/src/main/{rel}"), t));
+        }
+    }
     if mode == Mode::Export {
         for (path, t) in WRAPPER_TEXT {
             text.push((path.to_string(), t.to_string()));
         }
-        bytes.push(("gradle/wrapper/gradle-wrapper.jar".to_string(), WRAPPER_JAR));
+        bytes.push((
+            "gradle/wrapper/gradle-wrapper.jar".to_string(),
+            WRAPPER_JAR.to_vec(),
+        ));
         text.push(("README.md".into(), readme(app, manifest, &pkg)));
         text.push((
             EXPORT_MARKER.into(),
@@ -198,6 +273,28 @@ You can also open this folder in Android Studio (**File → Open**).
 | `app/src/main/res/`, `app/src/main/assets/` | Icons, images and fonts |
 | `gradle/libs.versions.toml` | Library and plugin versions |
 
+## Release build (Google Play)
+
+Create `keystore.properties` next to this README (it is git-ignored):
+
+```properties
+storeFile=keys/upload.jks
+storePassword=...
+keyAlias=upload
+keyPassword=...
+```
+
+Or set `ERA_KEYSTORE`, `ERA_KEYSTORE_PASSWORD`, `ERA_KEY_ALIAS` and
+`ERA_KEY_PASSWORD`. Then:
+
+```bash
+./gradlew bundleRelease
+```
+
+The App Bundle for Google Play is written to
+`app/build/outputs/bundle/release/app-release.aab`. Release builds are
+optimised and shrunk with R8.
+
 ## Re-exporting
 
 `era export android --force` replaces this folder with a fresh export,
@@ -237,10 +334,12 @@ pub fn write_plan(out: &Path, plan: &Plan) -> std::io::Result<BTreeSet<PathBuf>>
     }
     for (rel, b) in &plan.bytes {
         let p = out.join(rel);
-        if let Some(parent) = p.parent() {
-            std::fs::create_dir_all(parent)?;
+        if std::fs::read(&p).ok().as_deref() != Some(b.as_slice()) {
+            if let Some(parent) = p.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&p, b)?;
         }
-        std::fs::write(&p, b)?;
         written.insert(p);
     }
     for (from, rel) in &plan.copies {
@@ -290,7 +389,18 @@ fn print_diags(diags: &[Diagnostic], what: &str) -> ExitCode {
 }
 
 /// `era build android`.
-pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
+pub fn run(root: &Path, manifest: &Manifest, app: &App, release: bool) -> ExitCode {
+    let signing = if release {
+        match release_signing(root, manifest) {
+            Ok(s) => Some(s),
+            Err(msg) => {
+                eprintln!("error[E3004]: {msg}");
+                return ExitCode::from(EXIT_USAGE);
+            }
+        }
+    } else {
+        None
+    };
     let Some(sdk) = find_sdk() else {
         eprintln!("error: Android SDK not found");
         eprintln!(
@@ -314,19 +424,29 @@ pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
     remove_stale(&out.join("app/src/main"), &written);
     println!("Generated Android project in {}", out.display());
     println!(
-        "Building debug APK with Gradle (the first run downloads the Android build tools and can take several minutes)..."
+        "Building {} with Gradle (the first run downloads the Android build tools and can take several minutes)...",
+        if release {
+            "the signed release APK and App Bundle"
+        } else {
+            "debug APK"
+        }
     );
 
     let gradle = gradle_command();
-    let status = Command::new(&gradle)
-        .args([
-            "--console=plain",
-            "-q",
-            "--no-watch-fs",
-            ":app:assembleDebug",
-        ])
-        .current_dir(&out)
-        .status();
+    let mut cmd = Command::new(&gradle);
+    cmd.args(["--console=plain", "-q", "--no-watch-fs"])
+        .current_dir(&out);
+    match &signing {
+        Some((keystore, alias)) => {
+            cmd.args([":app:assembleRelease", ":app:bundleRelease"])
+                .env("ERA_KEYSTORE", keystore)
+                .env("ERA_KEY_ALIAS", alias);
+        }
+        None => {
+            cmd.arg(":app:assembleDebug");
+        }
+    }
+    let status = cmd.status();
     match status {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("error: `{gradle}` was not found");
@@ -348,6 +468,23 @@ pub fn run(root: &Path, manifest: &Manifest, app: &App) -> ExitCode {
                 "   = help: this is a bug in ERA's code generation if `era check` passes; please report it"
             );
             ExitCode::from(EXIT_ERRORS)
+        }
+        Ok(_) if release => {
+            for (what, path) in [("APK", RELEASE_APK_PATH), ("App Bundle", RELEASE_AAB_PATH)] {
+                let f = out.join(path);
+                let size = std::fs::metadata(&f).map(|m| m.len()).unwrap_or(0);
+                println!(
+                    "Built release {what} {} ({:.1} MB)",
+                    f.display(),
+                    size as f64 / 1_048_576.0
+                );
+            }
+            println!("\nUpload the .aab to Google Play, or install the APK directly:");
+            println!(
+                "  adb install -r \"{}\"",
+                out.join(RELEASE_APK_PATH).display()
+            );
+            ExitCode::SUCCESS
         }
         Ok(_) => {
             let apk = out.join(APK_PATH);

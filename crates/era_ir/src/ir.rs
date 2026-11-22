@@ -27,6 +27,17 @@ pub struct App {
     pub assets: Vec<AssetRef>,
     /// App state and actions from `.er` logic files (M6), sorted by name.
     pub stores: Vec<Store>,
+    /// Launcher icon from `app { icon: ... }` (D-085).
+    pub icon: Option<AppIcon>,
+}
+
+/// `icon: "Images/app_icon.png"` and `icon-background: #FFFFFF` on `app`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AppIcon {
+    /// Path relative to `Assets/` (PNG, JPEG or WebP).
+    pub path: String,
+    /// Background of the adaptive icon. `None` means white.
+    pub background: Option<ColorValue>,
 }
 
 /// `store Name { state ... action ... }`

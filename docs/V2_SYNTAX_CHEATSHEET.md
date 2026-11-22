@@ -164,6 +164,8 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Image fit ✅ | `object-fit` (`fit`) | `object-fit: cover` | |
 | Icon size and tint ✅ | `size`, `color` | `icon "Icons/x.svg" { size: 24px }` | |
 | Asset paths ✅ | relative to `Assets/` | `"Images/hero.png"` | |
+| App launcher icon ✅ | `icon` on `app` (like a web manifest's `icons`) | `app "Shop" { icon: "Images/app_icon.png" }` | |
+| Launcher icon background ✅ | `icon-background` on `app` (like `background_color`) | `icon-background: #FFFFFF` | |
 
 ## 10. Interaction and state
 

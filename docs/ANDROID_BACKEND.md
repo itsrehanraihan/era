@@ -141,6 +141,24 @@ the Gradle 8.14.3 wrapper, and an `app/` module whose sources are in
   `apksigner`). There is no emulator (no KVM), and a JVM screenshot tool
   (Paparazzi) was tried and was incompatible with these versions (Q-06).
 
+## Release builds and the launcher icon (M9, D-085, D-086)
+
+- `era build android --release` runs `:app:assembleRelease` and
+  `:app:bundleRelease`. The release build type enables R8
+  (`isMinifyEnabled`, `isShrinkResources`, `proguard-android-optimize.txt`
+  plus `app/proguard-rules.pro`).
+- Signing: `app/build.gradle.kts` reads `keystore.properties`
+  (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) or the
+  variables `ERA_KEYSTORE`, `ERA_KEYSTORE_PASSWORD`, `ERA_KEY_ALIAS` and
+  `ERA_KEY_PASSWORD`. The CLI sets `ERA_KEYSTORE` and `ERA_KEY_ALIAS`
+  from `[android.signing]`.
+- Icon: `app { icon: ... }` gives `res/mipmap-{mdpi..xxxhdpi}/ic_launcher.png`
+  (48dp, on the background colour), `ic_launcher_foreground.png` (108dp,
+  image in the middle 72dp), `mipmap-anydpi-v26/ic_launcher.xml` and
+  `values/ic_launcher_background.xml`. Images are resized with Lanczos3
+  (the `image` crate). The manifest gets `android:icon` and
+  `android:roundIcon`.
+
 ## Export (`era export android`, M9)
 
 `era export android` writes the same project as a standalone folder the

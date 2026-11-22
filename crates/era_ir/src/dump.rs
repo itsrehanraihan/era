@@ -13,6 +13,14 @@ pub fn dump(app: &App) -> String {
         "app {:?} id={} version={} start={}",
         app.name, app.id, app.version, app.start
     );
+    if let Some(icon) = &app.icon {
+        let bg = icon
+            .background
+            .as_ref()
+            .map(color)
+            .unwrap_or("white".into());
+        let _ = writeln!(o, "icon {:?} background={bg}", icon.path);
+    }
     skin(&mut o, &app.skin);
     for s in &app.screens {
         let title = s

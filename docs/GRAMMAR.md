@@ -100,7 +100,7 @@ between `property` (`ident :`) and `node`.
 
 | Context | Properties | Nodes | `prop`/`variant` | `when` | `slot` |
 |---|---|---|---|---|---|
-| `app` | yes (`skin`, `start`) | no | no | no | no |
+| `app` | yes (`skin`, `start`, `icon`, `icon-background`) | no | no | no | no |
 | `skin` | no | token sections only | no | no | no |
 | `screen` | yes (`title`) | exactly one root | no | no | no |
 | `layout` | no | exactly one root | `prop` only | no | exactly one, inside root |

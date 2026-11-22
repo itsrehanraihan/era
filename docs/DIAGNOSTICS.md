@@ -12,6 +12,7 @@ fail. `W` is a warning.
 | E0104 | Invalid version (`MAJOR.MINOR.PATCH`) |
 | E0105 | Unsupported language edition |
 | E0106 | `android.min_sdk` is out of range (21–36) |
+| E0107 | `[android.signing]` has an empty `keystore` or `alias` |
 | E0110 | `era new`: invalid project name |
 | E0111 | `era new`: the target folder exists and is not empty |
 | E0112 | `era new`: a file system error |
@@ -97,6 +98,7 @@ fail. `W` is a warning.
 | E2104 | The project has no screens |
 | E2105 | Several screens and no `start` |
 | E2106 | `start` names an unknown screen |
+| E2107 | `icon` is not an image path string, or `icon-background` is not a colour |
 | E2110 | A layout used somewhere other than a screen's root |
 | E2111 | A screen used as an element |
 | E2112 | Unknown element (suggests primitives, or components and layouts) |
@@ -129,6 +131,8 @@ fail. `W` is a warning.
 | E3001 | An SVG icon uses a feature the VectorDrawable converter doesn't support (transform, gradient, text, mask, unknown color...) |
 | E3002 | The Android project cannot be written to disk |
 | E3003 | `era export android`: the output folder is not empty. `--force` replaces it, but only when it holds an earlier ERA export (a `.era-export` marker); other folders are never deleted |
+| E3004 | `era build android --release`: no `[android.signing]` in `era.toml`, the keystore file is missing, or `ERA_KEYSTORE_PASSWORD` is not set. The help shows the `keytool` command |
+| E3005 | The app icon image cannot be read or is smaller than 48x48 pixels |
 
 ## Stores and interactions (M6)
 

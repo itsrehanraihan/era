@@ -8,7 +8,7 @@ pub mod names;
 pub mod scaffold;
 
 pub use discover::{FileKind, Project, ProjectFile, find_root, load_project};
-pub use manifest::{Manifest, parse_manifest};
+pub use manifest::{Manifest, Signing, parse_manifest};
 
 /// File name of the project manifest.
 pub const MANIFEST_FILE: &str = "era.toml";

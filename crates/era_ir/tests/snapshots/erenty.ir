@@ -1,4 +1,5 @@
 app "E-Renty" id=dev.era.erenty version=0.1.0 start=Splash
+icon "Images/app_icon.png" background=primary(#00E6B5)
 skin Renty
   colors accent=#00D9A4 background=#F7FAF7 bar=#E3E9E3 border=#EEF2EE brand=#01EDB9 danger=#D93036 disabled=#E3E9E3 focus=#5BE39C hero=#0C473E hero_alt=#545454 info=#0B71D7 info_soft=#E6EEF4 ink=#000000 mint=#DCFBF1 mint_soft=#EBFEFA muted=#667370 on_dark=#FFFFFF on_dark_muted=#D8E6E2 on_primary=#143132 placeholder=#C1CAC8 primary=#00E6B5 secondary=#005B45 success=#2E9E5B surface=#FFFFFF text=#143132 warning=#F5A623 warning_text=#A15C00
   spacing lg=20 md=12 sm=8 xl=32 xs=4
