@@ -156,6 +156,7 @@ must contain one `slot`.
 | colours (every colour property) | tokens, `#hex`, named CSS colours, `rgb()`, `rgba()`, `hsl()`, `hsla()`, `var(--token)` |
 | `background` | a colour, `linear-gradient()`, `radial-gradient()`, or comma-separated layers |
 | `box-shadow` | `x y [blur] [spread] [colour] [inset]`, several separated by commas, `none` |
+| typography (`text`, `button`, `input`) | `font-size`, `font-weight`, `font-style`, `font-family`, `line-height`, `letter-spacing`, `text-decoration`, `text-transform`, `text-shadow`, `white-space`, `text-overflow` |
 | `filter` | `blur()`, `brightness()`, `contrast()`, `grayscale()`, `saturate()`, `sepia()`, `invert()`, `opacity()`, `hue-rotate()` |
 | `position` | `static`, `relative`, `absolute`, `fixed` |
 | `top`, `right`, `bottom`, `left`, `inset` (1–4) | lengths (may be negative) |

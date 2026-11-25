@@ -10,7 +10,9 @@ pub fn generate(package: &str) -> String {
 }
 
 const BODY: &str = r#"
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
@@ -97,6 +99,17 @@ fun eraCornerGradient(right: Boolean, bottom: Boolean, colors: List<Color>, stop
     EraLinear(null, right, bottom, colors, stops)
 
 fun eraRadialGradient(colors: List<Color>, stops: List<Float>): Brush = EraRadial(colors, stops)
+
+/** CSS `text-shadow` (one shadow): offsets and blur in dp. */
+@Composable
+fun eraTextShadow(x: Dp, y: Dp, blur: Dp, color: Color): androidx.compose.ui.graphics.Shadow {
+    val d = LocalDensity.current
+    return with(d) { androidx.compose.ui.graphics.Shadow(color, Offset(x.toPx(), y.toPx()), blur.toPx()) }
+}
+
+/** CSS `text-transform: capitalize`: the first letter of every word. */
+fun eraCapitalize(s: String): String =
+    s.split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
 
 /** One CSS `box-shadow` layer. */
 data class EraShadow(val x: Dp, val y: Dp, val blur: Dp, val spread: Dp, val color: Color)

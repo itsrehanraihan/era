@@ -453,7 +453,11 @@ Status values: **Accepted** (from the brief, or approved by the owner),
 - **D-092 (owner) A Framer-style visual app builder, in ERA Studio on
   the Mac.** A canvas with every screen, layers and properties panels,
   direct manipulation (drag, resize, inline text), an insert panel and
-  publishing, all kept in sync with the `.era` source both ways. It
+  publishing, all kept in sync with the `.era` source both ways. The
+  owner (2026-11-25): "similar to Framer, same kind of features, sidebar,
+  properties, but when exported it should deliver Swift / Kotlin". So
+  export stays native code: Kotlin/Compose (done, M9) and SwiftUI (the
+  D-082 backend, needs Xcode on the owner's Mac to verify). It
   extends the M7 exception to the "no IDE" rule. Order (owner): first
   close the language gaps (data items in components, P5 text styling,
   P4c effects), then the builder in steps: live Rust canvas, inspect and
@@ -465,6 +469,17 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   `Session.verified`), which works where a condition is read
   (`visible: hot`). A `number` prop cannot take a field yet; pass it to a
   text prop (`price: "${d.price}"`).
+
+- **D-094 CSS typography (M8 phase 5).** `text`, `button` and `input`
+  take `font-size`, `font-weight` (numbers or `normal`/`bold`/…),
+  `font-style`, `font-family` (generic families), `line-height` (a
+  plain number is a multiple of the font size, as in CSS; lengths are
+  `sp`), `letter-spacing` (`px` or `em`), `text-decoration`,
+  `text-transform` (applied at run time, so state text works too),
+  `text-shadow` (the first shadow), `white-space` (`nowrap`/`pre` = one
+  line) and `text-overflow: ellipsis`. These override the skin text
+  style. Not yet: `span` rich text (Q-08) and font names other than the
+  skin font.
 
 ## Open questions
 

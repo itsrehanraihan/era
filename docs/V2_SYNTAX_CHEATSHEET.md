@@ -157,10 +157,11 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Colour ✅ | `color` | `color: muted` | |
 | Alignment ✅ | `text-align` (`align`) | `text-align: center` | |
 | Line limit ✅ | `line-clamp` (`max-lines`) | `line-clamp: 2` | |
-| Font size, weight, family 🧩 | `font-size`, `font-weight`, `font-family` | `font-size: 18px` | |
-| Italic, decoration, transform 🧩 | `font-style`, `text-decoration`, `text-transform` | | |
-| Line height, letter spacing 🧩 | `line-height`, `letter-spacing` | | |
-| Text shadow, nowrap, ellipsis 🧩 | `text-shadow`, `white-space`, `text-overflow` | | |
+| Font size, weight, family ✅ | `font-size`, `font-weight` (100–900, `bold`), `font-family` (`serif`, `sans-serif`, `monospace`, `cursive`, `system-ui`) | `font-size: 18px; font-weight: 600` | |
+| Italic, decoration, transform ✅ | `font-style`, `text-decoration`, `text-transform` | `text-transform: uppercase` | |
+| Line height, letter spacing ✅ | `line-height` (number = multiple, or a length), `letter-spacing` (`px` or `em`) | `line-height: 1.6; letter-spacing: -0.02em` | |
+| Text shadow, nowrap, ellipsis ✅ | `text-shadow` (one), `white-space: nowrap`, `text-overflow: ellipsis` | `text-shadow: 0 2px 8px rgba(0,0,0,.3)` | |
+| Mixed styles in one sentence 🧩 | `span` inside `text` | `text { span "Hi "; span "Rehan" { color: primary } }` | |
 
 ## 9. Images and icons
 

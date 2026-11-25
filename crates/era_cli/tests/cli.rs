@@ -101,14 +101,14 @@ fn check_showcase_example() {
     assert!(out.status.success(), "{}", stderr(&out));
     assert!(
         stdout(&out).starts_with(
-            "Checked `showcase` (dev.era.showcase): 8 UI file(s), 3 skin file(s), 2 asset(s), 0 warning(s)"
+            "Checked `showcase` (dev.era.showcase): 9 UI file(s), 3 skin file(s), 2 asset(s), 0 warning(s)"
         ),
         "{}",
         stdout(&out)
     );
     assert!(
         stdout(&out)
-            .contains("Declarations: 1 app, 4 screens, 1 layout, 2 components, 1 skin, 1 store")
+            .contains("Declarations: 1 app, 5 screens, 1 layout, 2 components, 1 skin, 1 store")
     );
 }
 

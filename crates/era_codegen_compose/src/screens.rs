@@ -42,6 +42,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -192,6 +198,16 @@ fn corner_size(key: &str, v: &Value) -> Option<String> {
     match v {
         Value::Size(Size::Percent(p)) => Some(format!("CornerSize({})", p.round() as i64)),
         _ => dim_expr(key, v).map(|d| format!("CornerSize({d})")),
+    }
+}
+
+/// CSS `text-transform`, applied to the Kotlin string expression.
+fn transform_text(e: &Element, text: String) -> String {
+    match keyword(e, "text_transform") {
+        Some("uppercase") => format!("{text}.uppercase()"),
+        Some("lowercase") => format!("{text}.lowercase()"),
+        Some("capitalize") => format!("eraCapitalize({text})"),
+        _ => text,
     }
 }
 
@@ -995,18 +1011,29 @@ impl Emitter {
                 };
                 let m = Self::modifier(e, ctx, None, None);
                 let mut args = vec![
-                    text,
+                    transform_text(e, text),
                     format!("modifier = {m}"),
                     format!("style = {}", Self::text_style(e, "color")),
                 ];
+                let no_wrap = matches!(keyword(e, "white_space"), Some("nowrap" | "pre"));
+                if no_wrap {
+                    args.push("softWrap = false".into());
+                }
+                let ellipsis = keyword(e, "text_overflow") == Some("ellipsis");
                 if let Some(Value::Number(n)) = e.props.get("max_lines") {
                     args.push(format!("maxLines = {}", num(*n)));
                     args.push("overflow = TextOverflow.Ellipsis".into());
+                } else if no_wrap {
+                    args.push("maxLines = 1".into());
+                    if ellipsis {
+                        args.push("overflow = TextOverflow.Ellipsis".into());
+                    }
                 }
                 self.line(&format!("BasicText({})", args.join(", ")));
             }
             ElementKind::Button => {
-                let label = content_text(&e.content).unwrap_or_else(|| string(""));
+                let label =
+                    transform_text(e, content_text(&e.content).unwrap_or_else(|| string("")));
                 let m = Self::modifier(e, ctx, None, None);
                 let style = Self::text_style(e, "text_color");
                 self.block(
@@ -1169,6 +1196,53 @@ impl Emitter {
                 _ => "Start",
             };
             copy.push(format!("textAlign = TextAlign.{a}"));
+        }
+        // M8 P5: CSS typography (D-094).
+        if let Some(Value::Number(n)) = e.props.get("font_size") {
+            copy.push(format!("fontSize = {}.sp", num(*n)));
+        }
+        if let Some(Value::Number(n)) = e.props.get("font_weight") {
+            copy.push(format!("fontWeight = FontWeight({})", *n as i64));
+        }
+        if matches!(keyword(e, "font_style"), Some("italic" | "oblique")) {
+            copy.push("fontStyle = FontStyle.Italic".into());
+        }
+        if let Some(f) = keyword(e, "font_family") {
+            let fam = match f {
+                "serif" => "Serif",
+                "monospace" => "Monospace",
+                "cursive" => "Cursive",
+                "sans-serif" => "SansSerif",
+                _ => "Default",
+            };
+            copy.push(format!("fontFamily = FontFamily.{fam}"));
+        }
+        match e.props.get("line_height") {
+            Some(Value::Number(m)) => copy.push(format!("lineHeight = {}.em", num(*m))),
+            Some(Value::Size(Size::Dp(x))) => copy.push(format!("lineHeight = {}.sp", num(*x))),
+            _ => {}
+        }
+        match e.props.get("letter_spacing") {
+            Some(Value::Number(m)) => copy.push(format!("letterSpacing = {}.em", num(*m))),
+            Some(Value::Size(Size::Dp(x))) => copy.push(format!("letterSpacing = {}.sp", num(*x))),
+            _ => {}
+        }
+        match keyword(e, "text_decoration") {
+            Some("underline") => copy.push("textDecoration = TextDecoration.Underline".into()),
+            Some("line-through") => copy.push("textDecoration = TextDecoration.LineThrough".into()),
+            Some("none") => copy.push("textDecoration = TextDecoration.None".into()),
+            _ => {}
+        }
+        if let Some(Value::Shadows(list)) = e.props.get("text_shadow")
+            && let Some(s) = list.first()
+        {
+            copy.push(format!(
+                "shadow = eraTextShadow({}, {}, {}, {})",
+                dp(s.x),
+                dp(s.y),
+                dp(s.blur),
+                color_expr(&Value::Color(s.color.clone())).unwrap()
+            ));
         }
         if copy.is_empty() {
             base

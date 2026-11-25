@@ -139,6 +139,19 @@ screen Menu title="Menu" background=background(#FFFFFF)
             text "{p.name}" {color=text(#171717) style=heading} @Menu/0/1/0/1/0
             text "Popular" {color=primary(#FF6B35) style=body visible=p.popular} @Menu/0/1/0/1/1
           text "${p.price}" {color=secondary(#2B2D42) style=body} @Menu/0/1/0/2
+screen Type title="CSS type" background=background(#FFFFFF)
+  column {gap=14 height=fill padding_bottom=24 padding_end=16 padding_start=16 padding_top=24 width=100%} @Type
+    text "Typography" {color=text(#171717) font_size=34 font_weight=800 letter_spacing=-0.02 style=body} @Type/0
+    text "A serif headline, in italic" {color=text(#171717) font_family=serif font_size=24 font_style=italic style=body} @Type/1
+    text "uppercase label" {color=muted(#737373) font_size=12 font_weight=600 letter_spacing=2 style=body text_transform=uppercase} @Type/2
+    text "capitalize every word" {color=text(#171717) font_weight=700 style=body text_transform=capitalize} @Type/3
+    text "Underlined link" {color=primary(#FF6B35) style=body text_decoration=underline} @Type/4
+    text "Was $49, now $29" {color=muted(#737373) style=body text_decoration=line-through} @Type/5
+    text "Monospace code()" {background=surface(#F7F7F7) color=text(#171717) font_family=monospace padding_bottom=4 padding_end=8 padding_start=8 padding_top=4 radius=6 style=body} @Type/6
+    text "Glowing shadow" {color=#FFFFFF font_size=28 font_weight=900 style=body text_shadow=0 2 8 0 #FF6B35E6} @Type/7
+    text "A long sentence that will not wrap onto the next line, so it ends with an ellipsis" {color=text(#171717) style=body text_overflow=ellipsis white_space=nowrap} @Type/8
+    text "Loose line height makes paragraphs easier to read, like line-height: 1.8 on the web." {color=text(#171717) font_size=15 line_height=1.8 style=body} @Type/9
+    button "Bold button" {background=primary(#FF6B35) font_weight=700 letter_spacing=0.5 padding_x=md(16) padding_y=sm(8) radius=md(14) style=body text_color=on_primary(#FFFFFF) text_transform=uppercase} @Type/10
 stores
   store Counter
     persist state count: number = 0

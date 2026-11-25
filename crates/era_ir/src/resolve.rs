@@ -1351,6 +1351,72 @@ impl<'a> Resolver<'a> {
             );
             Some(None)
         };
+        // M8 P5: typography values whose CSS meaning differs from ERA's.
+        match (prop, &v.kind) {
+            ("font_weight", ValueKind::Ident(w)) => {
+                let n = match w.as_str() {
+                    "thin" | "hairline" => 100.0,
+                    "extra-light" | "extralight" => 200.0,
+                    "light" | "lighter" => 300.0,
+                    "normal" | "regular" => 400.0,
+                    "medium" => 500.0,
+                    "semibold" | "semi-bold" => 600.0,
+                    "bold" | "bolder" => 700.0,
+                    "extra-bold" | "extrabold" => 800.0,
+                    "black" | "heavy" => 900.0,
+                    _ => {
+                        self.err(
+                            ctx.path,
+                            "E2133",
+                            format!("`font-weight` cannot be `{w}`"),
+                            v.span,
+                            Some("use 100-900, `normal` or `bold`".into()),
+                        );
+                        return Some(None);
+                    }
+                };
+                return Some(Some(Value::Number(n)));
+            }
+            ("font_weight", ValueKind::Number(n)) if !(1.0..=1000.0).contains(n) => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    "`font-weight` is a number from 1 to 1000".into(),
+                    v.span,
+                    None,
+                );
+                return Some(None);
+            }
+            // A plain number is a multiple of the font size, like CSS.
+            ("line_height", ValueKind::Ident(w)) if w == "normal" => {
+                return Some(Some(Value::Number(1.2)));
+            }
+            ("line_height", ValueKind::Dimension(n, u)) => {
+                return Some(match (u.as_str(), css_length(*n, u)) {
+                    ("%", _) => Some(Value::Number(n / 100.0)),
+                    ("em", _) => Some(Value::Number(*n)),
+                    (_, Some(dp)) if dp >= 0.0 => Some(Value::Size(Size::Dp(dp))),
+                    _ => {
+                        self.err(
+                            ctx.path,
+                            "E2134",
+                            format!("`line-height` does not take `{u}` values"),
+                            v.span,
+                            None,
+                        );
+                        None
+                    }
+                });
+            }
+            // `em` letter spacing stays relative to the font size.
+            ("letter_spacing", ValueKind::Dimension(n, u)) if u == "em" => {
+                return Some(Some(Value::Number(*n)));
+            }
+            ("letter_spacing", ValueKind::Ident(w)) if w == "normal" => {
+                return Some(Some(Value::Size(Size::Dp(0.0))));
+            }
+            _ => {}
+        }
         match (vt, &v.kind) {
             (ValueType::Shadow, _) => Some(self.box_shadow(v, prop, ctx)),
             (ValueType::Filter, _) => Some(self.filters(v, prop, ctx)),

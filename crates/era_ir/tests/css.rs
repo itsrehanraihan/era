@@ -366,3 +366,35 @@ fn filters() {
         "E2133"
     );
 }
+
+// ----- M8 phase 5: typography ------------------------------------------------
+
+#[test]
+fn typography() {
+    let b = screen(
+        "column { text \"a\" { font-size: 1.5rem; font-weight: bold; font-style: italic; line-height: 1.6; letter-spacing: -0.02em; text-transform: uppercase; text-decoration: underline; white-space: nowrap; text-overflow: ellipsis; font-family: serif; text-shadow: 0 1px 2px #000000 } }",
+    );
+    let p = &b.app().screens[0].root.children[0].props;
+    assert_eq!(p["font_size"], Value::Number(24.0));
+    assert_eq!(p["font_weight"], Value::Number(700.0));
+    assert_eq!(p["font_style"], Value::Keyword("italic"));
+    assert_eq!(p["line_height"], Value::Number(1.6));
+    assert_eq!(p["letter_spacing"], Value::Number(-0.02));
+    assert_eq!(p["text_transform"], Value::Keyword("uppercase"));
+    assert!(matches!(&p["text_shadow"], Value::Shadows(s) if s.len() == 1));
+    let b = screen("column { text \"a\" { line-height: 24px; letter-spacing: 1px } }");
+    let p = &b.app().screens[0].root.children[0].props;
+    assert_eq!(p["line_height"], Value::Size(Size::Dp(24.0)));
+    assert_eq!(p["letter_spacing"], Value::Size(Size::Dp(1.0)));
+    assert_eq!(
+        screen("column { text \"a\" { font-weight: chunky } }")
+            .only("E2133")
+            .code,
+        "E2133"
+    );
+    // Typography is for text, buttons and inputs only.
+    assert_eq!(
+        screen("column { font-size: 12px }").only("E2120").code,
+        "E2120"
+    );
+}

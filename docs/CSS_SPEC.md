@@ -395,12 +395,21 @@ autocomplete for CSS names, and the Skin panel.
   Android 12+. `drop-shadow()`, `mix-blend-mode`, `clip-path`, conic
   gradients and `url()` images are still to come (P4c).
 
+**Phase 5 (done, 2026-11-25):** typography (D-094)
+
+- `font-size`, `font-weight`, `font-style`, `font-family` (generic),
+  `line-height`, `letter-spacing`, `text-decoration`, `text-transform`,
+  `text-shadow`, `white-space`, `text-overflow` on text, buttons and inputs
+- **Verified** by tests, the showcase `Type` screen
+  (`docs/images/css-type.png`) and Android builds.
+- **Not yet:** `span` rich text, named web fonts, `word-spacing`.
+
 **Next phases:**
 
 | Phase | Covers |
 |---|---|
 | P4c | `clip-path`, `mix-blend-mode`, `drop-shadow()`, conic gradients, `url()` images |
-| P5 | Typography properties and `span` |
+| P5b | `span` rich text, named fonts |
 | P6 | CSS grid templates, `calc()`, transforms, percentage offsets |
 | P7 | HTML element aliases and form controls |
 | P8 | `hover`/`active`/`focus`/`disabled` and `media` rules |

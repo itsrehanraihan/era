@@ -83,6 +83,7 @@ fn files_and_package() {
             "dev/era/showcase/ui/screens/LayoutScreen.kt",
             "dev/era/showcase/ui/screens/LookScreen.kt",
             "dev/era/showcase/ui/screens/MenuScreen.kt",
+            "dev/era/showcase/ui/screens/TypeScreen.kt",
         ]
     );
 }
@@ -633,4 +634,24 @@ fn for_loops_and_data_lists() {
     assert!(menu.contains("for (p in EraData.Products) {"), "{menu}");
     assert!(menu.contains("painter = eraImage(p.photo)"), "{menu}");
     assert!(menu.contains("if (p.popular) {"), "{menu}");
+}
+
+#[test]
+fn css_typography() {
+    let k = screen_code(
+        "column { text \"Hi\" { font-size: 20px; font-weight: 600; font-style: italic; line-height: 1.5; letter-spacing: 1px; text-decoration: line-through; text-transform: uppercase; white-space: nowrap; text-overflow: ellipsis; text-shadow: 0 2px 4px #000000 } }",
+    );
+    for want in [
+        "\"Hi\".uppercase()",
+        "fontSize = 20.sp",
+        "fontWeight = FontWeight(600)",
+        "fontStyle = FontStyle.Italic",
+        "lineHeight = 1.5.em",
+        "letterSpacing = 1.sp",
+        "textDecoration = TextDecoration.LineThrough",
+        "shadow = eraTextShadow(0.dp, 2.dp, 4.dp, Color(0xFF000000))",
+        "softWrap = false, maxLines = 1, overflow = TextOverflow.Ellipsis",
+    ] {
+        assert!(k.contains(want), "missing {want}: {k}");
+    }
 }

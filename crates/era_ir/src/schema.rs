@@ -425,11 +425,67 @@ pub fn primitive(name: &str) -> Option<&'static Primitive> {
     PRIMITIVES.iter().find(|p| p.name == name)
 }
 
+/// CSS typography on `text`, `button` and `input` (M8 phase 5, D-094).
+pub const TYPOGRAPHY: &[(&str, ValueType)] = &[
+    (
+        "font_size",
+        ValueType::Number {
+            min: 1.0,
+            integer: false,
+        },
+    ),
+    (
+        "font_weight",
+        ValueType::Number {
+            min: 1.0,
+            integer: true,
+        },
+    ),
+    (
+        "font_style",
+        ValueType::Keyword(&["normal", "italic", "oblique"]),
+    ),
+    (
+        "font_family",
+        ValueType::Keyword(&["serif", "sans-serif", "monospace", "cursive", "system-ui"]),
+    ),
+    (
+        "line_height",
+        ValueType::Number {
+            min: 0.0,
+            integer: false,
+        },
+    ),
+    ("letter_spacing", ValueType::Offset),
+    (
+        "text_decoration",
+        ValueType::Keyword(&["none", "underline", "line-through"]),
+    ),
+    (
+        "text_transform",
+        ValueType::Keyword(&["none", "uppercase", "lowercase", "capitalize"]),
+    ),
+    ("text_shadow", ValueType::Shadow),
+    (
+        "white_space",
+        ValueType::Keyword(&["normal", "nowrap", "pre", "pre-wrap", "pre-line"]),
+    ),
+    ("text_overflow", ValueType::Keyword(&["clip", "ellipsis"])),
+];
+
 impl Primitive {
+    fn typography(&self) -> &'static [(&'static str, ValueType)] {
+        match self.kind {
+            ElementKind::Text | ElementKind::Button | ElementKind::Input => TYPOGRAPHY,
+            _ => &[],
+        }
+    }
+
     pub fn property(&self, name: &str) -> Option<ValueType> {
         let key = self.key(name)?;
         self.props
             .iter()
+            .chain(self.typography())
             .chain(COMMON)
             .find(|(n, _)| *n == key)
             .map(|(_, t)| *t)
@@ -442,6 +498,7 @@ impl Primitive {
         let find = |target: &str| {
             self.props
                 .iter()
+                .chain(self.typography())
                 .chain(COMMON)
                 .find(|(k, _)| normalize(k) == target)
                 .map(|(k, _)| *k)
@@ -469,7 +526,11 @@ impl Primitive {
     }
 
     pub fn property_names(&self) -> impl Iterator<Item = &'static str> + '_ {
-        self.props.iter().chain(COMMON).map(|(n, _)| *n)
+        self.props
+            .iter()
+            .chain(self.typography())
+            .chain(COMMON)
+            .map(|(n, _)| *n)
     }
 }
 
