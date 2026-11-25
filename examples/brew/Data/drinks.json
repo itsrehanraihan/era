@@ -1,0 +1,5 @@
+[
+  { "name": "Caramel latte", "price": 4.5,  "photo": "Images/drink.png", "hot": true },
+  { "name": "Matcha tea",    "price": 3.75, "photo": "Images/drink.png",   "hot": true },
+  { "name": "Cold brew",     "price": 3.9,  "photo": "Images/drink.png" }
+]

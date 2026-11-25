@@ -26,6 +26,9 @@ Examples:
   Home, Menu, Verify code) built from real mockups.
 - `examples/showcase/`: a compact tour of the design system, also used
   as a test fixture.
+- `examples/brew/`: a small coffee-shop app showing everything together:
+  a skin, a JSON data list shown with a component, saved cart state and
+  two screens.
 
 ERA's MVP follows **HTML/CSS**: `padding: 8px 16px`, `margin: 0 auto`, `width: 50%`, `position: absolute`, `justify-content: space-between`, in any spelling (`font-size`, `fontSize`, `font_size`). See `docs/CSS_SPEC.md`, and `docs/V2_SYNTAX_CHEATSHEET.md` for the v2 plan.
 

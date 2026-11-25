@@ -186,6 +186,7 @@ Legend: ✅ works today · 🧩 planned in the CSS phases (docs/CSS_SPEC.md)
 | Mock data list ✅ | `Data/products.json` (array of flat objects) becomes `Products` | `[{"name": "Tea", "price": 3}]` | |
 | Repeat for each item ✅ | `for … in` | `for p in Products { text "{p.name}" }` | |
 | Item fields ✅ | `p.field` in text, `image`/`icon`, `visible` | `image p.photo`, `visible: p.popular` | |
+| Item fields into components ✅ | text, image/icon and bool props | `DrinkCard { name: "{d.name}", photo: d.photo, hot: d.hot }` | |
 | State ✅ | `state name: type = value` | `state count: number = 0` | |
 | Action ✅ | `action name { … }` | `action reset { set count = 0 }` | |
 | Steps ✅ | `set`, `toggle`, `add` | `add count 1` | |

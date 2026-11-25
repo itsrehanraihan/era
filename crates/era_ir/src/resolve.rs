@@ -48,6 +48,10 @@ enum Bound {
     Template(Vec<TextPart>),
     /// What an `action` prop does (M6).
     Effects(Vec<Effect>),
+    /// An `image`/`icon` prop given a data item field, `photo: d.photo` (D-093).
+    ItemAsset(Content),
+    /// A `bool` prop given live state, `hot: d.hot` or `on: Session.verified` (D-093).
+    State(StateRef),
     /// Optional prop with no value and no default.
     Absent,
     /// Validation mode: a value of the declared type, not known yet.
@@ -926,6 +930,7 @@ impl<'a> Resolver<'a> {
                     };
                     match self.prop_ref(n, &[want], a.span, prop_type_name(want), ctx) {
                         Some(Bound::Asset(r)) => Ok(Some(Content::Asset(r))),
+                        Some(Bound::ItemAsset(c)) => Ok(Some(c)),
                         Some(Bound::Placeholder) => Ok(None),
                         _ => Err(()),
                     }
@@ -1316,7 +1321,12 @@ impl<'a> Resolver<'a> {
                 })),
                 _ => Some(Value::Number(*x)),
             },
-            Bound::Asset(_) => None,
+            Bound::Asset(_) | Bound::ItemAsset(_) => None,
+            // Live bool state works where a condition is read (`visible`).
+            Bound::State(r) => match vt {
+                ValueType::Condition => Some(Value::State(r.clone())),
+                _ => None,
+            },
         }
     }
 
@@ -2585,8 +2595,19 @@ impl<'a> Resolver<'a> {
             (PropType::Action, _) => self.effects(v, caller).map(Bound::Effects),
             (PropType::Text, _) => want(self, "text in quotes"),
             (PropType::Number, ValueKind::Number(x)) => Some(Bound::Number(*x)),
+            (PropType::Number, ValueKind::Path(_)) => want(
+                self,
+                "a number; to show a data field, pass it to a text prop like `\"{d.price}\"`",
+            ),
             (PropType::Number, _) => want(self, "a number"),
             (PropType::Bool, ValueKind::Bool(b)) => Some(Bound::Bool(*b)),
+            (PropType::Bool, ValueKind::Path(parts)) => {
+                let r = self.state_path(parts, caller)?;
+                if r.ty != StateType::Bool {
+                    return want(self, "`true`, `false` or bool state");
+                }
+                Some(Bound::State(r))
+            }
             (PropType::Bool, _) => want(self, "`true` or `false`"),
             (PropType::Color, _) => self
                 .value(ValueType::Color, v, "color", caller)
@@ -2598,6 +2619,15 @@ impl<'a> Resolver<'a> {
                     AssetKind::Image
                 };
                 self.asset(s, kind, v.span, caller.path).map(Bound::Asset)
+            }
+            (PropType::Image | PropType::Icon, ValueKind::Path(parts)) => {
+                let kind = if ty == PropType::Icon {
+                    AssetKind::Icon
+                } else {
+                    AssetKind::Image
+                };
+                self.item_asset(parts, kind, v.span, caller)
+                    .map(Bound::ItemAsset)
             }
             (PropType::Image | PropType::Icon, ValueKind::None) => Some(Bound::Absent),
             (PropType::Image | PropType::Icon, _) => want(self, "an asset path in quotes"),

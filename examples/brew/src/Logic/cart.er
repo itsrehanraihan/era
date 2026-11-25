@@ -1,0 +1,7 @@
+store Cart {
+    persist state count: number = 0
+    state note: text = ""
+
+    action add   { add count 1 }
+    action clear { set count = 0 }
+}

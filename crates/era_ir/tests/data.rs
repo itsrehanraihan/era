@@ -103,3 +103,39 @@ fn missing_item_images_are_reported() {
     ]);
     assert!(!b.codes().is_empty(), "missing image should be an error");
 }
+
+#[test]
+fn data_items_can_be_passed_into_components() {
+    let b = build(&[
+        ("src/app.era", "app \"T\" { start: Home }"),
+        ("Data/products.json", PRODUCTS),
+        ("Assets/Images/a.png", "png"),
+        (
+            "src/Card.era",
+            "component Card {\n prop name: text\n prop photo: image\n prop hot: bool = false\n row {\n image photo\n text name\n text \"Hot\" { visible: hot }\n }\n}",
+        ),
+        (
+            "src/Home.era",
+            "screen Home { column { for p in Products { Card { name: \"{p.name}\", photo: p.photo, hot: p.hot } } } }",
+        ),
+    ]);
+    let row = &b.app().screens[0].root.children[0].children[0];
+    assert!(
+        matches!(&row.children[0].content, Some(Content::ItemAsset { field, .. }) if field.store == "p")
+    );
+    assert!(matches!(&row.children[2].props["visible"], Value::State(r) if r.field == "hot"));
+    let bad = build(&[
+        ("src/app.era", "app \"T\" { start: Home }"),
+        ("Data/products.json", PRODUCTS),
+        ("Assets/Images/a.png", "png"),
+        (
+            "src/Card.era",
+            "component Card {\n prop on: bool = false\n row { text \"x\" { visible: on } }\n}",
+        ),
+        (
+            "src/Home.era",
+            "screen Home { column { for p in Products { Card { on: p.name } } } }",
+        ),
+    ]);
+    assert_eq!(bad.only("E2133").code, "E2133");
+}

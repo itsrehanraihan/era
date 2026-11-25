@@ -109,6 +109,9 @@ Rules:
   (D-037).
 - A component may not use itself, directly or through other components.
 - Every component is checked even if no screen uses it.
+- Inside `for`, data item fields can be passed in: `text` props take
+  `"{d.name}"`, `image`/`icon` props take `d.photo`, and `bool` props take
+  `d.hot` or bool state, read by `visible:` (D-093).
 
 ## 4. Layouts and screens
 

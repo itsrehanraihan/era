@@ -1,0 +1,6 @@
+app "Brew" {
+    skin: Cafe
+    start: Home
+    icon: "Images/app_icon.png"
+    icon-background: primary
+}

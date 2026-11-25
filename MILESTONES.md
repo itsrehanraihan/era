@@ -344,6 +344,17 @@ Known limits:
   Gradle smoke tests and a showcase APK build.
 - Not yet: real network APIs, forms, sorting/filtering lists.
 
+## M10 plan: ERA Studio visual builder (D-092, owner order)
+
+1. Language gaps first: data items in components (done, D-093), P5 text
+   styling, P4c effects (`clip-path`, blend modes, background images).
+2. Studio canvas: a fast Rust renderer of the UI IR with CSS-style layout,
+   every screen side by side, select on canvas = select in code.
+3. Layers and properties panels that rewrite `.era` source precisely.
+4. Direct manipulation: drag, reorder, resize, inline text, insert, undo.
+5. Design-system tools: components/variants, skin tokens, device frames,
+   screen links.
+
 ## Next smallest task
 
 1. M8 phase 3–4: borders, corners, colour functions, gradients,

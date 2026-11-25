@@ -448,6 +448,24 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   APIs, forms) need network access and a separate owner decision. Also:
   a rounded `image` is now clipped to its corners, like a CSS `img`.
 
+## Accepted 2026-11-25: ERA Studio becomes a visual builder (owner)
+
+- **D-092 (owner) A Framer-style visual app builder, in ERA Studio on
+  the Mac.** A canvas with every screen, layers and properties panels,
+  direct manipulation (drag, resize, inline text), an insert panel and
+  publishing, all kept in sync with the `.era` source both ways. It
+  extends the M7 exception to the "no IDE" rule. Order (owner): first
+  close the language gaps (data items in components, P5 text styling,
+  P4c effects), then the builder in steps: live Rust canvas, inspect and
+  edit panels, direct manipulation, design-system tools. ERA's own look,
+  not a copy of Framer's interface.
+- **D-093 Data items in components.** A component's `image`/`icon` prop
+  takes a data item field (`photo: d.photo`, checked like `image
+  d.photo`), and a `bool` prop takes live bool state (`hot: d.hot` or
+  `Session.verified`), which works where a condition is read
+  (`visible: hot`). A `number` prop cannot take a field yet; pass it to a
+  text prop (`price: "${d.price}"`).
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is

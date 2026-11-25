@@ -1,0 +1,25 @@
+skin Cafe {
+    colors {
+        background: #FAF7F2
+        surface:    #FFFFFF
+        text:       #2B1D14
+        muted:      #8A7A6E
+        border:     #EADFD3
+        primary:    #6F4E37
+        on_primary: #FFFFFF
+        accent:     #E9A23B
+        secondary:  #3E2A1E
+        success:    #2E9E5B
+        warning:    #E9A23B
+        danger:     #D64545
+    }
+    spacing   { xs: 4, sm: 8, md: 16, lg: 24 }
+    radius    { md: 16, pill: 999 }
+    typography {
+        font: "system"
+        display { size: 34, weight: bold,     line_height: 40 }
+        title   { size: 18, weight: semibold, line_height: 24 }
+        body    { size: 16, weight: regular,  line_height: 22 }
+        caption { size: 13, weight: medium,   line_height: 18 }
+    }
+}
