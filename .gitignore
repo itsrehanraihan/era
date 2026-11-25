@@ -5,3 +5,5 @@
 .idea/
 *.iml
 local.properties
+/E-Renty-debug.apk
+**/export/

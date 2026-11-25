@@ -2,8 +2,10 @@ component SettingsRow {
     prop glyph: icon
     prop heading: text
     prop detail: text
+    prop tap: action?
 
     row {
+        on_press: tap
         width: fill
         align: center
         gap: md

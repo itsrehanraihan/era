@@ -12,6 +12,7 @@ fail. `W` is a warning.
 | E0104 | Invalid version (`MAJOR.MINOR.PATCH`) |
 | E0105 | Unsupported language edition |
 | E0106 | `android.min_sdk` is out of range (21–36) |
+| E0107 | `[android.signing]` has an empty `keystore` or `alias` |
 | E0110 | `era new`: invalid project name |
 | E0111 | `era new`: the target folder exists and is not empty |
 | E0112 | `era new`: a file system error |
@@ -21,7 +22,7 @@ fail. `W` is a warning.
 | W0202 | A `.ers` skin file outside `Skins/` (ignored) |
 | W0203 | A `.era` UI file inside `Skins/` (ignored) |
 | W0204 | An unexpected file in `src/` or `Skins/` (ignored) |
-| W0205 | Files in `src/Logic/` are not processed yet (M6) |
+| W0205 | *(removed in M6: `.er` logic files are now processed)* |
 | W0206 | A folder has the wrong letter case (e.g. `skins` instead of `Skins`) |
 | W0301 | An asset has the wrong file type for its category folder |
 | W0302 | An asset sits directly in `Assets/`, not in a category folder |
@@ -35,8 +36,8 @@ fail. `W` is a warning.
 | E1002 | Unknown string escape or invalid `\u{...}` |
 | E1003 | Invalid color (must be `#RGB`, `#RRGGBB` or `#RRGGBBAA`) |
 | E1004 | Unexpected character (including non-ASCII outside strings) |
-| E1005 | Malformed number (`1.`, `.5`) |
-| E1006 | Unit after a number (`16px`). ERA numbers have no units |
+| E1005 | Malformed number (`1.`) |
+| E1006 | Unknown unit after a number (`16qq`). Units: px dp pt rem em vw vh vmin vmax fr deg rad turn s ms |
 
 ## Syntax (M2): grammar
 
@@ -44,7 +45,7 @@ fail. `W` is a warning.
 |---|---|
 | E1101 | Expected X, found Y (general syntax error) |
 | E1102 | Unclosed `{` (points at the opening brace) |
-| E1103 | Two items on one line without a `,` |
+| E1103 | Two items on one line without a `;` (or `,`) |
 | E1104 | A `screen`/`layout`/`component`/`skin`/`app` declared inside another block |
 | E1105 | A block `{` used as a property value |
 | E1106 | Unknown prop type (allowed: text, number, bool, color, image, icon) |
@@ -97,6 +98,7 @@ fail. `W` is a warning.
 | E2104 | The project has no screens |
 | E2105 | Several screens and no `start` |
 | E2106 | `start` names an unknown screen |
+| E2107 | `icon` is not an image path string, or `icon-background` is not a colour |
 | E2110 | A layout used somewhere other than a screen's root |
 | E2111 | A screen used as an element |
 | E2112 | Unknown element (suggests primitives, or components and layouts) |
@@ -128,3 +130,36 @@ fail. `W` is a warning.
 |---|---|
 | E3001 | An SVG icon uses a feature the VectorDrawable converter doesn't support (transform, gradient, text, mask, unknown color...) |
 | E3002 | The Android project cannot be written to disk |
+| E3003 | `era export android`: the output folder is not empty. `--force` replaces it, but only when it holds an earlier ERA export (a `.era-export` marker); other folders are never deleted |
+| E3004 | `era build android --release`: no `[android.signing]` in `era.toml`, the keystore file is missing, or `ERA_KEYSTORE_PASSWORD` is not set. The help shows the `keytool` command |
+| E3005 | The app icon image cannot be read or is smaller than 48x48 pixels |
+
+## Stores and interactions (M6)
+
+| Code | Meaning |
+|---|---|
+| E1109 | Something other than `state`, `persist state` or `action` inside a `store`, or `persist` not followed by `state` |
+| E1110 | Unknown action step (use `set`, `toggle`, `add`) |
+| E1111 | `for p in List` is not followed by a `{ ... }` block |
+| E2160 | Bad `{...}` interpolation in text (unclosed, or not `Store.field`) |
+| E2161 | Unknown store (with a suggestion) |
+| E2162 | Unknown state, or an action used where state is needed |
+| E2163 | Unknown action, or state used where an action is needed |
+| E2164 | A value that is not an action in `on_press` |
+| E2165 | `go` names an unknown screen |
+| E2166 | State of the wrong type (`visible` needs bool, `bind` needs text) |
+| E2170 | Unknown state type (`text`, `number`, `bool`) |
+| E2171 | Initial value doesn't match the state type |
+| E2172 | An action step names unknown state |
+| E2173 | An action step has the wrong type (`toggle` non-bool, `add` non-number, `set` mismatch) |
+| E2180 | A `Data/*.json` file is not valid: not JSON, not an array of objects, a nested value, a bad field name, or a field with different types in different items |
+| E2181 | A `for` loop problem: unknown data list, an item name that is not lowercase or clashes with a store, something other than elements inside `for`, or a data list named like a store |
+| E2182 | An unknown field of a data item (`p.nme`), or a field of the wrong type (an image path that is not text) |
+
+## CSS values (M8)
+
+| Code | Meaning |
+|---|---|
+| E2134 | A unit that the property doesn't take (`width: 45deg`, `gap: 2fr`) |
+| E2135 | A CSS feature that is planned or not supported (e.g. `double` borders, elliptical `border-radius: a / b`, `conic-gradient()`, `url()`) |
+| E2136 | An invalid CSS colour or gradient: wrong `rgb()`/`hsl()` channels, a bad `var()`, an unknown colour function, a gradient on a property other than `background`, or fewer than two gradient colours |

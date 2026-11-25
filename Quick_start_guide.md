@@ -13,8 +13,11 @@ ten minutes.
 >
 > - **building an Android APK** with `era build android`
 >
-> **Not yet:** taps, state and navigation (M6). The app opens on its start
-> screen.
+> - **taps, app state and navigation** (stores, `on_press`, `go`/`back`)
+>
+> - **ERA Studio**, the desktop editor (`era-studio`, see step 2b)
+>
+> **Not yet:** saving state across app restarts.
 
 ---
 
@@ -74,6 +77,21 @@ You should see `era 0.0.1`.
 
 > To use ERA without installing it, run `cargo build --release` and call
 > `./target/release/era` instead of `era`.
+
+### 2b. (Optional) Install ERA Studio, the desktop editor
+
+```bash
+cargo install --path crates/era_studio
+```
+
+```bash
+era-studio
+```
+
+Studio has a project tree, an ERA editor with colouring, problems shown
+as you type (click one to jump to it), a live preview, and Render /
+Build APK buttons. Everything in this guide works the same in Studio.
+See `docs/STUDIO.md`.
 
 ## 3. Create your first project
 
@@ -248,7 +266,93 @@ Put a file at `Assets/Images/hero.png` and use its path relative to
 `era check` confirms the file exists and has a supported type: png, jpg
 or webp for `image`, and svg for `icon`.
 
-## 9. See what ERA understood
+## 9. Make it interactive
+
+Logic lives in its own files, separate from the UI. Create
+`src/Logic/counter.er`:
+
+```era
+store Counter {
+    state count: number = 0
+    state name: text
+
+    action increment {
+        add count 1
+    }
+
+    action reset {
+        set count = 0
+    }
+}
+```
+
+Use it from the screen. Give `AppButton` a `tap` prop first:
+
+```era
+component AppButton {
+    prop label: text
+    prop tap: action?
+    variant tone: solid | outline = solid
+
+    button label {
+        on_press: tap
+        radius: pill
+        // ...
+    }
+}
+```
+
+Then, in the screen:
+
+```era
+        text "Tapped {Counter.count} times"
+        AppButton { label: "+1", tap: Counter.increment }
+        AppButton { label: "Reset", tone: outline, tap: Counter.reset }
+        input { placeholder: "Your name", bind: Counter.name }
+        text "Hello, {Counter.name}"
+```
+
+- `{Store.field}` inside text shows live state. Write `{{` for a literal
+  brace.
+- `on_press` takes `Store.action`, `go Screen`, `back`, or several joined
+  with `then`, for example `Session.verify then go Home`.
+- `visible: Store.flag` shows an element only while a bool state is true.
+- `bind` connects an `input` to text state.
+
+### Keep values after the app closes
+
+Add `persist` in front of `state`, and the value is saved on the phone:
+
+```era
+store Cart {
+    persist state count: number = 0
+}
+```
+
+### Show a list from JSON
+
+Put a JSON file in `Data/`. Each file becomes a list named after it:
+
+```json
+[
+  { "name": "Mango smoothie", "price": 4.5, "photo": "Images/mango.png" },
+  { "name": "Green tea", "price": 2.75, "photo": "Images/tea.png" }
+]
+```
+
+`Data/products.json` is the list `Products`. Repeat a card for each item:
+
+```era
+for p in Products {
+    card {
+        image p.photo
+        text "{p.name}"
+        text "${p.price}"
+    }
+}
+```
+
+## 10. See what ERA understood
 
 ```bash
 era check --ir
@@ -266,7 +370,7 @@ screen Home title="Home" background=background(#FFFFFF)
 The preview and the Android build (M5) are both generated from this
 same tree.
 
-## 10. Preview your screens
+## 11. Preview your screens
 
 Open a desktop window that shows every screen, with a dark-mode toggle
 when your skin defines `colors dark`:
@@ -297,7 +401,7 @@ Preview images are in …/my_app/build/preview/png
 - Run `era preview` again after every change to see the update. There is
   no hot reload yet.
 
-## 11. Build the Android app
+## 12. Build the Android app
 
 You need the **Android SDK** (platform 35 and build-tools). The easiest
 way to get it is to install Android Studio. Point ERA at the SDK:
@@ -313,17 +417,18 @@ era build android
 ```
 
 ```text
-Built …/my_app/build/android/build/outputs/apk/debug/era-android-debug.apk (…)
+Built …/my_app/build/android/app/build/outputs/apk/debug/app-debug.apk (…)
 ```
 
 Install it on a phone with USB debugging enabled, or on an emulator:
 
 ```bash
-adb install -r build/android/build/outputs/apk/debug/era-android-debug.apk
+adb install -r build/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The app opens on your `start` screen. To check another screen before
-navigation exists, open it by name:
+The app opens on your `start` screen, and taps, `go` and `back` work.
+The phone's back gesture goes back. To jump straight to a screen while
+testing, open it by name:
 
 ```bash
 adb shell am start -n dev.era.my_app/dev.era.my_app.ui.MainActivity --es era.screen Home
@@ -334,7 +439,74 @@ minutes. SVG icons are converted to Android vector drawables. If an icon
 uses something unsupported, such as a transform or a gradient, ERA
 explains what to change.
 
-## 12. Explore the E-Renty demo
+### Hand the code to your team: `era export android`
+
+When you want a normal Android Studio project your team owns, export it:
+
+```bash
+era export android
+```
+
+```text
+Exported Android Studio project to …/my_app/export/android (… files)
+```
+
+The folder has the Gradle wrapper, a `README.md`, and plain Kotlin and
+Jetpack Compose code with no ERA tooling needed. Build it with
+`./gradlew assembleDebug` inside the folder, or open it in Android
+Studio. Use `--out <dir>` for another folder. To export again, add
+`--force`. ERA only replaces folders it exported itself, and
+re-exporting overwrites hand edits, so commit the export to its own
+repository.
+
+### Give the app an icon
+
+Add a square image (512x512 or larger) and point `app` at it:
+
+```era
+app "My App" {
+    skin: Studio
+    start: Home
+    icon: "Images/app_icon.png"
+    icon-background: #FFFFFF
+}
+```
+
+ERA makes the launcher icons for every screen density, including the
+round and squircle shapes of modern Android launchers. Keep the
+important part of the image in the middle.
+
+### Build for Google Play: `--release`
+
+Create a signing key once. Keep the file and its password safe: Google
+Play needs the same key for every update, so don't commit it to git.
+
+```bash
+mkdir -p keys
+```
+
+```bash
+keytool -genkeypair -v -keystore keys/upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Tell ERA where it is, in `era.toml`:
+
+```toml
+[android.signing]
+keystore = "keys/upload.jks"
+alias = "upload"
+```
+
+Then build with the password in an environment variable (never in a file):
+
+```bash
+ERA_KEYSTORE_PASSWORD='your password' era build android --release
+```
+
+You get a small, optimised, signed `app-release.apk` and an
+`app-release.aab`, the file you upload to Google Play.
+
+## 13. Explore the E-Renty demo
 
 The repository includes a full four-screen demo built from real
 mockups: Splash, Home, Menu and Verify code.
@@ -351,7 +523,7 @@ era preview ../era/examples/erenty --png
 to see layouts, slots, variants, badges, a bar chart and a bottom
 navigation bar written in ERA.
 
-## 13. When something is wrong
+## 14. When something is wrong
 
 Errors point at the exact spot and usually suggest a fix:
 
@@ -378,7 +550,7 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | `Android SDK not found` | Install the SDK and set `ANDROID_HOME` |
 | `E3001 cannot convert icon` | Simplify the SVG: flatten transforms, outline text, no gradients |
 
-## 14. Syntax cheat sheet
+## 15. Syntax cheat sheet
 
 | Want | Write |
 |---|---|
@@ -395,9 +567,13 @@ Every code is explained in `docs/DIAGNOSTICS.md`.
 | Spacing | `padding`, `padding_x`, `padding_y`, `padding_top`, `gap` |
 | Alignment | `align: center`, `distribute: between` |
 | No color / no shadow | `background: none`, `elevation: none` |
+| Tap | `on_press: go Home`, `on_press: back`, `on_press: Store.action then go Home` |
+| Show state in text | `text "Count: {Counter.count}"` |
+| Show/hide | `visible: Session.verified` |
+| Text field bound to state | `input { bind: Session.name }` |
 | Comment | `// like this` |
 
-## 15. Learn more
+## 16. Learn more
 
 | Document | What's inside |
 |---|---|

@@ -1,8 +1,10 @@
 // Square floating button: back, menu and notification buttons.
 component IconTile {
     prop glyph: icon
+    prop tap: action?
 
     stack {
+        on_press: tap
         width: 44
         height: 44
         radius: md

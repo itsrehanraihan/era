@@ -11,8 +11,10 @@ all pass.
 | M2 | Lexer, parser and AST with spans; parser tests | **Done** |
 | M3 | Skin tokens, semantic checks, UI IR, asset validation | **Done** |
 | M4 | Preview from the UI IR | **Done** |
-| M5 | Kotlin/Compose codegen, Android host project, debug APK | **APK builds; on-device check pending (owner device)** |
-| M6 | Button events, minimal state, navigation | Not started |
+| M5 | Kotlin/Compose codegen, Android host project, debug APK | **Done** (owner verified on a phone, 2026-11-21) |
+| M6 | Button events, minimal state, navigation | **Done** (owner verified on a phone, 2026-11-21) |
+| M7 | ERA Studio editor (Rust/egui): code editor + live preview, macOS (scope change D-065) | **Built and tested on Linux; Mac test pending** |
+| M8 | CSS-familiar styling (D-071/D-080, `docs/CSS_SPEC.md`), phases | **Phase 1 done** (names, units, sizing, margin, positioning). Next: P3 borders, P4 paint |
 
 ## M0 deliverables
 
@@ -193,7 +195,7 @@ on-device appearance has not been seen (Q-06). This needs the owner's
 device:
 
 ```bash
-adb install -r examples/erenty/build/android/build/outputs/apk/debug/era-android-debug.apk
+adb install -r examples/erenty/build/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ```bash
@@ -201,16 +203,169 @@ adb shell am start -n dev.era.erenty/dev.era.erenty.ui.MainActivity --es era.scr
 ```
 
 Known limitations:
-- No launcher icon (Q-12). Debug builds only (D-055).
+- No launcher icon (Q-12, resolved in M9). Debug builds only (D-055, release builds added in M9).
 - Only the start screen is shown until navigation (M6). Use `era.screen`
   to open the others (D-054).
 - The Android SDK was installed by hand in the dev container
   (`/opt/android-sdk`). A fresh container needs it installed again.
 
+## M6 deliverables
+
+- Language: `store` blocks in `.er` logic files, with typed `state` and
+  `action`s (`set`/`toggle`/`add`). In the UI: `on_press`, `visible` and
+  `bind`; `go Screen`, `back` and `Store.action` chained with `then`;
+  `{Store.field}` text interpolation; and the `action` prop type.
+- Syntax, structure, IR and diagnostics (E1109–E1110, E2160–E2173), all
+  with "did you mean" suggestions.
+- Codegen: `EraStores.kt` (Compose state objects), `EraNav`, `EraApp`,
+  `clickable`, conditional rendering, bound inputs, string templates.
+- Hosts: the desktop window navigates for real. Android uses `EraApp`
+  plus `BackHandler`. There is a desktop scripted-tap test hook (D-064).
+- Demos:
+  - **E-Renty** is a working flow: Splash → Home → Menu → Verify code →
+    Verify, after which the verification prompts disappear, and Sign out
+    resets the session.
+  - **Showcase** gained a counter, a bound name input and a toggle.
+- Tests: parser, structure, IR state/action tests, codegen tests, and 4
+  real-Gradle smoke tests. These include a **headless tap-through of
+  E-Renty in generated Compose code** (Splash → Home → Menu → VerifyCode
+  → Menu) and a full E-Renty APK build.
+
+Known limitations:
+- No expressions in UI files (no `not`, no comparisons). Use a second bool
+  state (E-Renty uses `needs_verification`).
+- Variants cannot follow state yet (for example `tone: disabled` while a
+  code is empty).
+- State is not saved across app restarts (D-062).
+- The on-device check of the APK is still pending (Q-06).
+
+## M7 deliverables (ERA Studio, see docs/STUDIO.md)
+
+- The `era_studio` crate and the `era-studio` binary (egui 0.37):
+  - project tree
+  - tabbed editor with ERA syntax colouring (colour swatches, error
+    underline) and line numbers, with no wrapping
+  - live Problems as you type, with click-to-jump
+  - Output log
+  - preview pane (real Compose renders, follows the edited screen,
+    dark toggle) and Skin panel
+  - Save (Cmd+S), Render (Cmd+R), Build APK, render on save
+  - welcome screen with a native folder picker and New project
+- `era_ir::pipeline` is now shared by the CLI and Studio (D-067).
+- Tests:
+  - workspace tests (live analysis of unsaved text, char-accurate jump
+    targets, save, tree)
+  - syntax colouring tests
+  - 4 headless UI tests driving the real window, which enforce
+    accessibility names and catch missing glyphs
+  - a wgpu screenshot test (`docs/images/era-studio.png`)
+
+Known limitations: no find/replace, autocomplete or undo history beyond
+the editor's own, no hot reload, and no `.app` bundle yet. **Not yet run
+on the owner's Mac.**
+
+## M8 progress (CSS-familiar styling, D-080: the MVP follows HTML/CSS)
+
+**Phase 1 (done):**
+- every spelling of property names, plus CSS aliases
+- CSS units (`px`, `%`, `fr`, `vw`/`vh`, `rem`/`em`, `pt`) and CSS keyword
+  spellings
+- every sizing mode
+- `margin` (including `auto`), and the `padding`/`border`/`inset`
+  shorthands
+- `position` relative/absolute/fixed with offsets, `z-index`
+- `opacity`, `visibility`, `display: none`, `overflow`, `aspect-ratio`
+- `flex`, `align-self`, `flex-direction`, `flex-wrap`
+- `;` separators
+
+**Phase 3 (done, D-087):** `border-style` (dashed, dotted), per-side
+borders, `border-width/-color/-style` with 1–4 values, per-corner and `%`
+radius, `outline` with `outline-offset`. Verified by tests and the
+showcase `Look` screen in the Compose preview. Limit: per-side borders
+draw square corners.
+
+**Phase 4a (done, D-088):** named colours, `rgb()`/`hsl()`, `var()`,
+linear and radial gradients, background layers. Verified by tests, the
+`Look` screen and an APK build.
+
+**Phase 4b (done, D-089):** real `box-shadow` (layered, coloured, inset)
+and `filter` (blur and colour filters), with no Compose version change.
+Verified by tests, the `Look` screen and all 6 Gradle smoke tests.
+
+![CSS look](docs/images/css-look.png)
+
+**Verification:** the showcase gained a `Layout` screen. E-Renty's + button
+is now raised with `position: relative` (fixes Q-09).
+
+**Cheatsheet:** `docs/V2_SYNTAX_CHEATSHEET.md` is the owner's v2 input
+sheet.
+
+**Known limits:**
+- percentage offsets (`top: 10%`) aren't supported yet
+- in a row, `stretch` doesn't equalise heights
+- `fixed` elements inside a `visible:` condition ignore the condition
+
+## M9 deliverables (production Android: `era export android`, D-082–D-084)
+
+- `platforms/android/` now has the standard Android Studio layout: an
+  `app/` module, a version catalog and the Gradle 8.14.3 wrapper.
+  `era build android` uses the same layout.
+- `era export android [path] [--out dir] [--force]` writes a standalone
+  project (default `export/android`): wrapper, `.gitignore`, a
+  `README.md` with build steps, `local.properties` when the SDK is found,
+  and Kotlin with export headers and no internal IR ids.
+- Overwrite safety: a non-empty folder is refused (E3003). `--force`
+  replaces only a folder with an earlier export's `.era-export` marker.
+- `era export ios` explains that SwiftUI output is planned (D-082).
+- **Verified (export):** the exported E-Renty project builds a debug APK with its
+  own `./gradlew assembleDebug` (smoke test
+  `exported_project_builds_with_its_own_gradle_wrapper`). All 5 Gradle
+  smoke tests and 227 workspace tests pass.
+
+**Release builds and app icon (D-085, D-086):**
+- `era build android --release`: a signed, R8-optimised APK and an App
+  Bundle for Google Play. E-Renty: 1.7 MB release APK (debug: 8.2 MB).
+- `app { icon: "Images/app_icon.png"; icon-background: primary }`:
+  launcher icons for every density, plus an adaptive icon.
+- Verified by `release_build_smoke_test`: `apksigner` shows the release
+  certificate, and `aapt2` shows the icon and a non-debuggable app.
+
+Known limits:
+- An export is a snapshot. Re-exporting replaces hand edits.
+
+## Data, steps 1–2 (owner-approved, D-090, D-091)
+
+- `persist state` keeps store values on the device (SharedPreferences);
+  the showcase counter survives restarts.
+- `Data/*.json` mock data lists and `for p in Products { ... }`, with
+  `p.field` in text, images, icons and `visible`. The showcase `Menu`
+  screen lists `Data/products.json`.
+- Verified by parser, IR and codegen tests, the preview render, all 6
+  Gradle smoke tests and a showcase APK build.
+- Not yet: real network APIs, forms, sorting/filtering lists.
+
+## M10 plan: ERA Studio visual builder (D-092, owner order)
+
+1. Language gaps first: data items in components (done, D-093), P5 text
+   styling (done, D-094; `span` rich text still open), P4c effects
+   (`clip-path`, blend modes, background images).
+2. Canvas (done, first version, D-095): **Era Builder** (`era-builder`),
+   a separate app. `era_canvas` lays out every screen with Taffy; click to
+   select, scroll/pinch to pan and zoom, device sizes.
+3. Layers and properties panels that rewrite `.era` source precisely
+   (done, first version): CSS fields, colour pickers, every property in
+   the code, component props, labels.
+4. Direct manipulation: drag from the Insert palette, drag to move on the
+   canvas and in layers, delete, undo/redo, add screens (done). Still to
+   do: resize handles, inline text editing, moves across files.
+5. Design-system tools: components/variants, skin tokens, device frames,
+   screen links.
+6. Export delivers native code (owner): Kotlin/Compose (done) and SwiftUI
+   (D-082; verified on the owner's Mac with Xcode).
+
 ## Next smallest task
 
-1. Owner: install the E-Renty APK on a device and compare it with the
-   preview. Report any differences.
-2. M6: basic button events, minimal state, and navigation between
-   screens, while keeping logic separate from UI declarations. Start with
-   a design proposal for the syntax (needs owner approval).
+1. M8 phase 3–4: borders, corners, colour functions, gradients,
+   `box-shadow`, filters (owner: "build everything the HTML/CSS way").
+2. Then, by owner priority: a `.app` bundle with an icon, find/replace,
+   and autocomplete for properties and tokens (the IR already knows them).

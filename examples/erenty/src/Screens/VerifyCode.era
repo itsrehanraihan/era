@@ -47,7 +47,7 @@ screen VerifyCode {
             text "Resend in 0:42" { style: body_strong, color: secondary }
         }
 
-        AppButton { label: "Verify", tone: disabled }
+        AppButton { label: "Verify", tone: disabled, tap: Session.verify then back }
         text "Change email" { style: body_strong, color: secondary, align: center, width: fill }
     }
 }

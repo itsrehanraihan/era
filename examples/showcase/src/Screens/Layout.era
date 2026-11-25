@@ -1,0 +1,92 @@
+// CSS-style layout (M8): names, units, shorthands and positioning written the
+// web way. Every spelling works: font-size / fontSize / font_size.
+screen Layout {
+    title: "CSS layout"
+
+    scroll {
+        column {
+            width: 100%
+            padding: 24px 16px
+            gap: 16px
+
+            text "CSS layout" { style: display }
+
+            // Percent and fr widths in a row
+            row {
+                gap: 8px
+                stack { width: 25%; height: 48px; border-radius: 8px; background: primary }
+                stack { width: 1fr; height: 48px; borderRadius: 8px; background: secondary }
+                stack { width: 2fr; height: 48px; border_radius: 8px; background: success }
+            }
+
+            // margin: 0 auto centres a fixed-width box
+            column {
+                width: 200px
+                margin: 0 auto
+                padding: 12px
+                border: 1px solid border
+                border-radius: 12px
+                text "margin: 0 auto" { text-align: center; width: 100% }
+            }
+
+            // position: absolute badge on a card
+            card {
+                position: relative
+                padding: 20px
+                text "Card with a badge"
+                stack {
+                    position: absolute
+                    top: -8px
+                    right: -8px
+                    z-index: 2
+                    width: 28px; height: 28px
+                    border-radius: 999px
+                    background: danger
+                    align: center
+                    text "3" { color: on_primary; style: caption }
+                }
+            }
+
+            // Wrapping chips
+            row {
+                flex-wrap: wrap
+                gap: 8px
+                text "Kotlin" { padding: 6px 12px; border: 1px solid border; border-radius: 999px }
+                text "Compose" { padding: 6px 12px; border: 1px solid border; border-radius: 999px }
+                text "Rust" { padding: 6px 12px; border: 1px solid border; border-radius: 999px }
+                text "Design tokens" { padding: 6px 12px; border: 1px solid border; border-radius: 999px }
+                text "Native UI" { padding: 6px 12px; border: 1px solid border; border-radius: 999px }
+                text "No WebView" { padding: 6px 12px; border: 1px solid border; border-radius: 999px }
+            }
+
+            // aspect-ratio, opacity, viewport units, reversed row
+            row {
+                gap: 12px
+                align-items: center
+                image "Images/hero.png" { width: 30vw; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; clip: true }
+                image "Images/hero.png" { width: 64px; aspect-ratio: 1; opacity: 0.5; border-radius: 999px; clip: true }
+            }
+            row {
+                flex-direction: row-reverse
+                justify-content: space-between
+                text "first in source"
+                text "last in source"
+            }
+            spacer { size: 72px }
+
+            // position: fixed floats above the scrolling content
+            stack {
+                position: fixed
+                right: 20px
+                bottom: 24px
+                width: 56px; height: 56px
+                border-radius: 999px
+                background: primary
+                elevation: md
+                align: center
+                text "+" { color: on_primary; style: heading }
+            }
+        }
+    }
+
+}

@@ -1,4 +1,6 @@
 app "E-Renty" {
     skin: Renty
     start: Splash
+    icon: "Images/app_icon.png"
+    icon-background: primary
 }

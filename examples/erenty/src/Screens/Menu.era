@@ -9,6 +9,7 @@ screen Menu {
             elevation: none
             radius: xl
             padding: lg
+            on_press: go VerifyCode
 
             row {
                 width: fill
@@ -29,6 +30,7 @@ screen Menu {
                     text "Rehan Raihan" { style: title }
                     text "rehan@company.com" { color: muted }
                     row {
+                        visible: Session.needs_verification
                         align: center
                         gap: sm
                         stack { width: 8, height: 8, radius: pill, background: warning }
@@ -93,7 +95,7 @@ screen Menu {
             align: center
             gap: md
             padding_y: lg
-            text "Sign out" { style: title, color: danger }
+            text "Sign out" { style: title, color: danger, on_press: Session.sign_out then go Splash }
             text "E-Renty · version 1.0" { style: caption, color: muted }
         }
     }

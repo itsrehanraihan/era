@@ -1,0 +1,22 @@
+// CSS typography (M8 phase 5): every property written the web way.
+screen Type {
+    title: "CSS type"
+
+    column {
+        width: 100%
+        padding: 24px 16px
+        gap: 14px
+
+        text "Typography" { font-size: 34px; font-weight: 800; letter-spacing: -0.02em }
+        text "A serif headline, in italic" { font-family: serif; font-style: italic; font-size: 24px }
+        text "uppercase label" { text-transform: uppercase; letter-spacing: 2px; font-size: 12px; font-weight: 600; color: muted }
+        text "capitalize every word" { text-transform: capitalize; font-weight: bold }
+        text "Underlined link" { text-decoration: underline; color: primary }
+        text "Was $49, now $29" { text-decoration: line-through; color: muted }
+        text "Monospace code()" { font-family: monospace; background: surface; padding: 4px 8px; border-radius: 6px }
+        text "Glowing shadow" { font-size: 28px; font-weight: 900; color: white; text-shadow: 0 2px 8px rgba(255, 107, 53, .9) }
+        text "A long sentence that will not wrap onto the next line, so it ends with an ellipsis" { white-space: nowrap; text-overflow: ellipsis }
+        text "Loose line height makes paragraphs easier to read, like line-height: 1.8 on the web." { line-height: 1.8; font-size: 15px }
+        button "Bold button" { font-weight: 700; letter-spacing: .5px; text-transform: uppercase }
+    }
+}

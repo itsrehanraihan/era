@@ -126,6 +126,7 @@ fn misplaced_and_unexpected_files_warn() {
     write(r, "Assets/Icons/star.png", b"x");
     write(r, "Assets/Videos/a.mp4", b"x");
     write(r, "src/Logic/app_state.er", b"");
+    write(r, "src/Logic/notes.md", b""); // not a logic file
 
     let (project, diags) = load_project(r);
     let mut got = codes(&diags);
@@ -133,7 +134,7 @@ fn misplaced_and_unexpected_files_warn() {
     assert_eq!(
         got,
         [
-            "W0202", "W0203", "W0204", "W0205", "W0301", "W0302", "W0303"
+            "W0202", "W0203", "W0204", "W0204", "W0301", "W0302", "W0303"
         ]
     );
     assert!(diags.iter().all(|d| !d.is_error()));

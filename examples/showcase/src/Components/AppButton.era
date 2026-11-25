@@ -1,9 +1,11 @@
 component AppButton {
     prop label: text
+    prop tap: action?
     variant size: small | medium | large = medium
     variant tone: solid | outline | ghost = solid
 
     button label {
+        on_press: tap
         background: primary
         text_color: on_primary
         radius: pill

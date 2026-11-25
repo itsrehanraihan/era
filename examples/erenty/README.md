@@ -26,6 +26,13 @@ Build the Android app (needs the Android SDK):
 era build android examples/erenty
 ```
 
+Export it as a standalone Android Studio project (written to
+`examples/erenty/export/android/`, which is git-ignored):
+
+```bash
+era export android examples/erenty
+```
+
 The renders are written to `examples/erenty/build/preview/png/`. See
 `docs/images/erenty-preview.png` for the current result.
 
@@ -54,6 +61,20 @@ The renders are written to `examples/erenty/build/preview/png/`. See
   under the SIL Open Font License 1.1
   (`Assets/Files/Inter-OFL-LICENSE.txt`).
 
+## Interactions (M6)
+
+State lives in `src/Logic/session.er` (`store Session`). The flow:
+
+- Tap the splash to go to **Home**.
+- On Home, the grid button opens **Menu**, and the "Identity verification
+  required" card opens **Verify code**.
+- On Menu, the back button returns, and the profile card opens **Verify
+  code**.
+- On Verify code, **Verify** runs `Session.verify` and goes back. The
+  "Verify your identity" line on Menu and the identity card on Home
+  disappear (`visible: Session.needs_verification`).
+- **Sign out** runs `Session.sign_out` and goes to Splash.
+
 ## Known differences from the mockups
 
 These come from features ERA doesn't have yet (see `DECISIONS.md`):
@@ -65,7 +86,8 @@ These come from features ERA doesn't have yet (see `DECISIONS.md`):
 - The raised "+" button and the tooltip's pointer are approximated (Q-09).
 - The dashed chart grid lines are omitted (Q-10).
 - The status bar and home indicator belong to the OS (Q-11).
-- Screens don't navigate yet. Navigation and button actions arrive in M6.
-- The Android APK opens on Splash, the start screen. To see another
-  screen before navigation exists (M6), use
+- The code boxes on Verify code are a static picture of the design, not
+  a real code input.
+- The Android APK opens on Splash, the start screen. To jump straight
+  to a screen while testing, use
   `adb shell am start -n dev.era.erenty/dev.era.erenty.ui.MainActivity --es era.screen Home`.

@@ -1,0 +1,36 @@
+// Mock data (D-091): `Data/products.json` becomes the list `Products`.
+// `for p in Products` repeats the card for every item.
+screen Menu {
+    title: "Menu"
+
+    scroll {
+        column {
+            width: 100%
+            padding: 24px 16px
+            gap: 12px
+
+            text "Menu" { style: display }
+
+            for p in Products {
+                row {
+                    width: 100%
+                    gap: 12px
+                    padding: 12px
+                    align-items: center
+                    border-radius: 16px
+                    background: white
+                    box-shadow: 0 4px 14px rgba(0, 0, 0, .08)
+
+                    image p.photo { width: 56px; height: 56px; border-radius: 12px }
+                    column {
+                        flex: 1
+                        gap: 2px
+                        text "{p.name}" { style: heading }
+                        text "Popular" { color: primary; visible: p.popular }
+                    }
+                    text "${p.price}" { color: secondary }
+                }
+            }
+        }
+    }
+}

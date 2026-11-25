@@ -81,6 +81,7 @@ pub fn build_project(project: &Project) -> (Option<App>, Vec<Diagnostic>) {
         let kind = match f.kind {
             FileKind::Ui => SourceKind::Ui,
             FileKind::Skin => SourceKind::Skin,
+            FileKind::Logic => SourceKind::Logic,
             _ => continue,
         };
         let text = std::fs::read_to_string(&f.abs_path).unwrap();

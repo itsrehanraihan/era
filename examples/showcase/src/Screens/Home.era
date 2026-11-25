@@ -56,5 +56,20 @@ screen Home {
             AppButton { label: "Ghost",   tone: ghost }
         }
         AppButton { label: "Get started", size: large }
+
+        // Interactions (M6): state lives in src/Logic/counter.er
+        text "Interactions" { style: heading }
+        text "Tapped {Counter.count} times" { style: title }
+        row {
+            gap: sm
+            AppButton { label: "+1", tap: Counter.increment }
+            AppButton { label: "Reset", tone: outline, tap: Counter.reset }
+            AppButton { label: "Details", tone: ghost, tap: Counter.toggle_details }
+        }
+        input { placeholder: "Your name", bind: Counter.name, width: fill }
+        text "Hello, {Counter.name}! Braces need doubling: {{like this}}." {
+            visible: Counter.details
+            color: muted
+        }
     }
 }

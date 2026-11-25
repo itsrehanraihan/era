@@ -16,7 +16,6 @@ use crate::{ENTRY_FILE, MANIFEST_FILE};
 pub const SRC_DIR: &str = "src";
 pub const SKINS_DIR: &str = "Skins";
 pub const SRC_FOLDERS: &[&str] = &["Screens", "Components", "Layout", "Logic"];
-const LOGIC_DIR: &str = "Logic";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FileKind {
@@ -24,7 +23,7 @@ pub enum FileKind {
     Ui,
     /// `.ers` file under `Skins/`.
     Skin,
-    /// File under `src/Logic/` (not processed until M6).
+    /// `.er` logic file under `src/` (usually `src/Logic/`).
     Logic,
     /// File under `Assets/<category>/`.
     Asset { category: String },
@@ -99,18 +98,6 @@ pub fn load_project(root: &Path) -> (Option<Project>, Vec<Diagnostic>) {
     files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
 
     check_entry_point(root, &files, &mut diags);
-
-    let logic = files.iter().filter(|f| f.kind == FileKind::Logic).count();
-    if logic > 0 {
-        diags.push(
-            Diagnostic::warning(
-                "W0205",
-                format!("{logic} file(s) in src/{LOGIC_DIR}/ are not processed yet"),
-            )
-            .in_file(format!("{SRC_DIR}/{LOGIC_DIR}"))
-            .with_help("state and events are planned for milestone M6"),
-        );
-    }
 
     let project = manifest.map(|manifest| Project {
         root: root.to_path_buf(),
@@ -219,45 +206,27 @@ impl Walker<'_> {
     fn walk_src(&mut self, dir: &Path, top: bool) {
         for (name, path, is_dir) in entries(dir) {
             if is_dir {
-                if top {
-                    if name == LOGIC_DIR {
-                        self.walk_logic(&path);
-                        continue;
-                    }
-                    if let Some(exp) = SRC_FOLDERS
+                if top
+                    && let Some(exp) = SRC_FOLDERS
                         .iter()
                         .find(|f| **f != name && f.eq_ignore_ascii_case(&name))
-                    {
-                        self.case_warning(&path, &name, exp);
-                    }
+                {
+                    self.case_warning(&path, &name, exp);
                 }
                 self.walk_src(&path, false);
                 continue;
             }
             match extension(&name).as_deref() {
                 Some("era") => self.add_text_file(path, FileKind::Ui),
+                Some("er") => self.add_text_file(path, FileKind::Logic),
                 Some("ers") => {
                     let d = Diagnostic::warning("W0202", "skin file outside `Skins/` is ignored")
                         .in_file(self.rel(&path))
                         .with_help("move `.ers` files into the `Skins/` folder");
                     self.diags.push(d);
                 }
-                _ => self.unexpected_file(&path, "`src/` holds `.era` files"),
-            }
-        }
-    }
-
-    fn walk_logic(&mut self, dir: &Path) {
-        for (_, path, is_dir) in entries(dir) {
-            if is_dir {
-                self.walk_logic(&path);
-            } else {
-                let rel_path = self.rel(&path);
-                self.files.push(ProjectFile {
-                    rel_path,
-                    abs_path: path,
-                    kind: FileKind::Logic,
-                });
+                _ => self
+                    .unexpected_file(&path, "`src/` holds `.era` UI files and `.er` logic files"),
             }
         }
     }

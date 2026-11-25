@@ -24,6 +24,17 @@ pub struct Manifest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AndroidSettings {
     pub min_sdk: u32,
+    /// `[android.signing]`: the release keystore (D-086). Passwords are never
+    /// stored here; they come from environment variables.
+    pub signing: Option<Signing>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Signing {
+    /// Keystore path, relative to the project folder (or absolute).
+    pub keystore: String,
+    /// Key alias inside the keystore.
+    pub alias: String,
 }
 
 #[derive(Deserialize)]
@@ -52,6 +63,14 @@ struct RawEra {
 #[serde(deny_unknown_fields)]
 struct RawAndroid {
     min_sdk: Option<Spanned<i64>>,
+    signing: Option<RawSigning>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSigning {
+    keystore: Spanned<String>,
+    alias: Spanned<String>,
 }
 
 /// Parse and validate `era.toml`. `path` is only used for diagnostics.
@@ -111,7 +130,27 @@ pub fn parse_manifest(src: &str, path: &str) -> Result<Manifest, Vec<Diagnostic>
     }
 
     let mut min_sdk = DEFAULT_MIN_SDK;
-    if let Some(sdk) = raw.android.and_then(|a| a.min_sdk) {
+    let (raw_sdk, raw_signing) = match raw.android {
+        Some(a) => (a.min_sdk, a.signing),
+        None => (None, None),
+    };
+    let mut signing = None;
+    if let Some(sg) = raw_signing {
+        for (field, what) in [(&sg.keystore, "keystore"), (&sg.alias, "alias")] {
+            if field.get_ref().trim().is_empty() {
+                errors.push(
+                    Diagnostic::error("E0107", format!("android.signing.{what} is empty"))
+                        .at(path, field.span())
+                        .with_help("see docs/ERA_SPEC.md (release builds)"),
+                );
+            }
+        }
+        signing = Some(Signing {
+            keystore: sg.keystore.into_inner(),
+            alias: sg.alias.into_inner(),
+        });
+    }
+    if let Some(sdk) = raw_sdk {
         let value = *sdk.get_ref();
         match u32::try_from(value) {
             Ok(v) if MIN_SDK_RANGE.contains(&v) => min_sdk = v,
@@ -138,7 +177,7 @@ pub fn parse_manifest(src: &str, path: &str) -> Result<Manifest, Vec<Diagnostic>
         id: raw.project.id.into_inner(),
         version: raw.project.version.into_inner(),
         edition: raw.era.edition.into_inner(),
-        android: AndroidSettings { min_sdk },
+        android: AndroidSettings { min_sdk, signing },
     })
 }
 
@@ -177,6 +216,22 @@ edition = "2026"
             parse_manifest(&src, "era.toml").unwrap().android.min_sdk,
             26
         );
+    }
+
+    #[test]
+    fn reads_signing() {
+        let src = format!(
+            "{VALID}\n[android.signing]\nkeystore = \"keys/upload.jks\"\nalias = \"upload\"\n"
+        );
+        let s = parse_manifest(&src, "era.toml")
+            .unwrap()
+            .android
+            .signing
+            .unwrap();
+        assert_eq!(s.keystore, "keys/upload.jks");
+        assert_eq!(s.alias, "upload");
+        let bad = format!("{VALID}\n[android.signing]\nkeystore = \"\"\nalias = \"a\"\n");
+        assert_eq!(errs(&bad)[0].code, "E0107");
     }
 
     #[test]

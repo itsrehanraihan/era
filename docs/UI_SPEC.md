@@ -7,7 +7,7 @@ implemented in M3 (`crates/era_ir/src/schema.rs` and `resolve.rs`).
 
 | Keyword | Lives in | Purpose |
 |---|---|---|
-| `app "Display Name"` | `src/app.era` (exactly one) | Entry point: `skin`, `start` screen |
+| `app "Display Name"` | `src/app.era` (exactly one) | Entry point: `skin`, `start` screen, and the launcher `icon` with an optional `icon-background` (D-085) |
 | `screen Name` | `src/Screens/` (or `app.era`) | One full screen: `title` plus one root node |
 | `layout Name` | `src/Layout/` | Reusable screen frame with one `slot`; only usable as a screen's root |
 | `component Name` | `src/Components/` | Reusable piece with `prop`s, `variant`s and an optional `slot` |
@@ -109,6 +109,9 @@ Rules:
   (D-037).
 - A component may not use itself, directly or through other components.
 - Every component is checked even if no screen uses it.
+- Inside `for`, data item fields can be passed in: `text` props take
+  `"{d.name}"`, `image`/`icon` props take `d.photo`, and `bool` props take
+  `d.hot` or bool state, read by `visible:` (D-093).
 
 ## 4. Layouts and screens
 
@@ -136,6 +139,93 @@ screen Home {
 A layout is used with exactly the same syntax as a component. The
 difference is semantic: a layout may only be a screen's root node, and it
 must contain one `slot`.
+
+## 3b. CSS layout properties (M8 phase 1, every element)
+
+| Property | Values |
+|---|---|
+| `width`, `height` | `120px`, `50%`, `2fr`, `30vw`/`vh`, `fill`, `fit`/`auto`, `stretch`, `min-content`, `max-content` |
+| `margin` (1–4), `margin-top/right/bottom/left/x/y/inline/block` | lengths, spacing tokens, `auto` |
+| `padding` (1–4) | lengths, spacing tokens |
+| `border` | `1px solid colour`, `2px dashed colour`, `none` |
+| `border-style` (1–4) | `solid`, `dashed`, `dotted`, `none` |
+| `border-top/right/bottom/left` (+ `-width`, `-color`, `-style`) | per side, like `border` |
+| `border-width`, `border-color` (1–4) | per side, CSS order |
+| `border-radius` (1–4), `border-top-left-radius`, … | lengths, tokens, `%` |
+| `outline`, `outline-offset` | like `border`; drawn outside, takes no space |
+| colours (every colour property) | tokens, `#hex`, named CSS colours, `rgb()`, `rgba()`, `hsl()`, `hsla()`, `var(--token)` |
+| `background` | a colour, `linear-gradient()`, `radial-gradient()`, or comma-separated layers |
+| `box-shadow` | `x y [blur] [spread] [colour] [inset]`, several separated by commas, `none` |
+| typography (`text`, `button`, `input`) | `font-size`, `font-weight`, `font-style`, `font-family`, `line-height`, `letter-spacing`, `text-decoration`, `text-transform`, `text-shadow`, `white-space`, `text-overflow` |
+| `filter` | `blur()`, `brightness()`, `contrast()`, `grayscale()`, `saturate()`, `sepia()`, `invert()`, `opacity()`, `hue-rotate()` |
+| `position` | `static`, `relative`, `absolute`, `fixed` |
+| `top`, `right`, `bottom`, `left`, `inset` (1–4) | lengths (may be negative) |
+| `z-index` | integer |
+| `opacity` | 0–1 or `%` |
+| `visibility` | `visible`, `hidden` |
+| `display` | `flex`, `block`, `grid`, `none` |
+| `overflow` | `visible`, `hidden`, `clip`, `scroll`, `auto` |
+| `aspect-ratio` | `16 / 9`, `1.5` |
+| `flex`, `flex-grow` | number |
+| `align-self` | `auto`, `flex-start`, `center`, `flex-end`, `stretch` |
+| `flex-direction`, `flex-wrap` (row/column/card) | `row`, `column`, `-reverse`; `nowrap`, `wrap` |
+
+Every property can be written in any spelling (`justify-content`,
+`justifyContent`, `justify_content`). The full mapping is in
+`docs/CSS_SPEC.md`.
+
+## 4a. Interactions (M6)
+
+```era
+// src/Logic/session.er
+store Session {
+    state code: text
+    state verified: bool = false
+    action verify { set verified = true }
+}
+
+// src/Screens/Verify.era
+screen Verify {
+    column {
+        input { bind: Session.code, placeholder: "Code" }
+        text "You typed {Session.code}"
+        button "Verify" { on_press: Session.verify then go Home }
+        text "Verified!" { visible: Session.verified }
+        button "Back" { on_press: back }
+    }
+}
+```
+
+| Property | On | Value |
+|---|---|---|
+| `on_press` | every element | `go Screen`, `back`, `Store.action`, an `action` prop, or a chain joined with `then`. `none` does nothing |
+| `visible` | every element | `true`, `false`, bool state (`Session.verified`) or a bool prop. A hidden element takes no space |
+| `bind` | `input` | Text state that the field reads and writes |
+
+`persist state count: number = 0` keeps a value after the app closes,
+like the web's `localStorage` (D-090). On Android it is stored in the
+app's private SharedPreferences; the desktop preview keeps it in memory,
+so every preview starts fresh.
+
+**Data lists (D-091).** `Data/products.json` becomes the list
+`Products`; `for p in Products { ... }` repeats its elements for each
+item, in place, inside any container:
+
+```era
+for p in Products {
+    row {
+        image p.photo { width: 56px; height: 56px; border-radius: 12px }
+        text "{p.name}"
+        text "Popular" { visible: p.popular }
+    }
+}
+```
+
+The data is bundled into the app (`EraData.kt`); nothing is fetched.
+
+Component props may have the type `action`, for example
+`prop tap: action?` with `button label { on_press: tap }`. A text prop
+can receive interpolated text or state (`label: "Hi {Session.name}"`).
 
 ## 4b. Defaults (D-030)
 

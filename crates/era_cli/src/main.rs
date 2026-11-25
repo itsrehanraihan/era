@@ -2,6 +2,7 @@
 
 mod android;
 mod check;
+mod icon;
 mod preview;
 
 use std::path::{Path, PathBuf};
@@ -23,7 +24,13 @@ COMMANDS:
     preview [path]          Open a desktop preview window of every screen
     preview [path] --png [dir]
                             Render every screen to PNG (default dir: build/preview/png)
-    build android [path]    Build an Android debug APK (needs JDK 17+, Gradle 8.x, ANDROID_HOME)
+    build android [path] [--release]
+                            Build an Android debug APK, or with --release a signed,
+                            R8-optimised APK and App Bundle (needs JDK 17+,
+                            Gradle 8.x, ANDROID_HOME)
+    export android [path] [--out dir] [--force]
+                            Write a standalone Android Studio project you own
+                            (default dir: export/android)
     --version               Print version
     --help                  Print this help";
 
@@ -60,13 +67,26 @@ fn main() -> ExitCode {
             Ok((path, png)) => cmd_preview(path.as_deref(), png),
             Err(msg) => usage_error(&msg),
         },
-        ["build", "android"] => cmd_build_android(None),
-        ["build", "android", p] if !p.starts_with('-') => cmd_build_android(Some(Path::new(p))),
+        ["build", "android", rest @ ..] => match parse_build_args(rest) {
+            Ok((path, release)) => cmd_build_android(path.as_deref(), release),
+            Err(msg) => usage_error(&msg),
+        },
+        ["export", "android", rest @ ..] => match parse_export_args(rest) {
+            Ok((path, out, force)) => cmd_export_android(path.as_deref(), out.as_deref(), force),
+            Err(msg) => usage_error(&msg),
+        },
+        ["export", "ios", ..] => {
+            eprintln!(
+                "error: iOS export (SwiftUI) is planned after production Android (see DECISIONS D-082)"
+            );
+            ExitCode::from(EXIT_USAGE)
+        }
+        ["export", ..] => usage_error("usage: era export android [path] [--out dir] [--force]"),
         ["build", "ios", ..] => {
             eprintln!("error: iOS output is not part of the ERA MVP (see DECISIONS D-002)");
             ExitCode::from(EXIT_USAGE)
         }
-        ["build", ..] => usage_error("usage: era build android [path]"),
+        ["build", ..] => usage_error("usage: era build android [path] [--release]"),
         [other, ..] => usage_error(&format!("unknown command `{other}`")),
     }
 }
@@ -97,6 +117,62 @@ fn parse_preview_args(args: &[&str]) -> Result<(Option<PathBuf>, Option<Option<P
         i += 1;
     }
     Ok((path, png))
+}
+
+#[allow(clippy::type_complexity)]
+fn parse_build_args(args: &[&str]) -> Result<(Option<PathBuf>, bool), String> {
+    let usage = "usage: era build android [path] [--release]".to_string();
+    let (mut path, mut release) = (None, false);
+    for a in args {
+        match *a {
+            "--release" => release = true,
+            a if a.starts_with('-') => return Err(usage),
+            a if path.is_none() => path = Some(PathBuf::from(a)),
+            _ => return Err(usage),
+        }
+    }
+    Ok((path, release))
+}
+
+fn parse_export_args(args: &[&str]) -> Result<(Option<PathBuf>, Option<PathBuf>, bool), String> {
+    let usage = "usage: era export android [path] [--out dir] [--force]".to_string();
+    let (mut path, mut out, mut force) = (None, None, false);
+    let mut i = 0;
+    while i < args.len() {
+        match args[i] {
+            "--force" => force = true,
+            "--out" => {
+                out = Some(PathBuf::from(args.get(i + 1).ok_or(usage.clone())?));
+                i += 1;
+            }
+            a if a.starts_with('-') => return Err(usage),
+            a if path.is_none() => path = Some(PathBuf::from(a)),
+            _ => return Err(usage),
+        }
+        i += 1;
+    }
+    Ok((path, out, force))
+}
+
+fn cmd_export_android(path: Option<&Path>, out: Option<&Path>, force: bool) -> ExitCode {
+    let a = match analyze(path) {
+        Ok(a) => a,
+        Err(code) => return code,
+    };
+    let Some(app) = &a.report.app else {
+        eprintln!("error: no UI to export");
+        return ExitCode::from(EXIT_ERRORS);
+    };
+    let out = out.map(|o| {
+        if o.is_absolute() {
+            o.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map(|c| c.join(o))
+                .unwrap_or_else(|_| o.to_path_buf())
+        }
+    });
+    android::export(&a.root, &a.project.manifest, app, out.as_deref(), force)
 }
 
 fn usage_error(msg: &str) -> ExitCode {
@@ -244,7 +320,7 @@ fn cmd_preview(path: Option<&Path>, png: Option<Option<PathBuf>>) -> ExitCode {
     preview::run(&a.root, app, png.as_deref())
 }
 
-fn cmd_build_android(path: Option<&Path>) -> ExitCode {
+fn cmd_build_android(path: Option<&Path>, release: bool) -> ExitCode {
     let a = match analyze(path) {
         Ok(a) => a,
         Err(code) => return code,
@@ -254,7 +330,7 @@ fn cmd_build_android(path: Option<&Path>) -> ExitCode {
         return ExitCode::from(EXIT_ERRORS);
     };
     println!("Checked `{}`: {}", a.project.manifest.name, ir_summary(app));
-    android::run(&a.root, &a.project.manifest, app)
+    android::run(&a.root, &a.project.manifest, app, release)
 }
 
 /// Render a diagnostic, loading its file's text when it has a span.

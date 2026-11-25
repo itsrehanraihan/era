@@ -1,0 +1,400 @@
+//! M8 phase 1: CSS names, units, shorthands and layout properties.
+mod common;
+use common::*;
+use era_ir::ir::{Size, Value};
+
+fn root_props(body: &str) -> std::collections::BTreeMap<&'static str, Value> {
+    let b = screen(body);
+    b.app().screens[0].root.props.clone()
+}
+
+#[test]
+fn every_spelling_of_a_name_works() {
+    for name in [
+        "border-radius",
+        "borderRadius",
+        "border_radius",
+        "borderradius",
+        "radius",
+    ] {
+        let p = root_props(&format!("column {{ {name}: 12px }}"));
+        assert!(p.contains_key("radius"), "{name}");
+    }
+    let p = root_props(
+        "column { justify-content: space-between; align-items: center; background-color: primary }",
+    );
+    assert_eq!(p["distribute"], Value::Keyword("between"));
+    assert_eq!(p["align"], Value::Keyword("center"));
+    assert!(matches!(p["background"], Value::Color(_)));
+}
+
+#[test]
+fn units_and_sizing_modes() {
+    let p = root_props("column { width: 50%; height: 30vh; min-width: 2rem; max-width: 300pt }");
+    assert_eq!(p["width"], Value::Size(Size::Percent(50.0)));
+    assert_eq!(
+        p["height"],
+        Value::Size(Size::Viewport {
+            vertical: true,
+            percent: 30.0
+        })
+    );
+    assert_eq!(p["min_width"], Value::Number(32.0));
+    assert_eq!(p["max_width"], Value::Number(400.0));
+    let b = screen(
+        "row { text \"a\" { width: 2fr }\n text \"b\" { width: min-content }\n text \"c\" { width: auto }\n text \"d\" { width: 120px } }",
+    );
+    let kids = &b.app().screens[0].root.children;
+    assert_eq!(kids[0].props["width"], Value::Size(Size::Fr(2.0)));
+    assert_eq!(kids[1].props["width"], Value::Size(Size::MinContent));
+    assert_eq!(kids[2].props["width"], Value::Size(Size::Fit));
+    assert_eq!(kids[3].props["width"], Value::Size(Size::Dp(120.0)));
+}
+
+#[test]
+fn padding_margin_inset_shorthands() {
+    let p = root_props("column { padding: 4px 8px 12px; margin: 0 auto }");
+    let dp = |k: &str| match &p[k] {
+        Value::Dimension(d) => d.dp,
+        other => panic!("{k}: {other:?}"),
+    };
+    assert_eq!(
+        (
+            dp("padding_top"),
+            dp("padding_end"),
+            dp("padding_bottom"),
+            dp("padding_start")
+        ),
+        (4.0, 8.0, 12.0, 8.0)
+    );
+    assert_eq!(p["margin_start"], Value::Keyword("auto"));
+    assert_eq!(dp("margin_top"), 0.0);
+    let b = screen("stack { stack { position: absolute; inset: 4px 8px; width: 10px } }");
+    let c = &b.app().screens[0].root.children[0].props;
+    assert_eq!(c["top"], Value::Size(Size::Dp(4.0)));
+    assert_eq!(c["right"], Value::Size(Size::Dp(8.0)));
+    assert_eq!(c["position"], Value::Keyword("absolute"));
+}
+
+#[test]
+fn border_shorthand() {
+    let p = root_props("column { border: 2px solid primary }");
+    assert!(matches!(&p["border_width"], Value::Dimension(d) if d.dp == 2.0));
+    assert!(matches!(&p["border_color"], Value::Color(c) if c.token.as_deref() == Some("primary")));
+    let p = root_props("column { border: none }");
+    assert!(matches!(&p["border_width"], Value::Dimension(d) if d.dp == 0.0));
+    assert_eq!(
+        screen("column { border: 1px double red }")
+            .only("E2135")
+            .code,
+        "E2135"
+    );
+}
+
+// ----- M8 phase 3: borders, corners, outline ------------------------------
+
+#[test]
+fn border_styles_and_sides() {
+    let p = root_props("column { border: 1px dashed primary }");
+    assert_eq!(p["border_style"], Value::Keyword("dashed"));
+    let p = root_props(
+        "column { border-left: 4px solid primary; border-bottom: 1px dotted #ccc; border-top-width: 2px }",
+    );
+    assert!(matches!(&p["border_start_width"], Value::Dimension(d) if d.dp == 4.0));
+    assert_eq!(p["border_bottom_style"], Value::Keyword("dotted"));
+    assert!(matches!(&p["border_top_width"], Value::Dimension(d) if d.dp == 2.0));
+    for name in [
+        "border-right-color",
+        "borderInlineEndColor",
+        "border_right_color",
+    ] {
+        let p = root_props(&format!("column {{ {name}: primary }}"));
+        assert!(p.contains_key("border_end_color"), "{name}");
+    }
+    // 1-4 values per side, CSS order (top, right, bottom, left).
+    let p = root_props("column { border-width: 1px 2px; border-style: solid dashed none }");
+    assert!(matches!(&p["border_end_width"], Value::Dimension(d) if d.dp == 2.0));
+    assert!(matches!(&p["border_start_width"], Value::Dimension(d) if d.dp == 2.0));
+    assert_eq!(p["border_bottom_style"], Value::Keyword("none"));
+    // A later all-sides value replaces earlier per-side ones (cascade).
+    let p = root_props("column { border-top: 3px solid #FF0000; border: 1px solid #0000FF }");
+    assert!(!p.contains_key("border_top_width"));
+}
+
+#[test]
+fn corner_radii() {
+    let p = root_props("column { border-radius: 12px 0 }");
+    assert!(matches!(&p["radius_top_start"], Value::Dimension(d) if d.dp == 12.0));
+    assert!(matches!(&p["radius_top_end"], Value::Dimension(d) if d.dp == 0.0));
+    assert!(matches!(&p["radius_bottom_end"], Value::Dimension(d) if d.dp == 12.0));
+    let p = root_props("column { border-top-left-radius: 8px; borderBottomRightRadius: md }");
+    assert!(p.contains_key("radius_top_start") && p.contains_key("radius_bottom_end"));
+    assert_eq!(
+        root_props("column { border-radius: 50% }")["radius"],
+        Value::Size(Size::Percent(50.0))
+    );
+    assert_eq!(
+        screen("column { border-radius: 10px / 20px }")
+            .only("E2135")
+            .code,
+        "E2135"
+    );
+}
+
+#[test]
+fn outline() {
+    let p = root_props("column { outline: 2px dashed primary; outline-offset: -2px }");
+    assert!(matches!(&p["outline_width"], Value::Dimension(d) if d.dp == 2.0));
+    assert_eq!(p["outline_style"], Value::Keyword("dashed"));
+    assert_eq!(p["outline_offset"], Value::Size(Size::Dp(-2.0)));
+}
+
+#[test]
+fn layout_and_effect_properties() {
+    let p = root_props(
+        "column { z-index: -1; opacity: 50%; aspect-ratio: 16 / 9; overflow: hidden; flex: 2; align-self: flex-end }",
+    );
+    assert_eq!(p["z_index"], Value::Number(-1.0));
+    assert_eq!(p["opacity"], Value::Number(0.5));
+    assert_eq!(p["aspect_ratio"], Value::Number(16.0 / 9.0));
+    assert_eq!(p["overflow"], Value::Keyword("hidden"));
+    assert_eq!(p["flex"], Value::Number(2.0));
+    assert_eq!(p["align_self"], Value::Keyword("end"));
+}
+
+#[test]
+fn display_none_and_flex_direction() {
+    let b = screen(
+        "column { text \"a\"\n text \"b\" { display: none }\n row { flex-direction: column-reverse; text \"1\"; text \"2\" } }",
+    );
+    let r = &b.app().screens[0].root;
+    assert_eq!(r.children.len(), 2, "display: none removes the element");
+    let flipped = &r.children[1];
+    assert_eq!(flipped.kind, era_ir::ir::ElementKind::Column);
+    assert_eq!(
+        flipped.children[0].content,
+        Some(era_ir::ir::Content::Text("2".into()))
+    );
+}
+
+#[test]
+fn wrong_units_and_values() {
+    assert_eq!(
+        screen("column { width: 45deg }").only("E2134").message,
+        "`width` does not take `deg` values"
+    );
+    assert_eq!(screen("column { gap: 2fr }").only("E2134").code, "E2134");
+    assert_eq!(screen("column { opacity: 2 }").only("E2133").code, "E2133");
+    assert_eq!(
+        screen("column { position: sticky }").only("E2133").code,
+        "E2133"
+    );
+    assert_eq!(
+        screen("column { positon: absolute }")
+            .only("E2120")
+            .help
+            .as_deref(),
+        Some("did you mean `position`?")
+    );
+}
+
+// ----- M8 phase 4a: colours and gradients -----------------------------------
+
+fn rgba(v: &Value) -> (u8, u8, u8, u8) {
+    match v {
+        Value::Color(c) => (c.rgba.r, c.rgba.g, c.rgba.b, c.rgba.a),
+        other => panic!("not a colour: {other:?}"),
+    }
+}
+
+#[test]
+fn css_colour_syntaxes() {
+    let p = root_props(
+        "column { background: tomato; border-color: rgb(0 128 255 / 50%); outline-color: rgba(10, 20, 30, .5) }",
+    );
+    assert_eq!(rgba(&p["background"]), (255, 99, 71, 255));
+    assert_eq!(rgba(&p["border_color"]), (0, 128, 255, 128));
+    assert_eq!(rgba(&p["outline_color"]), (10, 20, 30, 128));
+    let p = root_props(
+        "column { background: hsl(120, 100%, 25%); border-color: hsla(0deg 100% 50% / .5) }",
+    );
+    assert_eq!(rgba(&p["background"]), (0, 128, 0, 255));
+    assert_eq!(rgba(&p["border_color"]), (255, 0, 0, 128));
+    // A skin token with the same name wins over the CSS colour; var() reads tokens.
+    let p = root_props("column { background: var(--primary); border-color: transparent }");
+    assert!(matches!(&p["background"], Value::Color(c) if c.token.as_deref() == Some("primary")));
+    assert_eq!(rgba(&p["border_color"]).3, 0);
+    assert_eq!(
+        screen("column { background: rgb(1, 2) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: var(primary) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: notacolour }")
+            .only("E2132")
+            .code,
+        "E2132"
+    );
+}
+
+#[test]
+fn gradients_and_layers() {
+    use era_ir::ir::GradientKind;
+    let p = root_props("column { background: linear-gradient(90deg, red, #00FF00 40%, blue) }");
+    let Value::Gradient(g) = &p["background"] else {
+        panic!()
+    };
+    assert_eq!(g.kind, GradientKind::Linear(90.0));
+    let pos: Vec<f64> = g.stops.iter().map(|s| s.position).collect();
+    assert_eq!(pos, [0.0, 0.4, 1.0]);
+    // Missing positions are spread evenly; `to` corners keep their direction.
+    let p =
+        root_props("column { background: linear-gradient(to top right, red, white, gold, blue) }");
+    let Value::Gradient(g) = &p["background"] else {
+        panic!()
+    };
+    assert_eq!(
+        g.kind,
+        GradientKind::LinearToCorner {
+            right: true,
+            bottom: false
+        }
+    );
+    let pos: Vec<f64> = g.stops.iter().map(|s| (s.position * 3.0).round()).collect();
+    assert_eq!(pos, [0.0, 1.0, 2.0, 3.0]);
+    let p = root_props("column { background: linear-gradient(to left, red, blue) }");
+    assert!(
+        matches!(&p["background"], Value::Gradient(g) if g.kind == GradientKind::Linear(270.0))
+    );
+    let p = root_props("column { background: radial-gradient(circle, white, gold 40%, orange) }");
+    assert!(matches!(&p["background"], Value::Gradient(g) if g.kind == GradientKind::Radial));
+    let p = root_props("column { background: linear-gradient(red, blue), #FFFFFF }");
+    assert!(matches!(&p["background"], Value::Layers(l) if l.len() == 2));
+    // Only `background` takes gradients; one colour is not a gradient.
+    assert_eq!(
+        screen("column { border-color: linear-gradient(red, blue) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: linear-gradient(red) }")
+            .only("E2136")
+            .code,
+        "E2136"
+    );
+    assert_eq!(
+        screen("column { background: conic-gradient(red, blue) }")
+            .only("E2135")
+            .code,
+        "E2135"
+    );
+}
+
+// ----- M8 phase 4b: box-shadow and filter -----------------------------------
+
+#[test]
+fn box_shadows() {
+    let p = root_props(
+        "card { box-shadow: 0 4px 12px rgba(0, 0, 0, .2), inset 0 1px 0 0 white, 2px 2px }",
+    );
+    let Value::Shadows(s) = &p["box_shadow"] else {
+        panic!()
+    };
+    assert_eq!(s.len(), 3);
+    assert_eq!(
+        (s[0].x, s[0].y, s[0].blur, s[0].spread, s[0].inset),
+        (0.0, 4.0, 12.0, 0.0, false)
+    );
+    assert!(s[1].inset);
+    // No colour: the text colour, like CSS `currentColor`.
+    assert_eq!(s[2].color.token.as_deref(), Some("text"));
+    // box-shadow replaces the card's skin elevation; `none` removes it.
+    assert!(matches!(&p["elevation"], Value::Dimension(d) if d.dp == 0.0));
+    let p = root_props("card { box-shadow: none }");
+    assert!(matches!(&p["box_shadow"], Value::Shadows(s) if s.is_empty()));
+    assert!(matches!(&p["elevation"], Value::Dimension(d) if d.dp == 0.0));
+    assert_eq!(
+        screen("column { box-shadow: 4px }").only("E2133").code,
+        "E2133"
+    );
+    assert_eq!(
+        screen("column { box-shadow: 0 0 -2px red }")
+            .only("E2133")
+            .code,
+        "E2133"
+    );
+}
+
+#[test]
+fn filters() {
+    let p = root_props(
+        "column { filter: blur(4px) grayscale(50%) hue-rotate(.5turn) brightness(1.2) }",
+    );
+    let Value::Filters(f) = &p["filter"] else {
+        panic!()
+    };
+    let got: Vec<(&str, f64)> = f.iter().map(|f| (f.name, f.amount)).collect();
+    assert_eq!(
+        got,
+        [
+            ("blur", 4.0),
+            ("grayscale", 0.5),
+            ("hue-rotate", 180.0),
+            ("brightness", 1.2)
+        ]
+    );
+    assert_eq!(
+        screen("column { filter: glow(2) }").only("E2133").code,
+        "E2133"
+    );
+    assert_eq!(
+        screen("column { filter: drop-shadow(0 0 4px red) }")
+            .only("E2135")
+            .code,
+        "E2135"
+    );
+    assert_eq!(
+        screen("column { filter: blur(-2px) }").only("E2133").code,
+        "E2133"
+    );
+}
+
+// ----- M8 phase 5: typography ------------------------------------------------
+
+#[test]
+fn typography() {
+    let b = screen(
+        "column { text \"a\" { font-size: 1.5rem; font-weight: bold; font-style: italic; line-height: 1.6; letter-spacing: -0.02em; text-transform: uppercase; text-decoration: underline; white-space: nowrap; text-overflow: ellipsis; font-family: serif; text-shadow: 0 1px 2px #000000 } }",
+    );
+    let p = &b.app().screens[0].root.children[0].props;
+    assert_eq!(p["font_size"], Value::Number(24.0));
+    assert_eq!(p["font_weight"], Value::Number(700.0));
+    assert_eq!(p["font_style"], Value::Keyword("italic"));
+    assert_eq!(p["line_height"], Value::Number(1.6));
+    assert_eq!(p["letter_spacing"], Value::Number(-0.02));
+    assert_eq!(p["text_transform"], Value::Keyword("uppercase"));
+    assert!(matches!(&p["text_shadow"], Value::Shadows(s) if s.len() == 1));
+    let b = screen("column { text \"a\" { line-height: 24px; letter-spacing: 1px } }");
+    let p = &b.app().screens[0].root.children[0].props;
+    assert_eq!(p["line_height"], Value::Size(Size::Dp(24.0)));
+    assert_eq!(p["letter_spacing"], Value::Size(Size::Dp(1.0)));
+    assert_eq!(
+        screen("column { text \"a\" { font-weight: chunky } }")
+            .only("E2133")
+            .code,
+        "E2133"
+    );
+    // Typography is for text, buttons and inputs only.
+    assert_eq!(
+        screen("column { font-size: 12px }").only("E2120").code,
+        "E2120"
+    );
+}

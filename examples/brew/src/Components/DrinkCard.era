@@ -1,0 +1,26 @@
+component DrinkCard {
+    prop name: text
+    prop price: text
+    prop photo: image
+    prop hot: bool = false
+
+    row {
+        width: 100%
+        gap: 12px
+        padding: 12px
+        align-items: center
+        border-radius: 20px
+        background: surface
+        box-shadow: 0 6px 18px rgba(43, 29, 20, .08)
+
+        image photo { width: 64px; height: 64px; border-radius: 14px }
+        column {
+            flex: 1
+            gap: 2px
+            text name { style: title }
+            text "Served hot" { style: caption; color: accent; visible: hot }
+        }
+        text price { style: title; color: primary }
+        button "+" { border-radius: 50%; on-press: Cart.add }
+    }
+}

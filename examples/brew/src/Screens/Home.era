@@ -1,0 +1,44 @@
+screen Home {
+    title: "Brew"
+
+    scroll {
+        column {
+            width: 100%
+            padding: 24px 16px
+            gap: 16px
+
+            // Hero banner: gradient, shadow, rounded corners
+            column {
+                width: 100%
+                padding: 24px
+                gap: 4px
+                border-radius: 24px
+                background: linear-gradient(135deg, #6F4E37, #C08552)
+                box-shadow: 0 12px 30px rgba(111, 78, 55, .35)
+
+                text "Good morning" { color: rgba(255, 255, 255, .8) }
+                text "What are you drinking?" { style: display; color: white }
+            }
+
+            text "Menu" { style: title }
+
+            // One card per item in Data/drinks.json
+            for d in Drinks {
+                DrinkCard { name: "{d.name}", price: "${d.price}", photo: d.photo, hot: d.hot }
+            }
+
+            // Cart bar: state from the store, saved on the phone
+            row {
+                width: 100%
+                padding: 16px 20px
+                justify-content: space-between
+                align-items: center
+                border-radius: 999px
+                background: primary
+
+                text "{Cart.count} in your cart" { color: on_primary }
+                button "Checkout" { background: accent; on-press: go Checkout }
+            }
+        }
+    }
+}

@@ -1,0 +1,26 @@
+[package]
+name = "era_builder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "era-builder"
+path = "src/main.rs"
+
+[dependencies]
+era_diagnostics = { path = "../era_diagnostics" }
+era_project = { path = "../era_project" }
+era_syntax = { path = "../era_syntax" }
+era_ir = { path = "../era_ir" }
+era_canvas = { path = "../era_canvas" }
+# Reuses ERA Studio's project workspace, syntax colouring and background jobs.
+era_studio = { path = "../era_studio" }
+eframe = "0.37"
+rfd = "0.18"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+
+[dev-dependencies]
+tempfile = "3.27"
+egui_kittest = { version = "0.37", features = ["eframe", "wgpu", "snapshot"] }

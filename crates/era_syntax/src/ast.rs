@@ -34,6 +34,8 @@ pub enum DeclKind {
     Screen,
     Layout,
     Component,
+    /// `store Name { state ... action ... }` in a `.er` logic file (M6).
+    Store,
 }
 
 impl DeclKind {
@@ -44,6 +46,7 @@ impl DeclKind {
             DeclKind::Screen => "screen",
             DeclKind::Layout => "layout",
             DeclKind::Component => "component",
+            DeclKind::Store => "store",
         }
     }
 }
@@ -77,6 +80,23 @@ pub enum Item {
     Variant(VariantDecl),
     When(When),
     Slot(Span),
+    /// `state name: type [= value]` (stores only).
+    State(StateDecl),
+    /// `action name { steps }` (stores only).
+    Action(ActionDecl),
+    /// `for p in Products { ... }`: repeat elements for each data item (D-091).
+    For(ForLoop),
+}
+
+/// `for p in Products { card { text "{p.name}" } }`
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForLoop {
+    /// The item name used inside the block (`p`).
+    pub var: Ident,
+    /// The data list (`Products`, from `Data/products.json`).
+    pub list: Ident,
+    pub block: Block,
+    pub span: Span,
 }
 
 impl Item {
@@ -88,6 +108,9 @@ impl Item {
             Item::Variant(v) => v.span,
             Item::When(w) => w.span,
             Item::Slot(s) => *s,
+            Item::State(s) => s.span,
+            Item::Action(a) => a.span,
+            Item::For(f) => f.span,
         }
     }
 
@@ -100,8 +123,47 @@ impl Item {
             Item::Variant(_) => "`variant`".into(),
             Item::When(_) => "`when`".into(),
             Item::Slot(_) => "`slot`".into(),
+            Item::State(_) => "`state`".into(),
+            Item::Action(_) => "`action`".into(),
+            Item::For(_) => "`for`".into(),
         }
     }
+}
+
+/// `state name: type [= value]`
+#[derive(Debug, Clone, PartialEq)]
+pub struct StateDecl {
+    pub name: Ident,
+    /// `text`, `number` or `bool` (checked in the IR stage).
+    pub ty: Ident,
+    pub initial: Option<Value>,
+    /// `persist state ...`: saved on the device, restored on the next launch.
+    pub persist: bool,
+    pub span: Span,
+}
+
+/// `action name { set x = 1 ... }`
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActionDecl {
+    pub name: Ident,
+    pub steps: Vec<Step>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Step {
+    pub kind: StepKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StepKind {
+    /// `set field = value`
+    Set { field: Ident, value: Value },
+    /// `toggle field` (bool)
+    Toggle { field: Ident },
+    /// `add field number` (number; negative subtracts)
+    Add { field: Ident, amount: Value },
 }
 
 /// `name: value`
@@ -129,6 +191,8 @@ pub enum PropType {
     Color,
     Image,
     Icon,
+    /// What happens on tap: `go Home`, `back`, `Store.action` (M6).
+    Action,
 }
 
 impl PropType {
@@ -139,6 +203,7 @@ impl PropType {
         ("color", PropType::Color),
         ("image", PropType::Image),
         ("icon", PropType::Icon),
+        ("action", PropType::Action),
     ];
 
     pub fn from_name(name: &str) -> Option<PropType> {
@@ -189,6 +254,22 @@ pub enum ValueKind {
     Ident(String),
     Bool(bool),
     None,
+    /// `Store.field` or `Store.action` (M6).
+    Path(Vec<Ident>),
+    /// `go Screen` (M6).
+    Go(Ident),
+    /// `a then b then c`: actions run in order (M6).
+    Seq(Vec<Value>),
+    /// A number with a CSS unit: `16px`, `50%`, `1fr` (M8).
+    Dimension(f64, String),
+    /// A CSS function: `rgba(0, 0, 0, .1)`, `linear-gradient(...)`, `repeat(3, 1fr)`.
+    Call(String, Vec<Value>),
+    /// Space-separated terms: `8px 16px`, `1px solid #ccc`, `16 / 9`.
+    Terms(Vec<Value>),
+    /// Comma-separated layers: `0 1px red, 0 2px blue`.
+    Layers(Vec<Value>),
+    /// `/` inside a value (`aspect-ratio: 16 / 9`).
+    Slash,
 }
 
 /// sRGB color with alpha. `#RGB` and `#RRGGBB` get alpha 255.

@@ -17,6 +17,7 @@ use era_syntax::{
 };
 
 use crate::ir::*;
+use crate::logic::{self, Stores};
 use crate::schema::{self, ArgType, Children, Primitive, ValueType};
 use crate::skin::{self, Skin, SkinPart, TokenCategory};
 
@@ -43,6 +44,14 @@ enum Bound {
     /// `Value::Color` or `Value::Transparent`.
     Color(Value),
     Asset(AssetRef),
+    /// Text with `{Store.field}` interpolation (M6).
+    Template(Vec<TextPart>),
+    /// What an `action` prop does (M6).
+    Effects(Vec<Effect>),
+    /// An `image`/`icon` prop given a data item field, `photo: d.photo` (D-093).
+    ItemAsset(Content),
+    /// A `bool` prop given live state, `hot: d.hot` or `on: Session.verified` (D-093).
+    State(StateRef),
     /// Optional prop with no value and no default.
     Absent,
     /// Validation mode: a value of the declared type, not known yet.
@@ -81,6 +90,14 @@ struct Resolver<'a> {
     assets: BTreeSet<AssetRef>,
     /// Component expansion stack, for cycle detection.
     stack: Vec<String>,
+    /// App state and actions (M6).
+    stores: Stores,
+    /// Screen names, for `go Screen`.
+    screens: Vec<String>,
+    /// `icon` and `icon-background` from `app`, resolved once the skin is known.
+    app_icon: (Option<AstValue>, Option<AstValue>),
+    /// Mock data lists from `Data/*.json` (D-091), by name.
+    data: BTreeMap<String, DataList>,
 }
 
 /// Build the UI IR. Returns `None` for the app if any error was reported.
@@ -89,6 +106,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
     let mut skins: BTreeMap<&str, Vec<SkinPart>> = BTreeMap::new();
     let mut decls: BTreeMap<&str, DeclRef> = BTreeMap::new();
     let mut screen_order: Vec<&str> = Vec::new();
+    let mut store_decls: Vec<(&str, &era_syntax::Decl)> = Vec::new();
 
     for f in files {
         for decl in &f.file.decls {
@@ -102,6 +120,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
                     source: f.source,
                     decl,
                 }),
+                DeclKind::Store => store_decls.push((f.path, decl)),
                 _ => {
                     if decls.insert(&decl.name.name, r).is_none() && decl.kind == DeclKind::Screen {
                         screen_order.push(&decl.name.name);
@@ -139,7 +158,32 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
         seen: BTreeSet::new(),
         assets: BTreeSet::new(),
         stack: Vec::new(),
+        stores: Stores::default(),
+        screens: screen_order.iter().map(|s| s.to_string()).collect(),
+        app_icon: (None, None),
+        data: BTreeMap::new(),
     };
+    let (lists, data_diags) = crate::data::load(project.root.as_path());
+    for d in data_diags {
+        r.push(d);
+    }
+    for l in lists {
+        if store_decls.iter().any(|(_, d)| d.name.name == l.name) {
+            r.push(
+                Diagnostic::error(
+                    "E2181",
+                    format!("data list `{}` has the same name as a store", l.name),
+                )
+                .in_file(l.file.clone())
+                .with_help("rename the JSON file or the store"),
+            );
+            continue;
+        }
+        r.data.insert(l.name.clone(), l);
+    }
+    let (stores, store_table, store_diags) = logic::build_stores(&store_decls);
+    diags.extend(store_diags);
+    r.stores = store_table;
     for d in diags {
         r.push(d);
     }
@@ -155,6 +199,7 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
         r.skin = s.clone();
         r.skin.fill_required_from_default();
     }
+    let icon = r.app_icon(app_ref.path);
 
     // Check every component and layout once, on its own.
     let reusable: Vec<DeclRef> = r
@@ -193,10 +238,86 @@ pub fn build_app(project: &Project, files: &[ParsedFile]) -> (Option<App>, Vec<D
             start,
             screens,
             assets: assets.into_iter().collect(),
+            stores,
+            icon,
+            data: r.data.values().cloned().collect(),
         }),
         _ => None,
     };
     (app, r.diags)
+}
+
+/// CSS rules for missing stop positions: the first is 0, the last is 1,
+/// runs in between are spread evenly, and positions never go backwards.
+fn fill_stop_positions(raw: Vec<(ColorValue, Option<f64>)>) -> Vec<GradientStop> {
+    let n = raw.len();
+    let mut pos: Vec<Option<f64>> = raw.iter().map(|(_, p)| *p).collect();
+    if pos[0].is_none() {
+        pos[0] = Some(0.0);
+    }
+    if pos[n - 1].is_none() {
+        pos[n - 1] = Some(1.0);
+    }
+    let mut last = 0.0f64;
+    for p in pos.iter_mut().flatten() {
+        *p = p.max(last);
+        last = *p;
+    }
+    let mut i = 0;
+    while i < n {
+        if pos[i].is_some() {
+            i += 1;
+            continue;
+        }
+        let start = i - 1;
+        let mut end = i;
+        while pos[end].is_none() {
+            end += 1;
+        }
+        let (a, b) = (pos[start].unwrap(), pos[end].unwrap());
+        for (k, p) in pos.iter_mut().enumerate().take(end).skip(i) {
+            *p = Some(a + (b - a) * (k - start) as f64 / (end - start) as f64);
+        }
+        i = end;
+    }
+    raw.into_iter()
+        .zip(pos)
+        .map(|((color, _), p)| GradientStop {
+            color,
+            position: p.unwrap(),
+        })
+        .collect()
+}
+
+/// Per-side properties that an all-sides property replaces (CSS cascade).
+fn overridden_by(key: &str) -> &'static [&'static str] {
+    match key {
+        "border_width" => &[
+            "border_top_width",
+            "border_end_width",
+            "border_bottom_width",
+            "border_start_width",
+        ],
+        "border_color" => &[
+            "border_top_color",
+            "border_end_color",
+            "border_bottom_color",
+            "border_start_color",
+        ],
+        "border_style" => &[
+            "border_top_style",
+            "border_end_style",
+            "border_bottom_style",
+            "border_start_style",
+        ],
+        "radius" => &[
+            "radius_top_start",
+            "radius_top_end",
+            "radius_bottom_end",
+            "radius_bottom_start",
+        ],
+        _ => &[],
+    }
 }
 
 fn hint(name: &str, candidates: &[&str], fallback: &str) -> String {
@@ -254,6 +375,17 @@ impl<'a> Resolver<'a> {
         let mut start = None;
         for item in &app.decl.body.items {
             let Item::Property(p) = item else { continue };
+            match schema::normalize(&p.name.name).as_str() {
+                "icon" => {
+                    self.app_icon.0 = Some(p.value.clone());
+                    continue;
+                }
+                "iconbackground" | "iconbackgroundcolor" => {
+                    self.app_icon.1 = Some(p.value.clone());
+                    continue;
+                }
+                _ => {}
+            }
             match (p.name.name.as_str(), &p.value.kind) {
                 ("skin", ValueKind::Ident(n)) => {
                     if skins.contains_key(n.as_str()) {
@@ -297,7 +429,11 @@ impl<'a> Resolver<'a> {
                     "E2102",
                     format!("unknown app property `{other}`"),
                     p.name.span,
-                    Some(hint(other, &["skin", "start"], "app properties")),
+                    Some(hint(
+                        other,
+                        &["skin", "start", "icon", "icon-background"],
+                        "app properties",
+                    )),
                 ),
             }
         }
@@ -566,10 +702,7 @@ impl<'a> Resolver<'a> {
                         );
                         continue;
                     }
-                    let vt = prim.property(key).unwrap();
-                    if let Some(v) = self.value(vt, &p.value, key, ctx) {
-                        props.insert(key, v);
-                    }
+                    self.assign(prim, key, &p.value, ctx, &mut props, true);
                 }
                 Item::Node(child) => {
                     child_items += 1;
@@ -585,6 +718,23 @@ impl<'a> Resolver<'a> {
                     }
                     let child_id = format!("{id}/{}", children.len());
                     if let Some(e) = self.element(child, ctx, child_id, false) {
+                        children.push(e);
+                    }
+                }
+                Item::For(f) => {
+                    child_items += 1;
+                    if prim.children == Children::None {
+                        self.err(
+                            ctx.path,
+                            "E2122",
+                            format!("`{}` cannot contain elements", prim.name),
+                            f.var.span,
+                            None,
+                        );
+                        continue;
+                    }
+                    let child_id = format!("{id}/{}", children.len());
+                    if let Some(e) = self.for_loop(f, ctx, child_id) {
                         children.push(e);
                     }
                 }
@@ -614,15 +764,29 @@ impl<'a> Resolver<'a> {
                         else {
                             continue;
                         };
-                        let vt = prim.property(key).unwrap();
-                        if let Some(v) = self.value(vt, &p.value, key, ctx)
-                            && apply
-                        {
-                            props.insert(key, v);
-                        }
+                        self.assign(prim, key, &p.value, ctx, &mut props, apply);
                     }
                 }
-                Item::Prop(_) | Item::Variant(_) => {} // reported by the structure check
+                Item::Prop(_) | Item::Variant(_) | Item::State(_) | Item::Action(_) => {} // reported by the structure check
+            }
+        }
+
+        // `display: none` removes the element, as in CSS.
+        if props.get("display") == Some(&Value::Keyword("none")) {
+            return None;
+        }
+        // `flex-direction` turns a column into a row (and back), reversed if asked.
+        let mut kind = prim.kind;
+        if let Some(Value::Keyword(dir)) = props.get("flex_direction").cloned() {
+            if matches!(kind, ElementKind::Column | ElementKind::Row) {
+                kind = if dir.starts_with("row") {
+                    ElementKind::Row
+                } else {
+                    ElementKind::Column
+                };
+            }
+            if dir.ends_with("reverse") {
+                children.reverse();
             }
         }
 
@@ -644,6 +808,7 @@ impl<'a> Resolver<'a> {
                 props: BTreeMap::new(),
                 children: std::mem::take(&mut children),
                 origin: ctx.origin.clone(),
+                source: None,
             };
             children.push(wrapped);
         }
@@ -651,11 +816,16 @@ impl<'a> Resolver<'a> {
         self.apply_defaults(prim.kind, &mut props);
         Some(Element {
             id,
-            kind: prim.kind,
+            kind,
             content,
             props,
             children,
             origin: ctx.origin.clone(),
+            source: Some(SourceRef {
+                path: ctx.path.to_string(),
+                start: node.span.start,
+                end: node.span.end,
+            }),
         })
     }
 
@@ -722,10 +892,18 @@ impl<'a> Resolver<'a> {
                 Err(())
             }
             (ArgType::Text, Some(a)) => match &a.kind {
-                ValueKind::String(s) => Ok(Some(Content::Text(s.clone()))),
+                ValueKind::String(s) => match self.template_parts(s, a.span, ctx) {
+                    Some(parts) => Ok(Some(text_content(parts))),
+                    None => Err(()),
+                },
+                ValueKind::Path(parts) => match self.state_path(parts, ctx) {
+                    Some(r) => Ok(Some(Content::Template(vec![TextPart::State(r)]))),
+                    None => Err(()),
+                },
                 ValueKind::Ident(n) => {
                     match self.prop_ref(n, &[PropType::Text], a.span, "text", ctx) {
                         Some(Bound::Text(s)) => Ok(Some(Content::Text(s))),
+                        Some(Bound::Template(p)) => Ok(Some(Content::Template(p))),
                         Some(_) => Ok(Some(Content::Text(String::new()))),
                         None => Err(()),
                     }
@@ -746,6 +924,10 @@ impl<'a> Resolver<'a> {
                     Some(r) => Ok(Some(Content::Asset(r))),
                     None => Err(()),
                 },
+                ValueKind::Path(parts) => match self.item_asset(parts, kind, a.span, ctx) {
+                    Some(c) => Ok(Some(c)),
+                    None => Err(()),
+                },
                 ValueKind::Ident(n) => {
                     let want = if kind == AssetKind::Icon {
                         PropType::Icon
@@ -754,6 +936,7 @@ impl<'a> Resolver<'a> {
                     };
                     match self.prop_ref(n, &[want], a.span, prop_type_name(want), ctx) {
                         Some(Bound::Asset(r)) => Ok(Some(Content::Asset(r))),
+                        Some(Bound::ItemAsset(c)) => Ok(Some(c)),
                         Some(Bound::Placeholder) => Ok(None),
                         _ => Err(()),
                     }
@@ -770,6 +953,140 @@ impl<'a> Resolver<'a> {
                 }
             },
         }
+    }
+
+    /// `for p in Products { ... }` (D-091): the block's elements, resolved
+    /// once with `p` bound to the list's fields, repeat for every item.
+    fn for_loop(&mut self, f: &era_syntax::ForLoop, ctx: &mut Ctx, id: String) -> Option<Element> {
+        let Some(list) = self.data.get(&f.list.name).cloned() else {
+            let names: Vec<&str> = self.data.keys().map(String::as_str).collect();
+            let help = match suggest(&f.list.name, names.iter().copied()) {
+                Some(s) => format!("did you mean `{s}`?"),
+                None => format!(
+                    "add `Data/{}.json`, a JSON array of objects",
+                    f.list.name.to_ascii_lowercase()
+                ),
+            };
+            self.err(
+                ctx.path,
+                "E2181",
+                format!("unknown data list `{}`", f.list.name),
+                f.list.span,
+                Some(help),
+            );
+            return None;
+        };
+        let var = &f.var.name;
+        if is_pascal(var) || self.stores.map.contains_key(var) {
+            self.err(
+                ctx.path,
+                "E2181",
+                format!("`{var}` cannot name a list item"),
+                f.var.span,
+                Some("use a lowercase name, like `for p in Products`".into()),
+            );
+            return None;
+        }
+        self.stores
+            .loops
+            .push((var.clone(), list.name.clone(), list.fields.clone()));
+        let mut children = Vec::new();
+        for item in &f.block.items {
+            let child_id = format!("{id}/{}", children.len());
+            match item {
+                Item::Node(n) => {
+                    if let Some(e) = self.element(n, ctx, child_id, false) {
+                        children.push(e);
+                    }
+                }
+                Item::For(inner) => {
+                    if let Some(e) = self.for_loop(inner, ctx, child_id) {
+                        children.push(e);
+                    }
+                }
+                other => self.err(
+                    ctx.path,
+                    "E2181",
+                    format!("{} cannot be used directly inside `for`", other.describe()),
+                    other.span(),
+                    Some("a `for` block holds the elements to repeat, like `card { ... }`".into()),
+                ),
+            }
+        }
+        self.stores.loops.pop();
+        Some(Element {
+            id,
+            kind: ElementKind::For,
+            content: Some(Content::Repeat {
+                var: var.clone(),
+                list: list.name.clone(),
+            }),
+            props: BTreeMap::new(),
+            children,
+            origin: ctx.origin.clone(),
+            source: Some(SourceRef {
+                path: ctx.path.to_string(),
+                start: f.span.start,
+                end: f.span.end,
+            }),
+        })
+    }
+
+    /// `image p.photo`: every item's path must be an existing asset (D-091).
+    fn item_asset(
+        &mut self,
+        parts: &[era_syntax::Ident],
+        kind: AssetKind,
+        span: Span,
+        ctx: &Ctx,
+    ) -> Option<Content> {
+        let r = self.state_path(parts, ctx)?;
+        let Some((_, list, fields)) = self
+            .stores
+            .loops
+            .iter()
+            .rev()
+            .find(|l| l.0 == r.store)
+            .cloned()
+        else {
+            self.err(
+                ctx.path,
+                "E2115",
+                "an image or icon needs an asset path in quotes, or a data item field like `p.photo`".into(),
+                span,
+                None,
+            );
+            return None;
+        };
+        if r.ty != StateType::Text {
+            self.err(
+                ctx.path,
+                "E2182",
+                format!(
+                    "`{}.{}` is {}, but an asset path is text",
+                    r.store,
+                    r.field,
+                    r.ty.name()
+                ),
+                span,
+                None,
+            );
+            return None;
+        }
+        let col = fields.iter().position(|(n, _)| *n == r.field).unwrap();
+        let rows: Vec<String> = self.data[&list]
+            .rows
+            .iter()
+            .filter_map(|row| match &row[col] {
+                Literal::Text(t) => Some(t.clone()),
+                _ => None,
+            })
+            .collect();
+        let mut ok = true;
+        for path in rows {
+            ok &= self.asset(&path, kind, span, ctx.path).is_some();
+        }
+        ok.then_some(Content::ItemAsset { field: r, kind })
     }
 
     /// Look up a prop used by name; checks it exists and has an allowed type.
@@ -823,6 +1140,23 @@ impl<'a> Resolver<'a> {
             && let Some(b) = ctx.props.get(n)
         {
             return self.prop_as_value(n, b.ty, &b.value, vt, v.span, prop, ctx);
+        }
+        match (vt, &v.kind) {
+            (ValueType::Action, _) => return self.effects(v, ctx).map(Value::Effects),
+            (ValueType::Condition, _) => return self.condition(v, prop, ctx),
+            (ValueType::Binding, _) => return self.binding(v, prop, ctx),
+            (ValueType::Text, ValueKind::String(s)) => {
+                return self.template_parts(s, v.span, ctx).map(text_value);
+            }
+            (ValueType::Text, ValueKind::Path(parts)) => {
+                return self
+                    .state_path(parts, ctx)
+                    .map(|r| Value::Template(vec![TextPart::State(r)]));
+            }
+            _ => {}
+        }
+        if let Some(result) = self.css_value(vt, v, prop, ctx) {
+            return result;
         }
         let type_err = |r: &mut Self| {
             r.err(
@@ -952,8 +1286,9 @@ impl<'a> Resolver<'a> {
                     PropType::Number,
                     ValueType::Number { .. } | ValueType::Size | ValueType::Dimension(_)
                 )
-                | (PropType::Bool, ValueType::Bool)
+                | (PropType::Bool, ValueType::Bool | ValueType::Condition)
                 | (PropType::Color, ValueType::Color)
+                | (PropType::Action, ValueType::Action)
         );
         if !compatible {
             self.err(
@@ -975,6 +1310,8 @@ impl<'a> Resolver<'a> {
                 ValueType::Color => Value::Transparent,
                 ValueType::Text => Value::Text(String::new()),
                 ValueType::Bool => Value::Bool(false),
+                ValueType::Condition => Value::Bool(true),
+                ValueType::Action => Value::Effects(Vec::new()),
                 ValueType::Size => Value::Size(Size::Fit),
                 ValueType::Dimension(_) => Value::Dimension(Dimension {
                     token: None,
@@ -983,6 +1320,8 @@ impl<'a> Resolver<'a> {
                 _ => Value::Number(0.0),
             }),
             Bound::Text(s) => Some(Value::Text(s.clone())),
+            Bound::Template(p) => Some(Value::Template(p.clone())),
+            Bound::Effects(e) => Some(Value::Effects(e.clone())),
             Bound::Bool(b) => Some(Value::Bool(*b)),
             Bound::Color(v) => Some(v.clone()),
             Bound::Number(x) => match vt {
@@ -993,8 +1332,982 @@ impl<'a> Resolver<'a> {
                 })),
                 _ => Some(Value::Number(*x)),
             },
-            Bound::Asset(_) => None,
+            Bound::Asset(_) | Bound::ItemAsset(_) => None,
+            // Live bool state works where a condition is read (`visible`).
+            Bound::State(r) => match vt {
+                ValueType::Condition => Some(Value::State(r.clone())),
+                _ => None,
+            },
         }
+    }
+
+    // ----- M8: CSS values -----------------------------------------------------
+
+    /// CSS forms of values (units, keywords, ratios). `None` means "not a CSS
+    /// form, use the ERA rules"; `Some(result)` is final.
+    fn css_value(
+        &mut self,
+        vt: ValueType,
+        v: &AstValue,
+        prop: &str,
+        ctx: &Ctx,
+    ) -> Option<Option<Value>> {
+        let unit_err = |r: &mut Self, unit: &str| {
+            r.err(
+                ctx.path,
+                "E2134",
+                format!("`{prop}` does not take `{unit}` values"),
+                v.span,
+                Some(format!("`{prop}` needs {}", vt.describe())),
+            );
+            Some(None)
+        };
+        // M8 P5: typography values whose CSS meaning differs from ERA's.
+        match (prop, &v.kind) {
+            ("font_weight", ValueKind::Ident(w)) => {
+                let n = match w.as_str() {
+                    "thin" | "hairline" => 100.0,
+                    "extra-light" | "extralight" => 200.0,
+                    "light" | "lighter" => 300.0,
+                    "normal" | "regular" => 400.0,
+                    "medium" => 500.0,
+                    "semibold" | "semi-bold" => 600.0,
+                    "bold" | "bolder" => 700.0,
+                    "extra-bold" | "extrabold" => 800.0,
+                    "black" | "heavy" => 900.0,
+                    _ => {
+                        self.err(
+                            ctx.path,
+                            "E2133",
+                            format!("`font-weight` cannot be `{w}`"),
+                            v.span,
+                            Some("use 100-900, `normal` or `bold`".into()),
+                        );
+                        return Some(None);
+                    }
+                };
+                return Some(Some(Value::Number(n)));
+            }
+            ("font_weight", ValueKind::Number(n)) if !(1.0..=1000.0).contains(n) => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    "`font-weight` is a number from 1 to 1000".into(),
+                    v.span,
+                    None,
+                );
+                return Some(None);
+            }
+            // A plain number is a multiple of the font size, like CSS.
+            ("line_height", ValueKind::Ident(w)) if w == "normal" => {
+                return Some(Some(Value::Number(1.2)));
+            }
+            ("line_height", ValueKind::Dimension(n, u)) => {
+                return Some(match (u.as_str(), css_length(*n, u)) {
+                    ("%", _) => Some(Value::Number(n / 100.0)),
+                    ("em", _) => Some(Value::Number(*n)),
+                    (_, Some(dp)) if dp >= 0.0 => Some(Value::Size(Size::Dp(dp))),
+                    _ => {
+                        self.err(
+                            ctx.path,
+                            "E2134",
+                            format!("`line-height` does not take `{u}` values"),
+                            v.span,
+                            None,
+                        );
+                        None
+                    }
+                });
+            }
+            // `em` letter spacing stays relative to the font size.
+            ("letter_spacing", ValueKind::Dimension(n, u)) if u == "em" => {
+                return Some(Some(Value::Number(*n)));
+            }
+            ("letter_spacing", ValueKind::Ident(w)) if w == "normal" => {
+                return Some(Some(Value::Size(Size::Dp(0.0))));
+            }
+            _ => {}
+        }
+        match (vt, &v.kind) {
+            (ValueType::Shadow, _) => Some(self.box_shadow(v, prop, ctx)),
+            (ValueType::Filter, _) => Some(self.filters(v, prop, ctx)),
+            // M8 P4: CSS colours, `var()`, gradients and background layers.
+            (ValueType::Color, ValueKind::Ident(n))
+                if !self.skin.colors.contains_key(n) && crate::css_color::named(n).is_some() =>
+            {
+                Some(Some(Value::Color(ColorValue {
+                    token: None,
+                    rgba: crate::css_color::named(n).unwrap(),
+                })))
+            }
+            (ValueType::Color, ValueKind::Call(name, args)) => {
+                Some(self.color_call(name, args, v, prop, ctx))
+            }
+            (ValueType::Color, ValueKind::Layers(layers)) if prop == "background" => {
+                let mut out = Vec::new();
+                for l in layers {
+                    match self.value(vt, l, prop, ctx) {
+                        Some(x) => out.push(x),
+                        None => return Some(None),
+                    }
+                }
+                Some(Some(Value::Layers(out)))
+            }
+            (ValueType::Size, ValueKind::Dimension(n, u)) => Some(match u.as_str() {
+                "%" => Some(Value::Size(Size::Percent(*n))),
+                "fr" => Some(Value::Size(Size::Fr(*n))),
+                "vw" | "vh" => Some(Value::Size(Size::Viewport {
+                    vertical: u == "vh",
+                    percent: *n,
+                })),
+                _ => match css_length(*n, u) {
+                    Some(dp) if dp >= 0.0 => Some(Value::Size(Size::Dp(dp))),
+                    Some(_) => return unit_err(self, "negative"),
+                    None => return unit_err(self, u),
+                },
+            }),
+            (ValueType::Size, ValueKind::Ident(w)) => match w.as_str() {
+                "auto" | "fit-content" => Some(Some(Value::Size(Size::Fit))),
+                "stretch" => Some(Some(Value::Size(Size::Fill))),
+                "min-content" => Some(Some(Value::Size(Size::MinContent))),
+                "max-content" => Some(Some(Value::Size(Size::MaxContent))),
+                _ => None,
+            },
+            (ValueType::Dimension(TokenCategory::Radius), ValueKind::Dimension(n, u))
+                if u == "%" && *n >= 0.0 =>
+            {
+                Some(Some(Value::Size(Size::Percent(n.min(50.0)))))
+            }
+            (ValueType::Dimension(_) | ValueType::Number { .. }, ValueKind::Dimension(n, u)) => {
+                match css_length(*n, u) {
+                    Some(dp) => {
+                        let plain = AstValue {
+                            kind: ValueKind::Number(dp),
+                            span: v.span,
+                        };
+                        Some(self.value(vt, &plain, prop, ctx))
+                    }
+                    None => unit_err(self, u),
+                }
+            }
+            (ValueType::Offset, ValueKind::Number(n)) => Some(Some(Value::Size(Size::Dp(*n)))),
+            (ValueType::Offset, ValueKind::Dimension(n, u)) => {
+                match (u.as_str(), css_length(*n, u)) {
+                    ("%", _) => Some(Some(Value::Size(Size::Percent(*n)))),
+                    (_, Some(dp)) => Some(Some(Value::Size(Size::Dp(dp)))),
+                    _ => unit_err(self, u),
+                }
+            }
+            (ValueType::Offset, _) => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", vt.describe()),
+                    v.span,
+                    None,
+                );
+                Some(None)
+            }
+            (ValueType::Margin, ValueKind::Ident(w)) if w == "auto" => {
+                Some(Some(Value::Keyword("auto")))
+            }
+            (ValueType::Margin, _) => {
+                Some(self.value(ValueType::Dimension(TokenCategory::Spacing), v, prop, ctx))
+            }
+            (ValueType::Ratio, ValueKind::Number(n)) if *n > 0.0 => Some(Some(Value::Number(*n))),
+            (ValueType::Ratio, ValueKind::Terms(t)) => match t.as_slice() {
+                [
+                    AstValue {
+                        kind: ValueKind::Number(a),
+                        ..
+                    },
+                    AstValue {
+                        kind: ValueKind::Slash,
+                        ..
+                    },
+                    AstValue {
+                        kind: ValueKind::Number(b),
+                        ..
+                    },
+                ] if *a > 0.0 && *b > 0.0 => Some(Some(Value::Number(a / b))),
+                _ => None,
+            },
+            (ValueType::Unit, ValueKind::Number(n)) if (0.0..=1.0).contains(n) => {
+                Some(Some(Value::Number(*n)))
+            }
+            (ValueType::Unit, ValueKind::Dimension(n, u))
+                if u == "%" && (0.0..=100.0).contains(n) =>
+            {
+                Some(Some(Value::Number(n / 100.0)))
+            }
+            // `display: none`: `none` is an ERA keyword, but a valid CSS word here.
+            (ValueType::Keyword(opts), ValueKind::None) if opts.contains(&"none") => {
+                Some(Some(Value::Keyword("none")))
+            }
+            (ValueType::Keyword(opts), ValueKind::Ident(w)) => {
+                // CSS spellings of ERA keywords: `flex-start`, `space-between`, `left`.
+                let mapped = match w.as_str() {
+                    "flex-start" | "self-start" | "left" | "top" | "normal" | "baseline" => "start",
+                    "flex-end" | "self-end" | "right" | "bottom" => "end",
+                    "space-between" => "between",
+                    "space-around" => "around",
+                    "space-evenly" => "evenly",
+                    "fill" if opts.contains(&"stretch") => "stretch",
+                    _ => return None,
+                };
+                opts.iter()
+                    .find(|o| **o == mapped)
+                    .map(|o| Some(Value::Keyword(o)))
+            }
+            _ => None,
+        }
+    }
+
+    /// `box-shadow: 0 4px 12px rgba(0,0,0,.15), inset 0 1px 0 white`.
+    fn box_shadow(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        if matches!(v.kind, ValueKind::None) {
+            return Some(Value::Shadows(Vec::new()));
+        }
+        let layers: Vec<&AstValue> = match &v.kind {
+            ValueKind::Layers(l) => l.iter().collect(),
+            _ => vec![v],
+        };
+        let mut out = Vec::new();
+        for layer in layers {
+            let terms: Vec<&AstValue> = match &layer.kind {
+                ValueKind::Terms(t) => t.iter().collect(),
+                _ => vec![layer],
+            };
+            let (mut lengths, mut color, mut inset) = (Vec::new(), None, false);
+            for t in terms {
+                match &t.kind {
+                    ValueKind::Ident(w) if w == "inset" => inset = true,
+                    ValueKind::Number(n) => lengths.push(*n),
+                    ValueKind::Dimension(n, u) => match css_length(*n, u) {
+                        Some(dp) if u != "%" => lengths.push(dp),
+                        _ => {
+                            self.err(
+                                ctx.path,
+                                "E2134",
+                                format!("`{prop}` does not take `{u}` values"),
+                                t.span,
+                                None,
+                            );
+                            return None;
+                        }
+                    },
+                    _ => match self.value(ValueType::Color, t, prop, ctx)? {
+                        Value::Color(c) => color = Some(c),
+                        _ => {
+                            color = Some(ColorValue {
+                                token: None,
+                                rgba: Color {
+                                    r: 0,
+                                    g: 0,
+                                    b: 0,
+                                    a: 0,
+                                },
+                            })
+                        }
+                    },
+                }
+            }
+            if !(2..=4).contains(&lengths.len()) || lengths.get(2).is_some_and(|b| *b < 0.0) {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", ValueType::Shadow.describe()),
+                    layer.span,
+                    Some("x and y offsets, then an optional blur (not negative) and spread".into()),
+                );
+                return None;
+            }
+            out.push(BoxShadow {
+                x: lengths[0],
+                y: lengths[1],
+                blur: lengths.get(2).copied().unwrap_or(0.0),
+                spread: lengths.get(3).copied().unwrap_or(0.0),
+                // CSS uses the text colour when none is given.
+                color: color.unwrap_or_else(|| self.color_token("text")),
+                inset,
+            });
+        }
+        Some(Value::Shadows(out))
+    }
+
+    /// `filter: blur(4px) grayscale(100%) brightness(1.2) hue-rotate(90deg)`.
+    fn filters(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        if matches!(v.kind, ValueKind::None) {
+            return Some(Value::Filters(Vec::new()));
+        }
+        let terms: Vec<&AstValue> = match &v.kind {
+            ValueKind::Terms(t) => t.iter().collect(),
+            _ => vec![v],
+        };
+        let mut out = Vec::new();
+        for t in terms {
+            let ValueKind::Call(name, args) = &t.kind else {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", ValueType::Filter.describe()),
+                    t.span,
+                    None,
+                );
+                return None;
+            };
+            let lower = name.to_ascii_lowercase();
+            let canonical: &'static str = match lower.as_str() {
+                "blur" => "blur",
+                "brightness" => "brightness",
+                "contrast" => "contrast",
+                "grayscale" => "grayscale",
+                "saturate" => "saturate",
+                "sepia" => "sepia",
+                "invert" => "invert",
+                "opacity" => "opacity",
+                "hue-rotate" => "hue-rotate",
+                "drop-shadow" | "url" => {
+                    self.err(
+                        ctx.path,
+                        "E2135",
+                        format!("`{lower}()` filters are planned for a later CSS phase"),
+                        t.span,
+                        Some("use `box-shadow` for shadows".into()),
+                    );
+                    return None;
+                }
+                _ => {
+                    self.err(
+                        ctx.path,
+                        "E2133",
+                        format!("unknown filter `{name}()`"),
+                        t.span,
+                        Some("filters: blur, brightness, contrast, grayscale, hue-rotate, invert, opacity, saturate, sepia".into()),
+                    );
+                    return None;
+                }
+            };
+            let amount = match (canonical, args.first().map(|a| &a.kind)) {
+                ("blur", None) => 0.0,
+                (_, None) => 1.0,
+                ("blur", Some(ValueKind::Number(n))) => *n,
+                ("blur", Some(ValueKind::Dimension(n, u))) if u != "%" => {
+                    css_length(*n, u).unwrap_or(-1.0)
+                }
+                ("hue-rotate", Some(ValueKind::Number(n))) => *n,
+                ("hue-rotate", Some(ValueKind::Dimension(n, u))) => match u.as_str() {
+                    "deg" => *n,
+                    "turn" => n * 360.0,
+                    "rad" => n.to_degrees(),
+                    _ => -1e9,
+                },
+                (c, Some(ValueKind::Number(n))) if c != "blur" && c != "hue-rotate" => *n,
+                (c, Some(ValueKind::Dimension(n, u)))
+                    if u == "%" && c != "blur" && c != "hue-rotate" =>
+                {
+                    n / 100.0
+                }
+                _ => -1e9,
+            };
+            let bounded = matches!(canonical, "grayscale" | "sepia" | "invert" | "opacity");
+            if amount < 0.0 && canonical != "hue-rotate" || amount <= -1e9 || args.len() > 1 {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!(
+                        "`{canonical}()` takes one {}",
+                        match canonical {
+                            "blur" => "length, like `blur(4px)`",
+                            "hue-rotate" => "angle, like `hue-rotate(90deg)`",
+                            _ => "number or percentage, like `grayscale(100%)`",
+                        }
+                    ),
+                    t.span,
+                    None,
+                );
+                return None;
+            }
+            out.push(Filter {
+                name: canonical,
+                amount: if bounded { amount.min(1.0) } else { amount },
+            });
+        }
+        Some(Value::Filters(out))
+    }
+
+    /// `rgb()`, `hsl()`, `var(--token)` and, on `background`, gradients.
+    fn color_call(
+        &mut self,
+        name: &str,
+        args: &[AstValue],
+        v: &AstValue,
+        prop: &str,
+        ctx: &Ctx,
+    ) -> Option<Value> {
+        let lower = name.to_ascii_lowercase();
+        match crate::css_color::function(&lower, args) {
+            Ok(Some(c)) => {
+                return Some(Value::Color(ColorValue {
+                    token: None,
+                    rgba: c,
+                }));
+            }
+            Err(msg) => {
+                self.err(ctx.path, "E2136", msg, v.span, None);
+                return None;
+            }
+            Ok(None) => {}
+        }
+        match lower.as_str() {
+            "var" => {
+                let token = match args {
+                    [
+                        AstValue {
+                            kind: ValueKind::Ident(n),
+                            ..
+                        },
+                    ] if n.starts_with("--") => n[2..].replace('-', "_"),
+                    _ => {
+                        self.err(
+                            ctx.path,
+                            "E2136",
+                            "`var()` takes one skin colour name, like `var(--primary)`".into(),
+                            v.span,
+                            None,
+                        );
+                        return None;
+                    }
+                };
+                let plain = AstValue {
+                    kind: ValueKind::Ident(token),
+                    span: v.span,
+                };
+                self.value(ValueType::Color, &plain, prop, ctx)
+            }
+            "linear-gradient" | "radial-gradient" if prop != "background" => {
+                self.err(
+                    ctx.path,
+                    "E2136",
+                    format!("`{prop}` takes a colour; only `background` takes gradients"),
+                    v.span,
+                    None,
+                );
+                None
+            }
+            "linear-gradient" | "radial-gradient" => self.gradient(&lower, args, v, ctx),
+            "conic-gradient"
+            | "repeating-linear-gradient"
+            | "repeating-radial-gradient"
+            | "repeating-conic-gradient"
+            | "url"
+            | "image-set" => {
+                self.err(
+                    ctx.path,
+                    "E2135",
+                    format!("`{lower}()` is planned for a later CSS phase"),
+                    v.span,
+                    Some("use `linear-gradient()` or `radial-gradient()`".into()),
+                );
+                None
+            }
+            _ => {
+                self.err(
+                    ctx.path,
+                    "E2136",
+                    format!("unknown colour function `{name}()`"),
+                    v.span,
+                    Some(
+                        "use rgb(), rgba(), hsl(), hsla(), var(), linear-gradient() or radial-gradient()"
+                            .into(),
+                    ),
+                );
+                None
+            }
+        }
+    }
+
+    /// `linear-gradient(45deg | to right, red, blue 80%)` and
+    /// `radial-gradient(circle, red, blue)`.
+    fn gradient(
+        &mut self,
+        name: &str,
+        args: &[AstValue],
+        v: &AstValue,
+        ctx: &Ctx,
+    ) -> Option<Value> {
+        let bad = |r: &mut Self, msg: String| {
+            r.err(ctx.path, "E2136", msg, v.span, None);
+            None
+        };
+        let radial = name == "radial-gradient";
+        let mut rest = args;
+        let mut kind = if radial {
+            GradientKind::Radial
+        } else {
+            GradientKind::Linear(180.0)
+        };
+        if let Some(first) = args.first() {
+            let words: Vec<&AstValue> = match &first.kind {
+                ValueKind::Terms(t) => t.iter().collect(),
+                _ => vec![first],
+            };
+            let idents: Option<Vec<&str>> = words
+                .iter()
+                .map(|w| match &w.kind {
+                    ValueKind::Ident(i) => Some(i.as_str()),
+                    _ => None,
+                })
+                .collect();
+            if radial {
+                if let Some(ids) = &idents
+                    && ids.iter().all(|i| {
+                        matches!(
+                            *i,
+                            "circle" | "ellipse" | "farthest-corner" | "at" | "center"
+                        )
+                    })
+                {
+                    rest = &args[1..];
+                } else if idents.is_some() {
+                    return bad(
+                        self,
+                        "radial gradients support `circle` / `ellipse` from the centre for now"
+                            .into(),
+                    );
+                }
+            } else if let Some(ids) = &idents
+                && ids.first() == Some(&"to")
+            {
+                let (mut x, mut y) = (0i8, 0i8);
+                for i in &ids[1..] {
+                    match *i {
+                        "left" => x = -1,
+                        "right" => x = 1,
+                        "top" => y = -1,
+                        "bottom" => y = 1,
+                        other => return bad(self, format!("unknown gradient direction `{other}`")),
+                    }
+                }
+                kind = match (x, y) {
+                    (0, -1) => GradientKind::Linear(0.0),
+                    (1, 0) => GradientKind::Linear(90.0),
+                    (0, 1) => GradientKind::Linear(180.0),
+                    (-1, 0) => GradientKind::Linear(270.0),
+                    (0, 0) => return bad(self, "`to` needs a side, like `to right`".into()),
+                    (x, y) => GradientKind::LinearToCorner {
+                        right: x > 0,
+                        bottom: y > 0,
+                    },
+                };
+                rest = &args[1..];
+            } else if let ValueKind::Dimension(n, u) = &first.kind
+                && let Some(deg) = match u.as_str() {
+                    "deg" => Some(*n),
+                    "turn" => Some(n * 360.0),
+                    "rad" => Some(n.to_degrees()),
+                    "grad" => Some(n * 0.9),
+                    _ => None,
+                }
+            {
+                kind = GradientKind::Linear(deg.rem_euclid(360.0));
+                rest = &args[1..];
+            }
+        }
+        // Colour stops: `red`, `red 20%`, `red 20% 40%`.
+        let mut raw: Vec<(ColorValue, Option<f64>)> = Vec::new();
+        for stop in rest {
+            let parts: Vec<&AstValue> = match &stop.kind {
+                ValueKind::Terms(t) => t.iter().collect(),
+                _ => vec![stop],
+            };
+            let color = match self.value(ValueType::Color, parts[0], "background", ctx)? {
+                Value::Color(c) => c,
+                Value::Transparent => ColorValue {
+                    token: None,
+                    rgba: Color {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 0,
+                    },
+                },
+                _ => return bad(self, "each gradient stop starts with a colour".into()),
+            };
+            let mut positions = Vec::new();
+            for p in &parts[1..] {
+                match &p.kind {
+                    ValueKind::Dimension(n, u) if u == "%" => positions.push(n / 100.0),
+                    ValueKind::Number(n) if *n == 0.0 => positions.push(0.0),
+                    _ => {
+                        return bad(
+                            self,
+                            "gradient stop positions are percentages, like `red 40%`".into(),
+                        );
+                    }
+                }
+            }
+            match positions.as_slice() {
+                [] => raw.push((color, None)),
+                [a] => raw.push((color, Some(*a))),
+                [a, b] => {
+                    raw.push((color.clone(), Some(*a)));
+                    raw.push((color, Some(*b)));
+                }
+                _ => return bad(self, "a gradient stop has at most two positions".into()),
+            }
+        }
+        if raw.len() < 2 {
+            return bad(self, format!("`{name}()` needs at least two colours"));
+        }
+        Some(Value::Gradient(Gradient {
+            kind,
+            stops: fill_stop_positions(raw),
+        }))
+    }
+
+    /// Resolve one property into `props`, expanding CSS shorthands:
+    /// `padding`/`margin`/`inset` with 1–4 values, and `border: 1px solid #ccc`.
+    fn assign(
+        &mut self,
+        prim: &Primitive,
+        key: &'static str,
+        v: &AstValue,
+        ctx: &Ctx,
+        props: &mut BTreeMap<&'static str, Value>,
+        apply: bool,
+    ) {
+        let sides = |names: [&'static str; 4], t: &[AstValue]| -> Vec<(&'static str, AstValue)> {
+            let (top, right, bottom, left) = match t.len() {
+                1 => (0, 0, 0, 0),
+                2 => (0, 1, 0, 1),
+                3 => (0, 1, 2, 1),
+                _ => (0, 1, 2, 3),
+            };
+            vec![
+                (names[0], t[top].clone()),
+                (names[1], t[right].clone()),
+                (names[2], t[bottom].clone()),
+                (names[3], t[left].clone()),
+            ]
+        };
+        let side_names = match key {
+            "padding" => Some([
+                "padding_top",
+                "padding_end",
+                "padding_bottom",
+                "padding_start",
+            ]),
+            "margin" => Some(["margin_top", "margin_end", "margin_bottom", "margin_start"]),
+            "inset" => Some(["top", "right", "bottom", "left"]),
+            "border_width" => Some([
+                "border_top_width",
+                "border_end_width",
+                "border_bottom_width",
+                "border_start_width",
+            ]),
+            "border_color" => Some([
+                "border_top_color",
+                "border_end_color",
+                "border_bottom_color",
+                "border_start_color",
+            ]),
+            "border_style" => Some([
+                "border_top_style",
+                "border_end_style",
+                "border_bottom_style",
+                "border_start_style",
+            ]),
+            // CSS corner order: top-left, top-right, bottom-right, bottom-left.
+            "radius" => Some([
+                "radius_top_start",
+                "radius_top_end",
+                "radius_bottom_end",
+                "radius_bottom_start",
+            ]),
+            _ => None,
+        };
+        if key == "radius"
+            && let ValueKind::Terms(t) = &v.kind
+            && t.iter().any(|x| matches!(x.kind, ValueKind::Slash))
+        {
+            self.err(
+                ctx.path,
+                "E2135",
+                "elliptical corners (`a / b`) are not supported yet".into(),
+                v.span,
+                Some("use one radius per corner, like `border-radius: 12px 12px 0 0`".into()),
+            );
+            return;
+        }
+        let parts: Vec<(&'static str, AstValue)> = match (side_names, &v.kind) {
+            (Some(names), ValueKind::Terms(t)) if t.len() <= 4 => sides(names, t),
+            (Some(_), ValueKind::Terms(_)) => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{key}` takes 1 to 4 values"),
+                    v.span,
+                    None,
+                );
+                return;
+            }
+            (Some(names), _) if key == "inset" => sides(names, std::slice::from_ref(v)),
+            _ if matches!(
+                key,
+                "border"
+                    | "border_top"
+                    | "border_end"
+                    | "border_bottom"
+                    | "border_start"
+                    | "outline"
+            ) =>
+            {
+                match self.border_parts(prim, key, v, ctx) {
+                    Some(p) => p,
+                    None => return,
+                }
+            }
+            _ => vec![(key, v.clone())],
+        };
+        for (k, val) in parts {
+            let vt = prim.property(k).unwrap();
+            if let Some(r) = self.value(vt, &val, k, ctx)
+                && apply
+            {
+                // CSS cascade: a later all-sides value replaces earlier per-side ones.
+                for side in overridden_by(k) {
+                    props.remove(side);
+                }
+                // `box-shadow` replaces the skin elevation shadow (also for `none`).
+                if k == "box_shadow" {
+                    props.insert(
+                        "elevation",
+                        Value::Dimension(Dimension {
+                            token: None,
+                            dp: 0.0,
+                        }),
+                    );
+                }
+                props.insert(k, r);
+            }
+        }
+    }
+
+    /// `border: 1px solid #ccc` -> width, style and colour; `border: none`
+    /// -> no border. Also `border-top`, `border-left`, ... and `outline`.
+    fn border_parts(
+        &mut self,
+        prim: &Primitive,
+        prefix: &str,
+        v: &AstValue,
+        ctx: &Ctx,
+    ) -> Option<Vec<(&'static str, AstValue)>> {
+        let key = |part: &str| prim.key(&format!("{prefix}_{part}")).unwrap();
+        let terms: Vec<AstValue> = match &v.kind {
+            ValueKind::Terms(t) => t.clone(),
+            _ => vec![v.clone()],
+        };
+        let mut out = Vec::new();
+        for t in terms {
+            match &t.kind {
+                ValueKind::None => out.push((
+                    key("width"),
+                    AstValue {
+                        kind: ValueKind::Number(0.0),
+                        span: t.span,
+                    },
+                )),
+                ValueKind::Ident(w) if matches!(w.as_str(), "solid" | "dashed" | "dotted") => {
+                    out.push((key("style"), t.clone()))
+                }
+                ValueKind::Ident(w)
+                    if matches!(
+                        w.as_str(),
+                        "double" | "groove" | "ridge" | "inset" | "outset" | "hidden"
+                    ) =>
+                {
+                    self.err(
+                        ctx.path,
+                        "E2135",
+                        format!("`{w}` borders are not supported"),
+                        t.span,
+                        Some("use `solid`, `dashed` or `dotted`".into()),
+                    );
+                    return None;
+                }
+                ValueKind::Number(_) | ValueKind::Dimension(..) => {
+                    out.push((key("width"), t.clone()))
+                }
+                ValueKind::Ident(w) if self.skin.dimension(TokenCategory::Border, w).is_some() => {
+                    out.push((key("width"), t.clone()))
+                }
+                _ => out.push((key("color"), t.clone())),
+            }
+        }
+        Some(out)
+    }
+
+    // ----- M6: state, actions and templates -------------------------------
+
+    fn template_parts(&mut self, text: &str, span: Span, ctx: &Ctx) -> Option<Vec<TextPart>> {
+        match self.stores.template(text, span, ctx.path) {
+            Ok(p) => Some(p),
+            Err(d) => {
+                self.push(d);
+                None
+            }
+        }
+    }
+
+    fn state_path(&mut self, parts: &[era_syntax::Ident], ctx: &Ctx) -> Option<StateRef> {
+        match self.stores.state_ref(parts, ctx.path) {
+            Ok(r) => Some(r),
+            Err(d) => {
+                self.push(d);
+                None
+            }
+        }
+    }
+
+    /// `on_press` values: `go Screen`, `back`, `Store.action`, an `action`
+    /// prop, or several joined with `then`. `none` does nothing.
+    fn effects(&mut self, v: &AstValue, ctx: &Ctx) -> Option<Vec<Effect>> {
+        let items: Vec<&AstValue> = match &v.kind {
+            ValueKind::Seq(vs) => vs.iter().collect(),
+            _ => vec![v],
+        };
+        let mut out = Vec::new();
+        let mut ok = true;
+        for it in items {
+            match &it.kind {
+                ValueKind::Go(target) => {
+                    if self.screens.contains(&target.name) {
+                        out.push(Effect::Go(target.name.clone()));
+                    } else {
+                        let names: Vec<&str> = self.screens.iter().map(String::as_str).collect();
+                        self.err(
+                            ctx.path,
+                            "E2165",
+                            format!("unknown screen `{}`", target.name),
+                            target.span,
+                            Some(hint(&target.name, &names, "screens")),
+                        );
+                        ok = false;
+                    }
+                }
+                ValueKind::Ident(n) if n == "back" => out.push(Effect::Back),
+                ValueKind::Ident(n) if ctx.props.contains_key(n) => {
+                    let b = &ctx.props[n];
+                    match (&b.ty, &b.value) {
+                        (PropType::Action, Bound::Effects(e)) => out.extend(e.iter().cloned()),
+                        (PropType::Action, _) => {}
+                        (ty, _) => {
+                            self.err(
+                                ctx.path,
+                                "E2130",
+                                format!(
+                                    "prop `{n}` is {} but an action is needed here",
+                                    prop_type_name(*ty)
+                                ),
+                                it.span,
+                                Some("declare it as `prop name: action`".into()),
+                            );
+                            ok = false;
+                        }
+                    }
+                }
+                ValueKind::Path(parts) => match self.stores.action(parts, ctx.path) {
+                    Ok(e) => out.push(e),
+                    Err(d) => {
+                        self.push(d);
+                        ok = false;
+                    }
+                },
+                ValueKind::None => {}
+                ValueKind::Seq(_) => unreachable!("sequences are flat"),
+                _ => {
+                    self.err(
+                        ctx.path,
+                        "E2164",
+                        "this is not an action".into(),
+                        it.span,
+                        Some(
+                            "use `go Screen`, `back` or `Store.action`, joined with `then`".into(),
+                        ),
+                    );
+                    ok = false;
+                }
+            }
+        }
+        ok.then_some(out)
+    }
+
+    /// `visible`: a bool literal or bool state.
+    fn condition(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        match &v.kind {
+            ValueKind::Bool(b) => Some(Value::Bool(*b)),
+            ValueKind::Path(parts) => {
+                let r = self.state_path(parts, ctx)?;
+                if r.ty != StateType::Bool {
+                    self.err(
+                        ctx.path,
+                        "E2166",
+                        format!(
+                            "`{prop}` needs bool state, but `{}.{}` is {}",
+                            r.store,
+                            r.field,
+                            r.ty.name()
+                        ),
+                        v.span,
+                        None,
+                    );
+                    return None;
+                }
+                Some(Value::State(r))
+            }
+            _ => {
+                self.err(
+                    ctx.path,
+                    "E2133",
+                    format!("`{prop}` needs {}", ValueType::Condition.describe()),
+                    v.span,
+                    None,
+                );
+                None
+            }
+        }
+    }
+
+    /// `bind`: text state.
+    fn binding(&mut self, v: &AstValue, prop: &str, ctx: &Ctx) -> Option<Value> {
+        let ValueKind::Path(parts) = &v.kind else {
+            self.err(
+                ctx.path,
+                "E2133",
+                format!("`{prop}` needs {}", ValueType::Binding.describe()),
+                v.span,
+                None,
+            );
+            return None;
+        };
+        let r = self.state_path(parts, ctx)?;
+        if r.ty != StateType::Text {
+            self.err(
+                ctx.path,
+                "E2166",
+                format!(
+                    "`{prop}` needs text state, but `{}.{}` is {}",
+                    r.store,
+                    r.field,
+                    r.ty.name()
+                ),
+                v.span,
+                None,
+            );
+            return None;
+        }
+        Some(Value::State(r))
     }
 
     fn unknown_token(
@@ -1026,6 +2339,52 @@ impl<'a> Resolver<'a> {
             Some(help),
         );
         None
+    }
+
+    /// The launcher icon (`icon: "Images/app_icon.png"`, D-085). It is not
+    /// added to the app's assets unless a screen also shows it.
+    fn app_icon(&mut self, file: &str) -> Option<AppIcon> {
+        let (icon, background) = std::mem::take(&mut self.app_icon);
+        let background = background.and_then(|v| match &v.kind {
+            ValueKind::Color(c) => Some(ColorValue {
+                token: None,
+                rgba: *c,
+            }),
+            ValueKind::Ident(n) if self.skin.colors.contains_key(n) => Some(ColorValue {
+                token: Some(n.clone()),
+                rgba: self.skin.colors[n],
+            }),
+            _ => {
+                self.err(
+                    file,
+                    "E2107",
+                    "`icon-background` needs a colour, like `#FFFFFF` or a skin colour".into(),
+                    v.span,
+                    None,
+                );
+                None
+            }
+        });
+        let v = icon?;
+        let ValueKind::String(path) = &v.kind else {
+            self.err(
+                file,
+                "E2107",
+                "`icon` needs an image path, like `icon: \"Images/app_icon.png\"`".into(),
+                v.span,
+                None,
+            );
+            return None;
+        };
+        let already = self.assets.iter().any(|a| &a.path == path);
+        let asset = self.asset(path, AssetKind::Image, v.span, file)?;
+        if !already {
+            self.assets.remove(&asset);
+        }
+        Some(AppIcon {
+            path: asset.path,
+            background,
+        })
     }
 
     fn asset(&mut self, path: &str, kind: AssetKind, span: Span, file: &str) -> Option<AssetRef> {
@@ -1260,8 +2619,15 @@ impl<'a> Resolver<'a> {
             validate_only: caller.validate_only,
         };
         self.stack.push(name.clone());
-        let el = self.element(root, &mut ctx, format!("{id}:{name}"), false);
+        let mut el = self.element(root, &mut ctx, format!("{id}:{name}"), false);
         self.stack.pop();
+        if let Some(e) = &mut el {
+            e.source = Some(SourceRef {
+                path: caller.path.to_string(),
+                start: usage.span.start,
+                end: usage.span.end,
+            });
+        }
         el
     }
 
@@ -1298,11 +2664,34 @@ impl<'a> Resolver<'a> {
             None
         };
         match (ty, &v.kind) {
-            (PropType::Text, ValueKind::String(s)) => Some(Bound::Text(s.clone())),
+            (PropType::Text, ValueKind::String(s)) => {
+                let parts = self.template_parts(s, v.span, caller)?;
+                Some(match logic::plain(&parts) {
+                    Some(t) => Bound::Text(t),
+                    None => Bound::Template(parts),
+                })
+            }
+            (PropType::Text, ValueKind::Path(parts)) => {
+                let r = self.state_path(parts, caller)?;
+                Some(Bound::Template(vec![TextPart::State(r)]))
+            }
+            (PropType::Action, ValueKind::None) => Some(Bound::Absent),
+            (PropType::Action, _) => self.effects(v, caller).map(Bound::Effects),
             (PropType::Text, _) => want(self, "text in quotes"),
             (PropType::Number, ValueKind::Number(x)) => Some(Bound::Number(*x)),
+            (PropType::Number, ValueKind::Path(_)) => want(
+                self,
+                "a number; to show a data field, pass it to a text prop like `\"{d.price}\"`",
+            ),
             (PropType::Number, _) => want(self, "a number"),
             (PropType::Bool, ValueKind::Bool(b)) => Some(Bound::Bool(*b)),
+            (PropType::Bool, ValueKind::Path(parts)) => {
+                let r = self.state_path(parts, caller)?;
+                if r.ty != StateType::Bool {
+                    return want(self, "`true`, `false` or bool state");
+                }
+                Some(Bound::State(r))
+            }
             (PropType::Bool, _) => want(self, "`true` or `false`"),
             (PropType::Color, _) => self
                 .value(ValueType::Color, v, "color", caller)
@@ -1314,6 +2703,15 @@ impl<'a> Resolver<'a> {
                     AssetKind::Image
                 };
                 self.asset(s, kind, v.span, caller.path).map(Bound::Asset)
+            }
+            (PropType::Image | PropType::Icon, ValueKind::Path(parts)) => {
+                let kind = if ty == PropType::Icon {
+                    AssetKind::Icon
+                } else {
+                    AssetKind::Image
+                };
+                self.item_asset(parts, kind, v.span, caller)
+                    .map(Bound::ItemAsset)
             }
             (PropType::Image | PropType::Icon, ValueKind::None) => Some(Bound::Absent),
             (PropType::Image | PropType::Icon, _) => want(self, "an asset path in quotes"),
@@ -1399,4 +2797,29 @@ fn has_slot(decl: &Decl) -> bool {
         })
     }
     walk(&decl.body.items)
+}
+
+fn text_content(parts: Vec<TextPart>) -> Content {
+    match logic::plain(&parts) {
+        Some(t) => Content::Text(t),
+        None => Content::Template(parts),
+    }
+}
+
+fn text_value(parts: Vec<TextPart>) -> Value {
+    match logic::plain(&parts) {
+        Some(t) => Value::Text(t),
+        None => Value::Template(parts),
+    }
+}
+
+/// Absolute CSS lengths in dp: `px` and `dp` are 1:1 (a CSS px is
+/// density-independent), `pt` is 4/3, `rem`/`em` are 16. `None` for other units.
+fn css_length(n: f64, unit: &str) -> Option<f64> {
+    match unit {
+        "px" | "dp" => Some(n),
+        "pt" => Some(n * 4.0 / 3.0),
+        "rem" | "em" => Some(n * 16.0),
+        _ => None,
+    }
 }

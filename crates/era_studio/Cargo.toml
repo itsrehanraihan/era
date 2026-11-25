@@ -1,0 +1,31 @@
+[package]
+name = "era_studio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "ERA Studio: desktop editor with live checking and preview"
+
+[[bin]]
+name = "era-studio"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+era_diagnostics = { path = "../era_diagnostics" }
+era_project = { path = "../era_project" }
+era_syntax = { path = "../era_syntax" }
+era_ir = { path = "../era_ir" }
+# Native windowing + immediate-mode GUI (Metal via wgpu on macOS). D-066.
+eframe = "0.37"
+# Native folder picker (AppKit on macOS, XDG portal on Linux).
+rfd = "0.18"
+# Decode preview PNGs into textures.
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+tempfile = "3.27"
+# Headless UI tests that drive the real Studio window (and render it with wgpu).
+egui_kittest = { version = "0.37", features = ["eframe", "wgpu", "snapshot"] }

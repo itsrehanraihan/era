@@ -121,13 +121,13 @@ fn invalid_input_reports_and_continues() {
     assert_eq!(error_codes(r#""\u{110000}""#), ["E1002"]);
     assert_eq!(error_codes("#12345 #GGG #"), ["E1003", "E1003", "E1003"]);
     assert_eq!(error_codes("@ $"), ["E1004", "E1004"]);
-    assert_eq!(error_codes("1. .5"), ["E1005", "E1005"]);
-    assert_eq!(error_codes("16px"), ["E1006"]);
+    assert_eq!(error_codes("1."), ["E1005"]);
+    assert_eq!(error_codes("16qq"), ["E1006"]);
 }
 
 #[test]
 fn errors_leave_an_error_token() {
-    let (tokens, _) = lex("a 16px b", "t.era");
+    let (tokens, _) = lex("a 16qq b", "t.era");
     let k: Vec<_> = tokens.into_iter().map(|t| t.kind).collect();
     assert_eq!(k, [id("a"), T::Error, id("b"), T::Eof]);
 }
@@ -137,4 +137,40 @@ fn non_ascii_identifier_gets_help() {
     let (_, diags) = lex("café", "t.era");
     assert_eq!(diags[0].code, "E1004");
     assert!(diags[0].help.as_ref().unwrap().contains("ASCII"));
+}
+
+// ----- M8: CSS tokens --------------------------------------------------------
+
+#[test]
+fn css_units_and_punctuation() {
+    use era_syntax::TokenKind as T;
+    let k =
+        kinds("16px 50% 1.5rem .5 1fr 100vw -4px 45deg ( ) ; / space-between font-size !important");
+    assert_eq!(
+        k,
+        [
+            T::Dimension(16.0, "px".into()),
+            T::Dimension(50.0, "%".into()),
+            T::Dimension(1.5, "rem".into()),
+            T::Number(0.5),
+            T::Dimension(1.0, "fr".into()),
+            T::Dimension(100.0, "vw".into()),
+            T::Dimension(-4.0, "px".into()),
+            T::Dimension(45.0, "deg".into()),
+            T::LParen,
+            T::RParen,
+            T::Semicolon,
+            T::Slash,
+            T::Ident("space-between".into()),
+            T::Ident("font-size".into()),
+            T::Eof
+        ]
+    );
+}
+
+#[test]
+fn unknown_unit_lists_units() {
+    let (_, d) = lex("12qq", "t.era");
+    assert_eq!(d[0].message, "unknown unit `qq`");
+    assert!(d[0].help.as_ref().unwrap().contains("px, dp, pt, rem"));
 }

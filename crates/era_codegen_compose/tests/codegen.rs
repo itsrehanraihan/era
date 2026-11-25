@@ -16,6 +16,7 @@ fn build_app(root: &Path) -> App {
         let kind = match f.kind {
             FileKind::Ui => SourceKind::Ui,
             FileKind::Skin => SourceKind::Skin,
+            FileKind::Logic => SourceKind::Logic,
             _ => continue,
         };
         let text = std::fs::read_to_string(&f.abs_path).unwrap();
@@ -72,10 +73,17 @@ fn files_and_package() {
     assert_eq!(
         paths,
         [
+            "dev/era/showcase/ui/EraData.kt",
+            "dev/era/showcase/ui/EraDraw.kt",
             "dev/era/showcase/ui/EraRuntime.kt",
             "dev/era/showcase/ui/EraScreens.kt",
+            "dev/era/showcase/ui/EraStores.kt",
             "dev/era/showcase/ui/EraTheme.kt",
             "dev/era/showcase/ui/screens/HomeScreen.kt",
+            "dev/era/showcase/ui/screens/LayoutScreen.kt",
+            "dev/era/showcase/ui/screens/LookScreen.kt",
+            "dev/era/showcase/ui/screens/MenuScreen.kt",
+            "dev/era/showcase/ui/screens/TypeScreen.kt",
         ]
     );
 }
@@ -85,7 +93,7 @@ fn screen_root_fills_and_uses_skin_background() {
     let code = screen_code("column { text \"Hi\" }");
     assert!(code.contains("fun HomeScreen() {"), "{code}");
     assert!(
-        code.contains("Box(Modifier.fillMaxSize().background(c.background)) {"),
+        code.contains("BoxWithConstraints(Modifier.fillMaxSize().background(c.background)) {"),
         "{code}"
     );
     assert!(
@@ -149,7 +157,7 @@ fn tokens_become_theme_references() {
         "card { gap: md, padding_x: lg, padding_y: sm, radius: pill, background: primary\n text \"x\" { style: heading, color: #FF000080 } }",
     );
     assert!(
-        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight().shadow(EraElevation.sm, RoundedCornerShape(EraRadius.pill)).background(c.primary, RoundedCornerShape(EraRadius.pill)).safeDrawingPadding().padding(horizontal = EraSpacing.lg, vertical = EraSpacing.sm), verticalArrangement = Arrangement.spacedBy(EraSpacing.md, Alignment.Top))"),
+        code.contains("Column(Modifier.fillMaxWidth().fillMaxHeight().shadow(EraElevation.sm, RoundedCornerShape(EraRadius.pill), clip = false).background(c.primary, RoundedCornerShape(EraRadius.pill)).safeDrawingPadding().padding(horizontal = EraSpacing.lg, vertical = EraSpacing.sm), verticalArrangement = Arrangement.spacedBy(EraSpacing.md, Alignment.Top))"),
         "{code}"
     );
     assert!(
@@ -322,4 +330,328 @@ fn showcase_kotlin_snapshot() {
 #[test]
 fn erenty_kotlin_snapshot() {
     snapshot("erenty");
+}
+
+// ----- M6: interactions ------------------------------------------------------
+
+/// Generated files for an app with a store and two screens; Home's root is `body`.
+fn interactive(body: &str) -> Output {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("era.toml"), MANIFEST).unwrap();
+    std::fs::create_dir_all(dir.path().join("src/Logic")).unwrap();
+    std::fs::write(
+        dir.path().join("src/Logic/s.er"),
+        "store Session {\n state code: text = \"$1\"\n state count: number = 2\n state on: bool\n action bump { add count 1\n toggle on\n set code = \"x\" }\n}",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("src/app.era"),
+        format!("app \"T\" {{ start: Home }}\nscreen Home {{\n{body}\n}}\nscreen Other {{ column {{}} }}"),
+    )
+    .unwrap();
+    generate(&build_app(dir.path()))
+}
+
+fn file<'a>(out: &'a Output, suffix: &str) -> &'a str {
+    &out.files
+        .iter()
+        .find(|(p, _)| p.ends_with(suffix))
+        .unwrap()
+        .1
+}
+
+#[test]
+fn stores_become_state_objects() {
+    let out = interactive("column {}");
+    let st = file(&out, "EraStores.kt");
+    assert!(st.contains("object Session {"), "{st}");
+    assert!(
+        st.contains("    var code: String by mutableStateOf(\"\\$1\")"),
+        "{st}"
+    );
+    assert!(
+        st.contains("    var count: Double by mutableStateOf(2.0)"),
+        "{st}"
+    );
+    assert!(
+        st.contains("    var on: Boolean by mutableStateOf(false)"),
+        "{st}"
+    );
+    assert!(
+        st.contains(
+            "    fun bump() {\n        count += 1.0\n        on = !on\n        code = \"x\"\n    }"
+        ),
+        "{st}"
+    );
+}
+
+#[test]
+fn on_press_becomes_clickable() {
+    let out = interactive("column { on_press: Session.bump then go Other then back\n text \"a\" }");
+    let code = file(&out, "HomeScreen.kt");
+    assert!(
+        code.contains("clickable { Session.bump(); EraNav.go(\"Other\"); EraNav.back() }"),
+        "{code}"
+    );
+}
+
+#[test]
+fn visible_wraps_or_omits() {
+    let out = interactive(
+        "column { text \"shown\" { visible: Session.on }\n text \"gone\" { visible: false } }",
+    );
+    let code = file(&out, "HomeScreen.kt");
+    assert!(code.contains("if (Session.on) {"), "{code}");
+    assert!(code.contains("is hidden (visible: false)"), "{code}");
+    assert!(!code.contains("\"gone\""), "{code}");
+}
+
+#[test]
+fn templates_and_bind() {
+    let out = interactive(
+        "column { text \"Code {Session.code}: {Session.count} ($)\"\n input { bind: Session.code, placeholder: \"n={Session.count}\" } }",
+    );
+    let code = file(&out, "HomeScreen.kt");
+    assert!(
+        code.contains(r#"BasicText("Code ${Session.code}: ${eraText(Session.count)} (\$)""#),
+        "{code}"
+    );
+    assert!(
+        code.contains(r#"EraInput("n=${eraText(Session.count)}""#),
+        "{code}"
+    );
+    assert!(
+        code.contains("value = Session.code, onValueChange = { Session.code = it })"),
+        "{code}"
+    );
+}
+
+#[test]
+fn runtime_has_navigation() {
+    let out = interactive("column {}");
+    let rt = file(&out, "EraRuntime.kt");
+    assert!(rt.contains("object EraNav {"), "{rt}");
+    assert!(rt.contains("fun EraApp() {"), "{rt}");
+    // An app without stores gets no EraStores.kt.
+    let plain = screen_code("column {}");
+    assert!(!plain.contains("Session"));
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("era.toml"), MANIFEST).unwrap();
+    std::fs::create_dir_all(dir.path().join("src")).unwrap();
+    std::fs::write(
+        dir.path().join("src/app.era"),
+        "app \"T\" {}\nscreen Home { column {} }",
+    )
+    .unwrap();
+    let out = generate(&build_app(dir.path()));
+    assert!(out.files.iter().all(|(p, _)| !p.ends_with("EraStores.kt")));
+}
+
+// ----- M8: CSS layout ---------------------------------------------------------
+
+#[test]
+fn css_sizes_become_compose_modifiers() {
+    let code = screen_code(
+        "column { row { text \"a\" { width: 25% }\n text \"b\" { width: 2fr }\n text \"c\" { width: 30vw; aspect-ratio: 2 } }\n text \"d\" { width: max-content; opacity: .5; z-index: 3 } }",
+    );
+    assert!(
+        code.contains("BasicText(\"a\", modifier = Modifier.fillMaxWidth(0.25f)"),
+        "{code}"
+    );
+    assert!(
+        code.contains("BasicText(\"b\", modifier = Modifier.weight(2f)"),
+        "{code}"
+    );
+    assert!(code.contains("width(eraVw(30f)).aspectRatio(2f)"), "{code}");
+    assert!(
+        code.contains("width(IntrinsicSize.Max).zIndex(3f).alpha(0.5f)"),
+        "{code}"
+    );
+}
+
+#[test]
+fn margins_and_auto_centering() {
+    let code = screen_code(
+        "column { text \"a\" { margin: 8px 16px }\n column { width: 200px; margin: 0 auto } }",
+    );
+    assert!(
+        code.contains(
+            "BasicText(\"a\", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)"
+        ),
+        "{code}"
+    );
+    assert!(
+        code.contains(
+            "Modifier.padding(vertical = 0.dp).align(Alignment.CenterHorizontally).width(200.dp)"
+        ),
+        "{code}"
+    );
+}
+
+#[test]
+fn absolute_fixed_and_relative_positioning() {
+    let code = screen_code(
+        "column { padding: 20px\n text \"x\" { position: relative; top: 4px }\n stack { position: absolute; top: -8px; right: -8px; width: 28px; height: 28px }\n stack { position: fixed; bottom: 24px; right: 20px } }",
+    );
+    // relative: offset only
+    assert!(
+        code.contains("BasicText(\"x\", modifier = Modifier.offset(x = 0.dp, y = 4.dp)"),
+        "{code}"
+    );
+    // absolute: overlay against the padding box, not squeezed
+    assert!(code.contains("Box(Modifier.matchParentSize())"), "{code}");
+    assert!(code.contains("align(Alignment.TopEnd).wrapContentSize(Alignment.TopEnd, unbounded = true).offset(x = 8.dp, y = (-8).dp)"), "{code}");
+    // fixed: pinned at screen level, bottom-end
+    assert!(code.contains("align(Alignment.BottomEnd).wrapContentSize(Alignment.BottomEnd, unbounded = true).offset(x = (-20).dp, y = (-24).dp)"), "{code}");
+}
+
+#[test]
+fn wrap_scroll_and_shadows_do_not_clip() {
+    let code = screen_code(
+        "column { row { flex-wrap: wrap; gap: 4px; text \"a\"; text \"b\" }\n column { overflow: auto; text \"c\" }\n card { text \"d\" } }",
+    );
+    assert!(code.contains("FlowRow(Modifier, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start), verticalArrangement = Arrangement.spacedBy(4.dp))"), "{code}");
+    assert!(
+        code.contains("verticalScroll(rememberScrollState())"),
+        "{code}"
+    );
+    assert!(code.contains("clip = false"), "{code}");
+}
+
+// ----- M8 phase 3: borders, corners, outline -------------------------------
+
+#[test]
+fn css_borders_corners_and_outline() {
+    let k = screen_code("column { border: 2px dashed primary; border-radius: 12px }");
+    assert!(
+        k.contains("eraBorder(2.dp, c.primary, RoundedCornerShape(12.dp), EraLine.Dashed)"),
+        "{k}"
+    );
+    let k = screen_code("column { border: 1px solid primary }");
+    assert!(k.contains("border(1.dp, c.primary)"), "{k}");
+    let k =
+        screen_code("column { border-left: 4px solid primary; border-bottom: 1px dotted #FF0000 }");
+    assert!(
+        k.contains("eraSideBorders(top = null, end = null, bottom = EraSide(1.dp, Color(0xFFFF0000), EraLine.Dotted), start = EraSide(4.dp, c.primary, EraLine.Solid))"),
+        "{k}"
+    );
+    let k = screen_code("column { border-radius: 24px 0; background: primary }");
+    assert!(
+        k.contains("RoundedCornerShape(topStart = CornerSize(24.dp), topEnd = CornerSize(0.dp), bottomEnd = CornerSize(24.dp), bottomStart = CornerSize(0.dp))"),
+        "{k}"
+    );
+    let k = screen_code("column { border-radius: 50%; background: primary }");
+    assert!(k.contains("RoundedCornerShape(50)"), "{k}");
+    let k =
+        screen_code("column { outline: 2px solid primary; outline-offset: 4px; overflow: hidden }");
+    let outline = k.find("eraOutline(2.dp, c.primary").expect(&k);
+    assert!(
+        outline < k.find("clip(").unwrap(),
+        "outline is not clipped: {k}"
+    );
+}
+
+#[test]
+fn css_gradients_become_brushes() {
+    let k = screen_code(
+        "column { background: linear-gradient(45deg, #FF0000, #0000FF 80%); border-radius: 8px }",
+    );
+    assert!(
+        k.contains("background(eraLinearGradient(45f, listOf(Color(0xFFFF0000), Color(0xFF0000FF)), listOf(0f, 0.8f)), RoundedCornerShape(8.dp))"),
+        "{k}"
+    );
+    let k = screen_code("column { background: linear-gradient(to bottom left, primary, #FFFFFF) }");
+    assert!(
+        k.contains("eraCornerGradient(false, true, listOf(c.primary, Color(0xFFFFFFFF))"),
+        "{k}"
+    );
+    let k = screen_code("column { background: radial-gradient(#FFFFFF, #000000) }");
+    assert!(k.contains("eraRadialGradient(listOf("), "{k}");
+    // Layers: the first CSS layer is drawn last (on top).
+    let k = screen_code("column { background: linear-gradient(#FF0000, #0000FF), #00FF00 }");
+    let under = k.find("background(Color(0xFF00FF00))").expect(&k);
+    assert!(
+        under < k.find("background(eraLinearGradient").unwrap(),
+        "{k}"
+    );
+}
+
+#[test]
+fn css_shadows_and_filters() {
+    let k = screen_code(
+        "column { border-radius: 16px; background: #FFFFFF; box-shadow: 0 8px 24px rgba(0, 0, 0, .2), inset 0 -1px 0 #000000 }",
+    );
+    let outer = k
+        .find("eraBoxShadow(listOf(EraShadow(0.dp, 8.dp, 24.dp, 0.dp, Color(0x33000000))), RoundedCornerShape(16.dp))")
+        .expect(&k);
+    let bg = k.find("background(Color(0xFFFFFFFF)").unwrap();
+    let inset = k
+        .find("eraInsetShadow(listOf(EraShadow(0.dp, (-1).dp, 0.dp, 0.dp, Color(0xFF000000))), RoundedCornerShape(16.dp))")
+        .expect(&k);
+    assert!(
+        outer < bg && bg < inset,
+        "outer shadow, background, inset shadow: {k}"
+    );
+    let k = screen_code("column { filter: blur(4px) grayscale(100%) }");
+    assert!(
+        k.contains("blur(4.dp, BlurredEdgeTreatment.Unbounded)"),
+        "{k}"
+    );
+    assert!(
+        k.contains("eraColorFilter(floatArrayOf(0.2126f, 0.7152f, 0.0722f, 0f, 0f,"),
+        "{k}"
+    );
+}
+
+#[test]
+fn persist_state_is_saved_on_the_device() {
+    let out = example("showcase");
+    let stores = file(&out, "EraStores.kt");
+    assert!(
+        stores.contains("var count: Double by eraSavedNumber(\"Counter.count\", 0.0)"),
+        "{stores}"
+    );
+    assert!(
+        stores.contains("var name: String by mutableStateOf(\"\")"),
+        "{stores}"
+    );
+    assert!(stores.contains("class EraSaved<T>"), "{stores}");
+}
+
+#[test]
+fn for_loops_and_data_lists() {
+    let out = example("showcase");
+    let data = file(&out, "EraData.kt");
+    assert!(
+        data.contains("data class ProductsItem(val name: String, val photo: String, val popular: Boolean, val price: Double)"),
+        "{data}"
+    );
+    assert!(
+        data.contains("ProductsItem(name = \"Green tea\", photo = \"Images/hero.png\", popular = false, price = 2.75),"),
+        "{data}"
+    );
+    let menu = file(&out, "MenuScreen.kt");
+    assert!(menu.contains("for (p in EraData.Products) {"), "{menu}");
+    assert!(menu.contains("painter = eraImage(p.photo)"), "{menu}");
+    assert!(menu.contains("if (p.popular) {"), "{menu}");
+}
+
+#[test]
+fn css_typography() {
+    let k = screen_code(
+        "column { text \"Hi\" { font-size: 20px; font-weight: 600; font-style: italic; line-height: 1.5; letter-spacing: 1px; text-decoration: line-through; text-transform: uppercase; white-space: nowrap; text-overflow: ellipsis; text-shadow: 0 2px 4px #000000 } }",
+    );
+    for want in [
+        "\"Hi\".uppercase()",
+        "fontSize = 20.sp",
+        "fontWeight = FontWeight(600)",
+        "fontStyle = FontStyle.Italic",
+        "lineHeight = 1.5.em",
+        "letterSpacing = 1.sp",
+        "textDecoration = TextDecoration.LineThrough",
+        "shadow = eraTextShadow(0.dp, 2.dp, 4.dp, Color(0xFF000000))",
+        "softWrap = false, maxLines = 1, overflow = TextOverflow.Ellipsis",
+    ] {
+        assert!(k.contains(want), "missing {want}: {k}");
+    }
 }

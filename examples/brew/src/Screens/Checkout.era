@@ -1,0 +1,17 @@
+screen Checkout {
+    title: "Checkout"
+
+    column {
+        padding: 24px
+        gap: 16px
+
+        text "Your order" { style: display }
+        text "{Cart.count} drinks" { style: title }
+        input { bind: Cart.note; placeholder: "Note for the barista" }
+        row {
+            gap: 12px
+            button "Back" { background: none; border: 1px solid primary; text-color: primary; on-press: back }
+            button "Clear cart" { background: tomato; on-press: Cart.clear then back }
+        }
+    }
+}

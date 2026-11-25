@@ -100,7 +100,7 @@ between `property` (`ident :`) and `node`.
 
 | Context | Properties | Nodes | `prop`/`variant` | `when` | `slot` |
 |---|---|---|---|---|---|
-| `app` | yes (`skin`, `start`) | no | no | no | no |
+| `app` | yes (`skin`, `start`, `icon`, `icon-background`) | no | no | no | no |
 | `skin` | no | token sections only | no | no | no |
 | `screen` | yes (`title`) | exactly one root | no | no | no |
 | `layout` | no | exactly one root | `prop` only | no | exactly one, inside root |
@@ -142,11 +142,61 @@ error[E0201]: unknown property `gapp` on `column`
    |         ^^^^ did you mean `gap`?
 ```
 
-## 7. Explicitly not in the grammar (MVP)
+## 7. Stores, actions and action values (M6)
 
-There are no expressions, operators, string interpolation, loops,
-functions, generics, imports, modules or inheritance. Events and state
-(`on_press`, `state`) are reserved for M6 and will be specified then.
+Logic files (`.er`) contain only `store` declarations:
+
+```ebnf
+store_decl   = "store" PASCAL_IDENT "{" { SEP } { store_item { SEP } } "}" ;
+store_item   = [ "persist" ] state_decl | action_decl ;   (* persist: D-090 *)
+state_decl   = "state" IDENT ":" IDENT [ "=" value ] ;   (* text | number | bool *)
+action_decl  = "action" IDENT "{" { SEP } { step { SEP } } "}" ;
+step         = "set" IDENT "=" value
+             | "toggle" IDENT
+             | "add" IDENT NUMBER ;
+```
+
+In the UI, a value may also be:
+
+```ebnf
+value        = single { "then" single } ;           (* a chain of actions *)
+single       = "go" PASCAL_IDENT                     (* navigate *)
+             | IDENT { "." IDENT }                   (* `back`, a prop, or `Store.field` / `Store.action` *)
+             | STRING | NUMBER | COLOR | "true" | "false" | "none" ;
+```
+
+- `persist state` keeps the value on the device and restores it on the
+  next launch (D-090). `persist` is a contextual word.
+- `store` is a keyword. `state`, `action`, `set`, `toggle`, `add`, `go`,
+  `back` and `then` are **contextual words**, so existing names such as
+  `variant state: ...` keep working.
+- The lexer has a `.` token, used only in `Store.name`.
+- Strings may contain `{Store.field}`, which is interpolated (D-058).
+  `{{` and `}}` are literal braces.
+- Node arguments may also be a path: `text Session.code`.
+
+## 7a. Data lists and `for` (D-091)
+
+```ebnf
+for_loop     = "for" IDENT "in" PASCAL_IDENT block ;   (* an item, where elements are allowed *)
+```
+
+- `for`, `in` are contextual words; `for x in Y {` is recognised only in
+  that exact shape, so a node named `for` still parses elsewhere.
+- `Y` is a data list: `Data/y.json` (a JSON array of flat objects) gives
+  `Y` (`menu_items.json` gives `MenuItems`). Field types come from the
+  JSON values (text, number, true/false); missing values are `""`, 0 or
+  false.
+- The block holds elements (and nested `for`s), not properties.
+- Inside, `x.field` works wherever `Store.field` does: text arguments,
+  `{x.field}` in strings, `visible:`, and as the argument of `image` and
+  `icon` (each item's path is checked to exist).
+
+## 7b. Explicitly not in the grammar (MVP)
+
+There are no general expressions or operators (no `count + 1` or `not x`
+in UI files), no loops other than `for` over a data list (§7a), functions, generics, imports, modules or
+inheritance. Logic steps are limited to `set`, `toggle` and `add`.
 
 ## 8. Implementation notes (M2)
 
@@ -164,3 +214,25 @@ functions, generics, imports, modules or inheritance. Events and state
   paths from `image` and `icon` arguments. Checking that those files exist
   is done in M3.
 - All codes are listed in `docs/DIAGNOSTICS.md`.
+
+## 9. CSS lexical and value additions (M8 phase 1, D-080)
+
+- **Numbers with units are one token:** `16px`, `50%`, `1fr`, `1.5rem`,
+  `100vw`, `45deg`, `200ms`. Units: px, dp, pt, rem, em, vw, vh, vmin,
+  vmax, fr, deg, rad, turn, s, ms. An unknown unit is E1006. `.5` is a
+  number.
+- **Words may contain hyphens** between letters or digits:
+  `space-between`, `font-size`.
+- **New punctuation:** `(`, `)`, `;` (an item separator, like a newline
+  or `,`) and `/`. `!important` is ignored.
+- **Values:**
+
+  ```ebnf
+  value   = layer { "," layer } [ "then" ... ] ;     (* a comma continues only before a value-like token *)
+  layer   = term { term } ;                           (* `1px solid #ccc`, `16 / 9` *)
+  term    = single | NAME "(" [ layer { "," layer } ] ")" | "/" ;
+  ```
+
+- **Property names match regardless of case, `_` and `-`**
+  (`font-size` = `fontSize` = `font_size`). CSS names are aliases of ERA
+  properties (`docs/CSS_SPEC.md`).

@@ -50,7 +50,7 @@ screen Home {{
     )
 }
 
-const GITIGNORE: &str = "/build\n";
+const GITIGNORE: &str = "/build\n/export\n";
 
 /// Create a new project in `dir`. The directory's last component is the
 /// project name. `dir` must not exist, or must be empty.

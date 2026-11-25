@@ -20,9 +20,10 @@ The package is `<app id>.ui`, for example `dev.era.erenty.ui` (D-045).
 | File | Contents |
 |---|---|
 | `EraTheme.kt` | `EraColors` with light and dark palettes, `EraSpacing`, `EraRadius`, `EraBorder`, `EraElevation` (dp), `EraType` text styles, `EraFont`, `EraTheme(dark) { }` |
-| `EraRuntime.kt` | `EraScreen`, `EraInput` (a text field that keeps its own text until M6) |
+| `EraRuntime.kt` | `EraScreen`, `EraNav` (navigation stack), `EraApp` (shows the top screen), `eraText`, `EraInput` (optionally bound to state) |
 | `EraScreens.kt` | `EraAppName`, `EraStartScreen`, and the `EraScreens` registry |
 | `screens/<Name>Screen.kt` | One `@Composable fun <Name>Screen()` per screen |
+| `EraStores.kt` | One Kotlin `object` per store, with Compose state fields and action functions (M6, only when stores exist) |
 
 Token references stay symbolic: `c.primary`, `EraSpacing.md`,
 `EraType.heading`. Literal values become `Color(0xAARRGGBB)` and `16.dp`.
@@ -56,6 +57,15 @@ Each host implements three functions in the generated package:
 | `divider` | A `Box` with full width, the thickness as height, and the color as background |
 | `spacer` | `Spacer(weight(1f))` in a row or column, or `Spacer(size)` |
 
+Interactions (M6):
+
+| ERA | Compose |
+|---|---|
+| `on_press: S.act then go X then back` | `Modifier.clickable { S.act(); EraNav.go("X"); EraNav.back() }` after the border |
+| `visible: S.flag` | `if (S.flag) { … }`. `visible: false` leaves the element out |
+| `bind: S.text` | `EraInput(…, value = S.text, onValueChange = { S.text = it })` |
+| `"Hi {S.name} #{S.count}"` | `"Hi ${S.name} #${eraText(S.count)}"` |
+
 ## Layout rules
 
 - **`fill` (D-041).** Along a row or column's main axis, `fill` becomes
@@ -87,8 +97,11 @@ with the generated files added. Gradle then runs it.
 - `era preview --png [dir]` renders every screen at 402 × 874 dp, 2×
   (804 × 1748 px), without a display. When the skin has `colors dark`,
   it also renders `<Screen>-dark.png`.
-- `era preview` opens a window with a screen list and a dark-mode
-  toggle. It needs a display.
+- `era preview` opens a window with a screen list (which resets
+  navigation), a Back control and a dark-mode toggle. Taps navigate for
+  real. It needs a display.
+- A `script=` line in `era-preview.properties` taps through the app
+  headlessly and saves `step-N.png` (D-064).
 - Only changed files are rewritten, so Gradle's up-to-date checks work.
   Stale screens are deleted.
 
@@ -96,7 +109,12 @@ with the generated files added. Gradle then runs it.
 
 `platforms/android/` is copied into `<project>/build/android/`, together
 with the generated Compose files and the Android resources. Gradle then
-runs `assembleDebug`.
+runs `:app:assembleDebug`. The project has the standard Android Studio
+layout (M9, D-084): a root `settings.gradle.kts`, `gradle/libs.versions.toml`,
+the Gradle 8.14.3 wrapper, and an `app/` module whose sources are in
+`app/src/main/kotlin/`, `app/src/main/res/` and `app/src/main/assets/`.
+`era build android` uses the system `gradle`; an export uses its own
+`./gradlew`.
 
 | Pin (D-052) | Version |
 |---|---|
@@ -112,15 +130,50 @@ runs `assembleDebug`.
   SVG icons go to `res/drawable/era_icon_*.xml` (D-051), and
   `EraIconIds.kt` maps ERA paths to resource ids.
 - **App:** `MainActivity` runs edge to edge and picks light or dark from
-  the system (when the skin has dark colors). It shows `EraStartScreen`,
-  or the screen named by the `era.screen` intent extra (D-054). The app
+  the system (when the skin has dark colors). It runs `EraApp` from
+  `EraStartScreen`, or from the screen named by the `era.screen` intent
+  extra (D-054). The system back gesture pops ERA navigation (D-061). The app
   label comes from `app "..."`. The version code is
   `MAJOR*10000 + MINOR*100 + PATCH`.
-- **Output:** `build/android/build/outputs/apk/debug/era-android-debug.apk`,
+- **Output:** `build/android/app/build/outputs/apk/debug/app-debug.apk`,
   signed with the debug key (D-055).
 - **Verification here:** APK contents and signature (`aapt2`,
   `apksigner`). There is no emulator (no KVM), and a JVM screenshot tool
   (Paparazzi) was tried and was incompatible with these versions (Q-06).
+
+## Release builds and the launcher icon (M9, D-085, D-086)
+
+- `era build android --release` runs `:app:assembleRelease` and
+  `:app:bundleRelease`. The release build type enables R8
+  (`isMinifyEnabled`, `isShrinkResources`, `proguard-android-optimize.txt`
+  plus `app/proguard-rules.pro`).
+- Signing: `app/build.gradle.kts` reads `keystore.properties`
+  (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) or the
+  variables `ERA_KEYSTORE`, `ERA_KEYSTORE_PASSWORD`, `ERA_KEY_ALIAS` and
+  `ERA_KEY_PASSWORD`. The CLI sets `ERA_KEYSTORE` and `ERA_KEY_ALIAS`
+  from `[android.signing]`.
+- Icon: `app { icon: ... }` gives `res/mipmap-{mdpi..xxxhdpi}/ic_launcher.png`
+  (48dp, on the background colour), `ic_launcher_foreground.png` (108dp,
+  image in the middle 72dp), `mipmap-anydpi-v26/ic_launcher.xml` and
+  `values/ic_launcher_background.xml`. Images are resized with Lanczos3
+  (the `image` crate). The manifest gets `android:icon` and
+  `android:roundIcon`.
+
+## CSS drawing helpers (M8 P3–P4)
+
+`EraDraw.kt` (generated) holds the drawing Compose has no modifier for:
+dashed/dotted and per-side borders, `outline`, gradient brushes,
+`box-shadow` and colour-matrix filters. Shadows call `eraBlurPaint`, which
+each host implements in `EraAssets.kt` (Android: `BlurMaskFilter`).
+
+## Export (`era export android`, M9)
+
+`era export android` writes the same project as a standalone folder the
+team owns (D-084): default `export/android/`, plus the wrapper scripts,
+`.gitignore`, `README.md`, `local.properties` (when the SDK is found)
+and a `.era-export` marker. Kotlin files carry the export header instead
+of "do not edit", and comments leave out internal IR ids. Build it with
+`./gradlew assembleDebug` or open it in Android Studio.
 
 ## Toolchain status (dev container, 2026-11-21)
 

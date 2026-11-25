@@ -43,6 +43,7 @@ const DECL_KEYWORDS: &[(Keyword, DeclKind)] = &[
     (Keyword::Screen, DeclKind::Screen),
     (Keyword::Layout, DeclKind::Layout),
     (Keyword::Component, DeclKind::Component),
+    (Keyword::Store, DeclKind::Store),
 ];
 
 fn decl_kind(kind: &TokenKind) -> Option<DeclKind> {
@@ -144,7 +145,10 @@ impl Parser<'_> {
     }
 
     fn skip_separators(&mut self) {
-        while matches!(self.peek_kind(), TokenKind::Newline | TokenKind::Comma) {
+        while matches!(
+            self.peek_kind(),
+            TokenKind::Newline | TokenKind::Comma | TokenKind::Semicolon
+        ) {
             self.bump();
         }
     }
@@ -173,7 +177,11 @@ impl Parser<'_> {
     fn recover_item(&mut self) {
         loop {
             match self.peek_kind() {
-                TokenKind::Newline | TokenKind::Comma | TokenKind::RBrace | TokenKind::Eof => {
+                TokenKind::Newline
+                | TokenKind::Comma
+                | TokenKind::Semicolon
+                | TokenKind::RBrace
+                | TokenKind::Eof => {
                     return;
                 }
                 TokenKind::LBrace => self.skip_braced(),
@@ -281,7 +289,11 @@ impl Parser<'_> {
             self.recover_decl();
             return None;
         };
-        let body = self.block_body(open);
+        let body = if kind == DeclKind::Store {
+            self.store_body(open)
+        } else {
+            self.block_body(open)
+        };
         Some(Decl {
             kind,
             span: kw.span.to(body.span),
@@ -323,12 +335,16 @@ impl Parser<'_> {
                     let after = self.peek_kind();
                     if !matches!(
                         after,
-                        TokenKind::Newline | TokenKind::Comma | TokenKind::RBrace | TokenKind::Eof
+                        TokenKind::Newline
+                            | TokenKind::Comma
+                            | TokenKind::Semicolon
+                            | TokenKind::RBrace
+                            | TokenKind::Eof
                     ) {
                         let found = after.describe();
                         self.error_here(
                             "E1103",
-                            format!("expected a new line or `,` after {}, found {found}", item.describe()),
+                            format!("expected a new line or `;` after {}, found {found}", item.describe()),
                             Some("put each property and element on its own line, or separate them with `,`".into()),
                         );
                         self.recover_item();
@@ -383,6 +399,13 @@ impl Parser<'_> {
                 self.bump();
                 Some(Item::Slot(tok.span))
             }
+            TokenKind::Ident(ref w)
+                if w == "for"
+                    && matches!(self.peek_kind_at(1), TokenKind::Ident(_))
+                    && *self.peek_kind_at(2) == TokenKind::Ident("in".into()) =>
+            {
+                self.for_loop().map(Item::For)
+            }
             TokenKind::Ident(_) => self.node().map(Item::Node),
             ref k if decl_kind(k).is_some() => {
                 let kw = decl_kind(k).unwrap().keyword();
@@ -412,6 +435,29 @@ impl Parser<'_> {
         }
     }
 
+    /// `for p in Products { ... }` (D-091). `for` and `in` are contextual words.
+    fn for_loop(&mut self) -> Option<ForLoop> {
+        let start = self.bump().span;
+        let var = self.expect_name("an item name")?;
+        self.bump(); // `in`
+        let list = self.expect_name("a data list name, like `Products`")?;
+        let Some(open) = self.eat(&TokenKind::LBrace) else {
+            self.error_here(
+                "E1111",
+                format!("expected `{{` after `for {} in {}`", var.name, list.name),
+                Some("write `for p in Products { card { text \"{p.name}\" } }`".into()),
+            );
+            return None;
+        };
+        let block = self.block_body(open);
+        Some(ForLoop {
+            span: start.to(block.span),
+            var,
+            list,
+            block,
+        })
+    }
+
     fn node(&mut self) -> Option<Node> {
         let name_tok = self.bump();
         let TokenKind::Ident(name) = name_tok.kind else {
@@ -426,7 +472,7 @@ impl Parser<'_> {
             TokenKind::String(s) => Some(self.simple_value(ValueKind::String(s))),
             TokenKind::Number(n) => Some(self.simple_value(ValueKind::Number(n))),
             TokenKind::Color(c) => Some(self.simple_value(ValueKind::Color(c))),
-            TokenKind::Ident(i) => Some(self.simple_value(ValueKind::Ident(i))),
+            TokenKind::Ident(_) => self.path_or_ident(),
             TokenKind::Error => {
                 self.bump();
                 return None;
@@ -456,10 +502,161 @@ impl Parser<'_> {
         Value { kind, span }
     }
 
+    /// A value, optionally chained with `then` (M6 actions).
     fn value(&mut self, what: &str) -> Option<Value> {
+        let first = self.terms(what)?;
+        // `a, b`: a comma followed by something value-like continues a list
+        // (`boxShadow: 0 1px red, 0 2px blue`); otherwise it separates items.
+        let mut layers = vec![first];
+        while *self.peek_kind() == TokenKind::Comma && self.value_continues_after_comma() {
+            self.bump();
+            layers.push(self.terms(what)?);
+        }
+        let first = if layers.len() == 1 {
+            layers.pop().unwrap()
+        } else {
+            let span = layers[0].span.to(layers.last().unwrap().span);
+            Value {
+                kind: ValueKind::Layers(layers),
+                span,
+            }
+        };
+        if !self.at_word("then") {
+            return Some(first);
+        }
+        let mut parts = vec![first];
+        while self.at_word("then") {
+            self.bump();
+            parts.push(self.single_value("an action after `then`")?);
+        }
+        let span = parts[0].span.to(parts.last().unwrap().span);
+        Some(Value {
+            kind: ValueKind::Seq(parts),
+            span,
+        })
+    }
+
+    fn value_continues_after_comma(&self) -> bool {
+        match self.peek_kind_at(1) {
+            TokenKind::Number(_)
+            | TokenKind::Dimension(..)
+            | TokenKind::Color(_)
+            | TokenKind::String(_) => true,
+            TokenKind::Ident(w) => w == "inset" || *self.peek_kind_at(2) == TokenKind::LParen,
+            _ => false,
+        }
+    }
+
+    /// Space-separated terms up to the end of the value: `8px 16px`,
+    /// `1px solid #ccc`, `16 / 9`. A single term is returned as itself.
+    fn terms(&mut self, what: &str) -> Option<Value> {
+        let mut parts = vec![self.single_value(what)?];
+        loop {
+            let starts_term = match self.peek_kind() {
+                TokenKind::Ident(w) => w != "then",
+                TokenKind::String(_)
+                | TokenKind::Number(_)
+                | TokenKind::Dimension(..)
+                | TokenKind::Color(_)
+                | TokenKind::Slash
+                | TokenKind::Keyword(Keyword::True | Keyword::False | Keyword::None) => true,
+                _ => false,
+            };
+            if !starts_term {
+                break;
+            }
+            parts.push(self.single_value(what)?);
+        }
+        if parts.len() == 1 {
+            return parts.pop();
+        }
+        let span = parts[0].span.to(parts.last().unwrap().span);
+        Some(Value {
+            kind: ValueKind::Terms(parts),
+            span,
+        })
+    }
+
+    /// `name(arg, arg, ...)` after the name has been read.
+    fn call(&mut self, name: String, start: Span) -> Option<Value> {
+        self.bump(); // `(`
+        let mut args = Vec::new();
+        loop {
+            while *self.peek_kind() == TokenKind::Newline {
+                self.bump();
+            }
+            if let Some(close) = self.eat(&TokenKind::RParen) {
+                return Some(Value {
+                    kind: ValueKind::Call(name, args),
+                    span: start.to(close.span),
+                });
+            }
+            if !args.is_empty() && self.eat(&TokenKind::Comma).is_none() {
+                self.expected(&format!("`,` or `)` in `{name}(...)`"));
+                return None;
+            }
+            while *self.peek_kind() == TokenKind::Newline {
+                self.bump();
+            }
+            args.push(self.terms(&format!("a value inside `{name}(...)`"))?);
+        }
+    }
+
+    fn at_word(&self, word: &str) -> bool {
+        matches!(self.peek_kind(), TokenKind::Ident(w) if w == word)
+    }
+
+    /// `name` or `Store.field` (a dotted path).
+    fn path_or_ident(&mut self) -> Option<Value> {
+        let TokenKind::Ident(first) = self.peek_kind().clone() else {
+            return None;
+        };
+        let first_tok = self.bump();
+        if *self.peek_kind() != TokenKind::Dot {
+            return Some(Value {
+                kind: ValueKind::Ident(first),
+                span: first_tok.span,
+            });
+        }
+        let mut parts = vec![Ident {
+            name: first,
+            span: first_tok.span,
+        }];
+        while self.eat(&TokenKind::Dot).is_some() {
+            parts.push(self.expect_name("a name after `.`")?);
+        }
+        let span = first_tok.span.to(parts.last().unwrap().span);
+        Some(Value {
+            kind: ValueKind::Path(parts),
+            span,
+        })
+    }
+
+    fn single_value(&mut self, what: &str) -> Option<Value> {
+        // `go Screen`
+        if self.at_word("go") && matches!(self.peek_kind_at(1), TokenKind::Ident(_)) {
+            let start = self.bump().span;
+            let target = self.expect_name("a screen name after `go`")?;
+            let span = start.to(target.span);
+            return Some(Value {
+                kind: ValueKind::Go(target),
+                span,
+            });
+        }
+        if let TokenKind::Ident(name) = self.peek_kind().clone()
+            && *self.peek_kind_at(1) == TokenKind::LParen
+        {
+            let start = self.bump().span;
+            return self.call(name, start);
+        }
+        if matches!(self.peek_kind(), TokenKind::Ident(_)) {
+            return self.path_or_ident();
+        }
         let kind = match self.peek_kind().clone() {
             TokenKind::String(s) => ValueKind::String(s),
             TokenKind::Number(n) => ValueKind::Number(n),
+            TokenKind::Dimension(n, u) => ValueKind::Dimension(n, u),
+            TokenKind::Slash => ValueKind::Slash,
             TokenKind::Color(c) => ValueKind::Color(c),
             TokenKind::Ident(i) => ValueKind::Ident(i),
             TokenKind::Keyword(Keyword::True) => ValueKind::Bool(true),
@@ -483,6 +680,186 @@ impl Parser<'_> {
             }
         };
         Some(self.simple_value(kind))
+    }
+
+    /// Body of a `store`: `state` and `action` declarations only.
+    fn store_body(&mut self, open: Token) -> Block {
+        let mut items = Vec::new();
+        loop {
+            self.skip_separators();
+            match self.peek_kind().clone() {
+                TokenKind::RBrace => {
+                    let close = self.bump();
+                    return Block {
+                        items,
+                        span: open.span.to(close.span),
+                    };
+                }
+                TokenKind::Eof => {
+                    self.error_at(
+                        "E1102",
+                        "unclosed `{`".into(),
+                        open.span,
+                        Some("add a matching `}`".into()),
+                    );
+                    return Block {
+                        items,
+                        span: Span::new(open.span.start, self.prev_end()),
+                    };
+                }
+                TokenKind::Ident(w) if w == "persist" => {
+                    let start = self.bump().span;
+                    if !matches!(self.peek_kind(), TokenKind::Ident(w) if w == "state") {
+                        self.error_here(
+                            "E1109",
+                            "expected `state` after `persist`".into(),
+                            Some("write `persist state name: type = value`".into()),
+                        );
+                        self.recover_item();
+                        continue;
+                    }
+                    match self.state_decl() {
+                        Some(mut s) => {
+                            s.persist = true;
+                            s.span = start.to(s.span);
+                            items.push(Item::State(s));
+                        }
+                        None => self.recover_item(),
+                    }
+                }
+                TokenKind::Ident(w) if w == "state" => match self.state_decl() {
+                    Some(s) => items.push(Item::State(s)),
+                    None => self.recover_item(),
+                },
+                TokenKind::Ident(w) if w == "action" => match self.action_decl() {
+                    Some(a) => items.push(Item::Action(a)),
+                    None => self.recover_item(),
+                },
+                _ => {
+                    let found = self.peek_kind().describe();
+                    self.error_here(
+                        "E1109",
+                        format!("expected `state`, `persist state` or `action` in a store, found {found}"),
+                        Some(
+                            "a store holds `state name: type = value` and `action name { ... }`"
+                                .into(),
+                        ),
+                    );
+                    self.bump();
+                    self.recover_item();
+                }
+            }
+        }
+    }
+
+    fn state_decl(&mut self) -> Option<StateDecl> {
+        let start = self.bump().span;
+        let name = self.expect_name("a state name")?;
+        self.expect(
+            TokenKind::Colon,
+            &format!("`:` and a type after `state {}`", name.name),
+        )?;
+        let ty = self.expect_name("a state type (`text`, `number` or `bool`)")?;
+        let mut end = ty.span;
+        let initial = if self.eat(&TokenKind::Eq).is_some() {
+            let v = self.single_value("an initial value")?;
+            end = v.span;
+            Some(v)
+        } else {
+            None
+        };
+        Some(StateDecl {
+            name,
+            ty,
+            initial,
+            persist: false,
+            span: start.to(end),
+        })
+    }
+
+    fn action_decl(&mut self) -> Option<ActionDecl> {
+        let start = self.bump().span;
+        let name = self.expect_name("an action name")?;
+        let open = self.expect(
+            TokenKind::LBrace,
+            &format!("`{{` after `action {}`", name.name),
+        )?;
+        let mut steps = Vec::new();
+        loop {
+            self.skip_separators();
+            match self.peek_kind().clone() {
+                TokenKind::RBrace => {
+                    let close = self.bump();
+                    return Some(ActionDecl {
+                        name,
+                        steps,
+                        span: start.to(close.span),
+                    });
+                }
+                TokenKind::Eof => {
+                    self.error_at(
+                        "E1102",
+                        "unclosed `{`".into(),
+                        open.span,
+                        Some("add a matching `}`".into()),
+                    );
+                    return None;
+                }
+                _ => match self.step() {
+                    Some(s) => steps.push(s),
+                    None => self.recover_item(),
+                },
+            }
+        }
+    }
+
+    /// `set x = v`, `toggle x` or `add x n`.
+    fn step(&mut self) -> Option<Step> {
+        let word = match self.peek_kind() {
+            TokenKind::Ident(w) => w.clone(),
+            _ => String::new(),
+        };
+        match word.as_str() {
+            "set" => {
+                let start = self.bump().span;
+                let field = self.expect_name("a state name after `set`")?;
+                self.expect(TokenKind::Eq, &format!("`=` after `set {}`", field.name))?;
+                let value = self.single_value("a value")?;
+                let span = start.to(value.span);
+                Some(Step {
+                    kind: StepKind::Set { field, value },
+                    span,
+                })
+            }
+            "toggle" => {
+                let start = self.bump().span;
+                let field = self.expect_name("a state name after `toggle`")?;
+                let span = start.to(field.span);
+                Some(Step {
+                    kind: StepKind::Toggle { field },
+                    span,
+                })
+            }
+            "add" => {
+                let start = self.bump().span;
+                let field = self.expect_name("a state name after `add`")?;
+                let amount = self.single_value("an amount")?;
+                let span = start.to(amount.span);
+                Some(Step {
+                    kind: StepKind::Add { field, amount },
+                    span,
+                })
+            }
+            _ => {
+                let found = self.peek_kind().describe();
+                self.error_here(
+                    "E1110",
+                    format!("expected an action step, found {found}"),
+                    Some("steps are `set name = value`, `toggle name` and `add name 1`".into()),
+                );
+                None
+            }
+        }
     }
 
     fn prop_decl(&mut self) -> Option<PropDecl> {

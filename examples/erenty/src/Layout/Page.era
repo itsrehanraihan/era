@@ -10,7 +10,7 @@ layout Page {
             padding: lg
             gap: lg
 
-            IconTile { glyph: "Icons/arrow_left.svg" }
+            IconTile { glyph: "Icons/arrow_left.svg", tap: back }
             slot
         }
     }

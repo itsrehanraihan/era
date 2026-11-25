@@ -1,0 +1,7 @@
+[project]
+name    = "brew"
+id      = "dev.era.brew"
+version = "0.1.0"
+
+[era]
+edition = "2026"
