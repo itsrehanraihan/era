@@ -1057,6 +1057,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
+name = "era_builder"
+version = "0.0.1"
+dependencies = [
+ "eframe",
+ "egui_kittest",
+ "era_canvas",
+ "era_diagnostics",
+ "era_ir",
+ "era_project",
+ "era_studio",
+ "era_syntax",
+ "image",
+ "rfd",
+ "tempfile",
+]
+
+[[package]]
+name = "era_canvas"
+version = "0.0.1"
+dependencies = [
+ "era_ir",
+ "era_project",
+ "era_syntax",
+ "taffy",
+]
+
+[[package]]
 name = "era_cli"
 version = "0.0.1"
 dependencies = [
@@ -1517,6 +1544,12 @@ dependencies = [
  "thiserror 2.0.21",
  "windows",
 ]
+
+[[package]]
+name = "grid"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b40ca9252762c466af32d0b1002e91e4e1bc5398f77455e55474deb466355ff5"
 
 [[package]]
 name = "guillotiere"
@@ -3347,6 +3380,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "taffy"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41ba83ebaf2954d31d05d67340fd46cebe99da2b7133b0dd68d70c65473a437b"
+dependencies = [
+ "arrayvec",
+ "grid",
+ "serde",
+ "slotmap",
 ]
 
 [[package]]

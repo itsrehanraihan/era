@@ -349,10 +349,15 @@ Known limits:
 1. Language gaps first: data items in components (done, D-093), P5 text
    styling (done, D-094; `span` rich text still open), P4c effects
    (`clip-path`, blend modes, background images).
-2. Studio canvas: a fast Rust renderer of the UI IR with CSS-style layout,
-   every screen side by side, select on canvas = select in code.
-3. Layers and properties panels that rewrite `.era` source precisely.
-4. Direct manipulation: drag, reorder, resize, inline text, insert, undo.
+2. Canvas (done, first version, D-095): **Era Builder** (`era-builder`),
+   a separate app. `era_canvas` lays out every screen with Taffy; click to
+   select, scroll/pinch to pan and zoom, device sizes.
+3. Layers and properties panels that rewrite `.era` source precisely
+   (done, first version): CSS fields, colour pickers, every property in
+   the code, component props, labels.
+4. Direct manipulation: drag from the Insert palette, drag to move on the
+   canvas and in layers, delete, undo/redo, add screens (done). Still to
+   do: resize handles, inline text editing, moves across files.
 5. Design-system tools: components/variants, skin tokens, device frames,
    screen links.
 6. Export delivers native code (owner): Kotlin/Compose (done) and SwiftUI

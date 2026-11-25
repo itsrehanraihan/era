@@ -10,6 +10,8 @@ use std::sync::mpsc::{Receiver, channel};
 pub enum JobKind {
     Preview,
     BuildAndroid,
+    /// `era export android --force` (Era Builder's Export button).
+    ExportAndroid,
 }
 
 impl JobKind {
@@ -17,6 +19,7 @@ impl JobKind {
         match self {
             JobKind::Preview => "Rendering preview",
             JobKind::BuildAndroid => "Building APK",
+            JobKind::ExportAndroid => "Exporting Android Studio project",
         }
     }
 }
@@ -56,6 +59,7 @@ pub fn args(kind: JobKind, root: &Path) -> Vec<String> {
     match kind {
         JobKind::Preview => vec!["preview".into(), root, "--png".into()],
         JobKind::BuildAndroid => vec!["build".into(), "android".into(), root],
+        JobKind::ExportAndroid => vec!["export".into(), "android".into(), root, "--force".into()],
     }
 }
 

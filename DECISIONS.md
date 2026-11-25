@@ -481,6 +481,18 @@ Status values: **Accepted** (from the brief, or approved by the owner),
   style. Not yet: `span` rich text (Q-08) and font names other than the
   skin font.
 
+- **D-095 Era Builder is its own app (owner: "new application name Era
+  Builder").** `crates/era_builder` (binary `era-builder`) is the visual
+  builder of D-092; ERA Studio stays the code editor, and the builder
+  reuses its workspace and job runner. The canvas is drawn from
+  `crates/era_canvas`, which lays out the UI IR with **Taffy** (new
+  dependency: a pure-Rust CSS flexbox/grid engine), so it redraws on every
+  edit; the Compose render stays the reference ("Render real"). Every IR
+  element now carries a `SourceRef` (file and byte range) so canvas
+  selections map to code, and every canvas action is a minimal source
+  edit (`edit.rs`). Export is native code only: Kotlin/Compose now,
+  SwiftUI later.
+
 ## Open questions
 
 - **Q-01 (Resolved)** The proprietary notice is accepted. The repo is still public, at the owner's choice. Original question: **Closed source vs. a public repo.** `itsrehanraihan/era` is

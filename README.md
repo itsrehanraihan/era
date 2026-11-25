@@ -19,6 +19,12 @@ Jetpack Compose), with no WebView.
 
 ![E-Renty demo rendered by `era preview --png`](docs/images/erenty-preview.png)
 
+**Era Builder** (`era-builder`) is the visual builder: drag elements onto a
+canvas, edit properties, and export native Kotlin (Swift next). See
+[docs/BUILDER.md](docs/BUILDER.md).
+
+![Era Builder](docs/images/era-builder.png)
+
 **New here? Start with [Quick_start_guide.md](Quick_start_guide.md).** Prefer an editor? See [docs/STUDIO.md](docs/STUDIO.md).
 
 Examples:

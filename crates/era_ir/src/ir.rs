@@ -214,6 +214,17 @@ pub struct Element {
     pub children: Vec<Element>,
     /// Components/layouts this element was expanded from, outermost first.
     pub origin: Vec<String>,
+    /// Where this element is written, for editors (ERA Studio). A component
+    /// instance points at its use (`Card { ... }`), not the component's root.
+    pub source: Option<SourceRef>,
+}
+
+/// A node's location: project-relative file and byte range.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceRef {
+    pub path: String,
+    pub start: usize,
+    pub end: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]

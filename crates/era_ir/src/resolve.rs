@@ -808,6 +808,7 @@ impl<'a> Resolver<'a> {
                 props: BTreeMap::new(),
                 children: std::mem::take(&mut children),
                 origin: ctx.origin.clone(),
+                source: None,
             };
             children.push(wrapped);
         }
@@ -820,6 +821,11 @@ impl<'a> Resolver<'a> {
             props,
             children,
             origin: ctx.origin.clone(),
+            source: Some(SourceRef {
+                path: ctx.path.to_string(),
+                start: node.span.start,
+                end: node.span.end,
+            }),
         })
     }
 
@@ -1018,6 +1024,11 @@ impl<'a> Resolver<'a> {
             props: BTreeMap::new(),
             children,
             origin: ctx.origin.clone(),
+            source: Some(SourceRef {
+                path: ctx.path.to_string(),
+                start: f.span.start,
+                end: f.span.end,
+            }),
         })
     }
 
@@ -2608,8 +2619,15 @@ impl<'a> Resolver<'a> {
             validate_only: caller.validate_only,
         };
         self.stack.push(name.clone());
-        let el = self.element(root, &mut ctx, format!("{id}:{name}"), false);
+        let mut el = self.element(root, &mut ctx, format!("{id}:{name}"), false);
         self.stack.pop();
+        if let Some(e) = &mut el {
+            e.source = Some(SourceRef {
+                path: caller.path.to_string(),
+                start: usage.span.start,
+                end: usage.span.end,
+            });
+        }
         el
     }
 
